@@ -65,6 +65,12 @@ export default function AppLayout({
     );
   }
   
+  const getAvatarFallback = () => {
+    if (user.isAnonymous) return 'AN';
+    if (user.email) return user.email.charAt(0).toUpperCase();
+    return 'U';
+  }
+
   return (
     <SidebarProvider>
       <Sidebar>
@@ -129,14 +135,14 @@ export default function AppLayout({
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="rounded-full">
                   <Avatar>
-                    <AvatarImage src={user.photoURL ?? "https://picsum.photos/seed/admin/40/40"} />
-                    <AvatarFallback>{user.isAnonymous ? 'AN' : 'AD'}</AvatarFallback>
+                    <AvatarImage src={user.photoURL ?? undefined} />
+                    <AvatarFallback>{getAvatarFallback()}</AvatarFallback>
                   </Avatar>
                   <span className="sr-only">Toggle user menu</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                <DropdownMenuLabel>{user.isAnonymous ? 'Anonymous User' : user.email}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem>
                   <Settings className="mr-2 h-4 w-4" />
