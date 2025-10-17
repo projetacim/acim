@@ -1,32 +1,23 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { auth } from 'firebase-admin';
 
 const PROTECTED_ROUTES = ['/', '/members', '/donations', '/cerfa'];
-const AUTH_COOKIE_NAME = 'auth-token';
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const authToken = request.cookies.get(AUTH_COOKIE_NAME)?.value;
-
   const isProtectedRoute = PROTECTED_ROUTES.some(route => pathname === route || (route !== '/' && pathname.startsWith(route)));
 
-  if (isProtectedRoute && !authToken) {
-    const url = request.nextUrl.clone();
-    url.pathname = '/login';
-    return NextResponse.redirect(url);
-  }
-
-  if (pathname === '/login' && authToken) {
-    const url = request.nextUrl.clone();
-    url.pathname = '/';
-    return NextResponse.redirect(url);
-  }
-  
   if (pathname === '/logout') {
     const response = NextResponse.redirect(new URL('/login', request.url));
-    response.cookies.delete(AUTH_COOKIE_NAME);
+    // Instruct Firebase Auth to sign out on the client
+    response.headers.set('X-Firebase-SignOut', 'true');
     return response;
   }
+  
+  // The actual auth check will be handled client-side by Firebase listeners
+  // This middleware is now mainly for logging or other non-auth purposes if needed.
+  // We can add logic to check for a cookie set by the client after login if we want server-side protection.
 
   return NextResponse.next();
 }

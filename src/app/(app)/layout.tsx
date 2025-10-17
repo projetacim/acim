@@ -1,3 +1,6 @@
+'use client';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   LayoutDashboard,
@@ -7,7 +10,8 @@ import {
   LogOut,
   Settings,
 } from 'lucide-react';
-
+import { useUser, useAuth } from '@/firebase';
+import { signOut } from 'firebase/auth';
 import {
   SidebarProvider,
   Sidebar,
@@ -31,12 +35,36 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Logo } from '@/components/logo';
+import { Loader2 } from 'lucide-react';
 
 export default function AppLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const { user, isUserLoading } = useUser();
+  const auth = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isUserLoading && !user) {
+      router.push('/login');
+    }
+  }, [user, isUserLoading, router]);
+
+  const handleLogout = async () => {
+    await signOut(auth);
+    router.push('/login');
+  };
+
+  if (isUserLoading || !user) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
+  }
+  
   return (
     <SidebarProvider>
       <Sidebar>
@@ -85,11 +113,9 @@ export default function AppLayout({
         <SidebarFooter>
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild tooltip="Logout">
-                <Link href="/logout">
+              <SidebarMenuButton onClick={handleLogout} tooltip="Logout">
                   <LogOut />
                   <span>Logout</span>
-                </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
@@ -103,8 +129,8 @@ export default function AppLayout({
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="rounded-full">
                   <Avatar>
-                    <AvatarImage src="https://picsum.photos/seed/admin/40/40" />
-                    <AvatarFallback>AD</AvatarFallback>
+                    <AvatarImage src={user.photoURL ?? "https://picsum.photos/seed/admin/40/40"} />
+                    <AvatarFallback>{user.isAnonymous ? 'AN' : 'AD'}</AvatarFallback>
                   </Avatar>
                   <span className="sr-only">Toggle user menu</span>
                 </Button>
@@ -117,11 +143,9 @@ export default function AppLayout({
                   <span>Settings</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href="/logout">
+                <DropdownMenuItem onClick={handleLogout}>
                     <LogOut className="mr-2 h-4 w-4" />
                     <span>Logout</span>
-                  </Link>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

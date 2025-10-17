@@ -1,49 +1,76 @@
 'use client';
 
-import { useActionState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAuth, useUser } from '@/firebase';
+import { signInAnonymously } from 'firebase/auth';
 
-import { login } from './actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/logo';
+import { Loader2 } from 'lucide-react';
 
 export default function LoginPage() {
-  const [state, formAction] = useActionState(login, null);
+  const auth = useAuth();
+  const { user, isUserLoading } = useUser();
   const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (state?.success) {
+    if (!isUserLoading && user) {
       router.push('/');
     }
-  }, [state, router]);
+  }, [user, isUserLoading, router]);
+
+  const handleLogin = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      await signInAnonymously(auth);
+      // The useEffect above will handle the redirect
+    } catch (e: any) {
+      console.error(e);
+      setError('Anonymous sign-in failed. Please try again.');
+      setLoading(false);
+    }
+  };
+
+  if (isUserLoading || user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">
       <Card className="w-full max-w-sm">
-        <form action={formAction}>
-          <CardHeader className="text-center">
-            <div className="mx-auto mb-4">
-              <Logo className="h-12 w-12 text-primary" />
-            </div>
-            <CardTitle className="text-2xl">Association Manager</CardTitle>
-            <CardDescription>Enter the password to access the dashboard.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input id="password" name="password" type="password" required defaultValue="password" />
-            </div>
-            {state?.error && (
-              <p className="text-sm font-medium text-destructive">{state.error}</p>
+        <CardHeader className="text-center">
+          <div className="mx-auto mb-4">
+            <Logo className="h-12 w-12 text-primary" />
+          </div>
+          <CardTitle className="text-2xl">Association Manager</CardTitle>
+          <CardDescription>Press the button to sign in securely.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {error && (
+            <p className="text-sm font-medium text-destructive text-center">{error}</p>
+          )}
+        </CardContent>
+        <CardFooter>
+          <Button className="w-full" onClick={handleLogin} disabled={loading}>
+            {loading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Signing In...
+              </>
+            ) : (
+              'Sign In Anonymously'
             )}
-          </CardContent>
-          <CardFooter>
-            <Button className="w-full">Login</Button>
-          </CardFooter>
-        </form>
+          </Button>
+        </CardFooter>
       </Card>
     </div>
   );
