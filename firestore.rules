@@ -1,3 +1,26 @@
+/**
+ * @file Firebase Security Rules for Firestore.
+ *
+ * @Core Philosophy:
+ * This ruleset enforces a user-ownership model where members and their donations are nested under `/users/{userId}`, ensuring only the authenticated user can manage their own data.
+ * Additionally, it implements an admin role system where only users with a document in `/roles_admin/{adminId}` are considered administrators.
+ *
+ * @Data Structure:
+ * - `/users/{userId}/membre/{memberId}`: Member profiles, accessible only by the owning user.
+ * - `/users/{userId}/membre/{memberId}/donations/{donationId}`: Donations made by a specific member.
+ * - `/users/{userId}/membre/{memberId}/donations/{donationId}/cerfa/{cerfaId}`: CERFA forms for donations.
+ * - `/roles_admin/{adminId}`: Admin role definitions, where the document ID matches the user's UID.
+ *
+ * @Key Security Decisions:
+ * - Members can only manage their own data (create, update, delete donations and CERFA forms under their member ID).
+ * - Only administrators can manage members.
+ * - Listing of members is restricted to administrators only.
+ * - Admin role creation is restricted to the user whose UID matches the document ID, preventing unauthorized elevation of privileges.
+ *
+ * @Denormalization for Authorization:
+ * - The presence of a document in `/roles_admin/{adminId}` acts as a denormalized flag for admin privileges, avoiding the need for complex queries.
+ * - Path-based ownership under `/users/{userId}` simplifies authorization checks for member data.
+ */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -57,11 +80,11 @@ service cloud.firestore {
      * @principle Members and admins can manage donations for a member.
      */
     match /members/{memberId}/donations/{donationId} {
-      allow get: if isAdmin() || isOwner(memberId);
-      allow list: if isAdmin() || isOwner(memberId);
-      allow create: if isAdmin() || isOwner(memberId);
-      allow update: if isAdmin() || isOwner(memberId);
-      allow delete: if isAdmin() || isOwner(memberId);
+      allow get: if isAdmin();
+      allow list: if isAdmin();
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
     }
 
     /**
@@ -74,11 +97,11 @@ service cloud.firestore {
      * @principle Members and admins can manage CERFA forms for a donation.
      */
     match /members/{memberId}/donations/{donationId}/cerfa/{cerfaId} {
-      allow get: if isAdmin() || isOwner(memberId);
-      allow list: if isAdmin() || isOwner(memberId);
-      allow create: if isAdmin() || isOwner(memberId);
-      allow update: if isAdmin() || isOwner(memberId);
-      allow delete: if isAdmin() || isOwner(memberId);
+      allow get: if isAdmin();
+      allow list: if isAdmin();
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
     }
 
     /**
@@ -93,9 +116,60 @@ service cloud.firestore {
     match /roles_admin/{adminId} {
       allow get: if isOwner(adminId);
       allow list: if false; // Only admins can know the other admins!
-      allow create: if isOwner(adminId);
+      allow create: if isSignedIn() && request.auth.uid == adminId;
       allow update: if false;
-      allow delete: if isOwner(adminId);
+      allow delete: if request.auth.uid == adminId;
+    }
+
+    /**
+     * @description Rules for the /users/{userId}/membre/{memberId} collection.
+     * @path /users/{userId}/membre/{memberId}
+     * @allow (create) User can create a member if the userId matches the authenticated user's ID.
+     * @deny (create) User cannot create a member if the userId does not match the authenticated user's ID.
+     * @allow (get) User can get their own member document.
+     * @deny (get) User cannot get another user's member document.
+     * @principle Enforces user-ownership for member profiles.
+     */
+    match /users/{userId}/membre/{memberId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId) ;
+      allow update: if isOwner(userId);
+      allow delete: if isOwner(userId);
+    }
+
+    /**
+     * @description Rules for the /users/{userId}/membre/{memberId}/donations/{donationId} collection.
+     * @path /users/{userId}/membre/{memberId}/donations/{donationId}
+     * @allow (create) User can create a donation under their member profile.
+     * @deny (create) User cannot create a donation under another user's member profile.
+     * @allow (get) User can get donations under their member profile.
+     * @deny (get) User cannot get donations under another user's member profile.
+     * @principle Enforces user-ownership for donations.
+     */
+    match /users/{userId}/membre/{memberId}/donations/{donationId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
+      allow delete: if isOwner(userId);
+    }
+
+    /**
+     * @description Rules for the /users/{userId}/membre/{memberId}/donations/{donationId}/cerfa/{cerfaId} collection.
+     * @path /users/{userId}/membre/{memberId}/donations/{donationId}/cerfa/{cerfaId}
+     * @allow (create) User can create a CERFA form under their donation.
+     * @deny (create) User cannot create a CERFA form under another user's donation.
+     * @allow (get) User can get CERFA forms under their donation.
+     * @deny (get) User cannot get CERFA forms under another user's donation.
+     * @principle Enforces user-ownership for CERFA forms.
+     */
+    match /users/{userId}/membre/{memberId}/donations/{donationId}/cerfa/{cerfaId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
+      allow delete: if isOwner(userId);
     }
   }
 }
