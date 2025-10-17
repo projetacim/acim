@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, setDocumentNonBlocking, deleteDocumentNonBlocking, useUser } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
+import * as XLSX from 'xlsx';
 import {
   Table,
   TableBody,
@@ -23,7 +24,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { PlusCircle, Pencil, Trash2 } from 'lucide-react';
+import { PlusCircle, Pencil, Trash2, FileDown, ListFilter, Search } from 'lucide-react';
 import type { Member } from '@/lib/types';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -56,6 +57,9 @@ import {
   DialogFooter,
   DialogDescription,
 } from '@/components/ui/dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 
 
 const memberSchema = z.object({
@@ -69,6 +73,7 @@ const memberSchema = z.object({
 });
 
 type MemberFormValues = z.infer<typeof memberSchema>;
+type StatusFilter = 'Active' | 'Inactive' | 'Pending';
 
 export function MembersTable() {
   const firestore = useFirestore();
@@ -84,6 +89,8 @@ export function MembersTable() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilters, setStatusFilters] = useState<StatusFilter[]>(['Active', 'Inactive', 'Pending']);
   const { toast } = useToast();
 
   const form = useForm<MemberFormValues>({
@@ -98,6 +105,23 @@ export function MembersTable() {
       membershipStatus: 'Pending',
     },
   });
+
+  const filteredMembers = useMemo(() => {
+    if (!members) return [];
+    return members
+      .filter(member => {
+        // Filter by status
+        return statusFilters.length === 0 || statusFilters.includes(member.membershipStatus);
+      })
+      .filter(member => {
+        // Filter by search query
+        const searchLower = searchQuery.toLowerCase();
+        return (
+          member.nom.toLowerCase().includes(searchLower) ||
+          member.email.toLowerCase().includes(searchLower)
+        );
+      });
+  }, [members, searchQuery, statusFilters]);
 
   useEffect(() => {
     if (selectedMember) {
@@ -184,15 +208,71 @@ export function MembersTable() {
     return initials.slice(0, 2).toUpperCase();
   }
 
+  const handleStatusFilterChange = (status: StatusFilter) => {
+    setStatusFilters(prev => 
+      prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]
+    );
+  };
+
+  const exportToExcel = () => {
+    const dataToExport = filteredMembers.map(({ id, avatarUrl, joinDate, ...rest }) => rest);
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Membres');
+    XLSX.writeFile(workbook, 'membres.xlsx');
+    toast({ title: 'Exportation réussie', description: 'Le fichier Excel a été téléchargé.' });
+  };
+
   return (
     <>
       <Card>
         <CardContent className="p-0">
-          <div className="flex justify-end p-4">
-            <Button onClick={() => handleOpenForm()}>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Ajouter un membre
-            </Button>
+          <div className="flex items-center justify-between gap-4 p-4">
+             <div className="relative w-full max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Rechercher par nom ou email..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+               <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="gap-2">
+                    <ListFilter className="h-4 w-4" />
+                    Filtres
+                    {statusFilters.length < 3 && <span className="ml-1 h-5 w-5 flex items-center justify-center rounded-full bg-primary text-primary-foreground text-xs">{statusFilters.length}</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56 p-3">
+                  <div className="space-y-4">
+                    <h4 className="font-medium leading-none">Statut</h4>
+                    <div className="grid gap-2">
+                      {(['Active', 'Inactive', 'Pending'] as StatusFilter[]).map((status) => (
+                         <Label key={status} className="flex items-center gap-2 font-normal">
+                          <Checkbox
+                            checked={statusFilters.includes(status)}
+                            onCheckedChange={() => handleStatusFilterChange(status)}
+                          />
+                          {status === 'Active' ? 'Actif' : status === 'Inactive' ? 'Inactif' : 'En attente'}
+                        </Label>
+                      ))}
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+
+              <Button onClick={exportToExcel} variant="outline">
+                <FileDown className="mr-2 h-4 w-4" />
+                Exporter
+              </Button>
+              <Button onClick={() => handleOpenForm()}>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Ajouter
+              </Button>
+            </div>
           </div>
           <Table>
             <TableHeader>
@@ -200,6 +280,7 @@ export function MembersTable() {
                 <TableHead>Membre</TableHead>
                 <TableHead>Téléphone</TableHead>
                 <TableHead>Adresse</TableHead>
+                <TableHead>Doc</TableHead>
                 <TableHead>Mémo</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -217,12 +298,13 @@ export function MembersTable() {
                     </TableCell>
                     <TableCell><Skeleton className="h-4 w-28" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-48" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                     <TableCell className="text-right"><Skeleton className="h-8 w-20" /></TableCell>
                   </TableRow>
                 ))
               )}
-              {!isLoading && members?.map((member) => (
+              {!isLoading && filteredMembers.map((member) => (
                 <TableRow key={member.id}>
                   <TableCell>
                     <div className="flex items-center gap-3">
@@ -237,6 +319,7 @@ export function MembersTable() {
                   </TableCell>
                   <TableCell>{member.telephone}</TableCell>
                   <TableCell>{member.adresse}</TableCell>
+                  <TableCell>{member.doc}</TableCell>
                   <TableCell>{member.memo}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
@@ -252,10 +335,10 @@ export function MembersTable() {
                   </TableCell>
                 </TableRow>
               ))}
-              {!isLoading && members?.length === 0 && (
+              {!isLoading && filteredMembers.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={6} className="p-6 text-center text-muted-foreground">
-                    Aucun membre trouvé. Cliquez sur "Ajouter un membre" pour commencer.
+                    {members && members.length > 0 ? 'Aucun membre ne correspond à votre recherche.' : 'Aucun membre trouvé. Cliquez sur "Ajouter" pour commencer.'}
                   </TableCell>
                 </TableRow>
               )}
@@ -404,3 +487,5 @@ export function MembersTable() {
     </>
   );
 }
+
+    
