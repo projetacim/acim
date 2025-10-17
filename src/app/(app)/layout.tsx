@@ -127,7 +127,7 @@ export default function AppLayout({
                   <SidebarMenuSub>
                     <li>
                       <SidebarMenuSubButton asChild>
-                        <Link href="#">Membre</Link>
+                        <Link href="/settings/members-import">Membre</Link>
                       </SidebarMenuSubButton>
                     </li>
                     <li>
