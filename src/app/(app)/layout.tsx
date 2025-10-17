@@ -1,5 +1,5 @@
 'use client';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -9,6 +9,8 @@ import {
   FileText,
   LogOut,
   User as UserIcon,
+  ChevronDown,
+  Settings,
 } from 'lucide-react';
 import { useUser, useAuth } from '@/firebase';
 import { signOut } from 'firebase/auth';
@@ -23,11 +25,14 @@ import {
   SidebarFooter,
   SidebarInset,
   SidebarSeparator,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
 } from '@/components/ui/sidebar';
 import { Logo } from '@/components/logo';
 import { Loader2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 export default function AppLayout({
   children,
@@ -108,6 +113,33 @@ export default function AppLayout({
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
+
+            <Collapsible asChild>
+              <SidebarMenuItem>
+                <CollapsibleTrigger asChild>
+                  <SidebarMenuButton tooltip="Paramètres">
+                    <Settings />
+                    <span>Paramètres</span>
+                    <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]:rotate-180" />
+                  </SidebarMenuButton>
+                </CollapsibleTrigger>
+                <CollapsibleContent asChild>
+                  <SidebarMenuSub>
+                    <li>
+                      <SidebarMenuSubButton asChild>
+                        <Link href="#">Membre</Link>
+                      </SidebarMenuSubButton>
+                    </li>
+                    <li>
+                      <SidebarMenuSubButton asChild>
+                        <Link href="#">Don</Link>
+                      </SidebarMenuSubButton>
+                    </li>
+                  </SidebarMenuSub>
+                </CollapsibleContent>
+              </SidebarMenuItem>
+            </Collapsible>
+
           </SidebarMenu>
         </SidebarContent>
         <SidebarFooter>
