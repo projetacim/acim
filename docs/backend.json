@@ -135,6 +135,30 @@
         "taxYear",
         "pdfFileUrl"
       ]
+    },
+    "DonationCategory": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Donation Category",
+      "type": "object",
+      "description": "Represents a category for donations.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the donation category."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the category."
+        },
+        "description": {
+          "type": "string",
+          "description": "A brief description of the category."
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ]
     }
   },
   "auth": {
@@ -203,8 +227,24 @@
             }
           ]
         }
+      },
+      {
+        "path": "donationCategories/{donationCategoryId}",
+        "definition": {
+          "entityName": "DonationCategory",
+          "schema": {
+            "$ref": "#/backend/entities/DonationCategory"
+          },
+          "description": "Stores the different categories for donations.",
+          "params": [
+            {
+              "name": "donationCategoryId",
+              "description": "The unique identifier for the donation category."
+            }
+          ]
+        }
       }
     ],
-    "reasoning": "The Firestore structure is designed to manage members, donations, and CERFA forms for an association, focusing on security, scalability, and ease of maintenance. Authorization Independence is achieved by structuring data to avoid hierarchical `get()` calls in security rules. For Donations, the `memberId` is stored within the donation document, enabling direct association with the member and independent access without needing to traverse the parent member document. The same logic applies to Cerfa documents, which include the `donationId`.\n\nStructural Segregation is implemented by using distinct collections for members, donations, and CERFA forms, each with its specific security requirements. This prevents mixing data with varying access needs in the same collection. Path-Based Ownership is leveraged for members with the `members/{memberId}` structure. Donations and CERFA documents are stored in collections associated with the user to establish clear ownership and facilitate secure data retrieval.\n\nThe design uses explicit state modeling with a `cerfaGenerated` boolean field in the `Donation` to indicate whether a CERFA form has been generated. Consistent naming conventions (e.g., `memberId`, `donationId`) are used across the structure for clarity. This approach supports secure list operations (QAPs) by allowing direct querying of donations and CERFA forms based on member IDs without requiring complex filtering or authorization logic."
+    "reasoning": "The Firestore structure is designed to manage members, donations, and CERFA forms for an association, focusing on security, scalability, and ease of maintenance. Authorization Independence is achieved by structuring data to avoid hierarchical `get()` calls in security rules. For Donations, the `memberId` is stored within the donation document, enabling direct association with the member and independent access without needing to traverse the parent member document. The same logic applies to Cerfa documents, which include the `donationId`.\n\nStructural Segregation is implemented by using distinct collections for members, donations, and CERFA forms, each with its specific security requirements. This prevents mixing data with varying access needs in the same collection. Path-Based Ownership is leveraged for members with the `members/{memberId}` structure. Donations and CERFA documents are stored in collections associated with the user to establish clear ownership and facilitate secure data retrieval.\n\nThe design uses explicit state modeling with a `cerfaGenerated` boolean field in the `Donation` to indicate whether a CERFA form has been generated. Consistent naming conventions (e.g., `memberId`, `donationId`) are used across the structure for clarity. This approach supports secure list operations (QAPs) by allowing direct querying of donations and CERFA forms based on member IDs without requiring complex filtering or authorization logic. A new top-level collection `donationCategories` is added to manage donation categories independently."
   }
 }

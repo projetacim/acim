@@ -19,3 +19,9 @@ export type Donation = {
   date: string;
   paymentMethod: 'Credit Card' | 'Bank Transfer' | 'PayPal' | 'Check';
 };
+
+export type DonationCategory = {
+  id: string;
+  name: string;
+  description?: string;
+};

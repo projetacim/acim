@@ -132,7 +132,7 @@ export default function AppLayout({
                     </li>
                     <li>
                       <SidebarMenuSubButton asChild>
-                        <Link href="#">Don</Link>
+                        <Link href="/settings/donations">Don</Link>
                       </SidebarMenuSubButton>
                     </li>
                   </SidebarMenuSub>
