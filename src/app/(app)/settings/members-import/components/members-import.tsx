@@ -84,10 +84,18 @@ export function MembersImport() {
     }
 
     setIsImporting(true);
-    // Use a privileged backend call to ensure collection creation.
-    await RequestFirebaseBackendTool({});
     
-    // Now attempt the import, which should succeed as the collection will exist.
+    try {
+      // Use a privileged backend call to ensure collection creation and rule sync.
+      await RequestFirebaseBackendTool({});
+      toast({ title: 'Synchronisation Firebase', description: 'Préparation de la base de données terminée.' });
+    } catch (error) {
+      console.error("Erreur lors de la préparation de Firebase:", error);
+      toast({ variant: 'destructive', title: 'Erreur Firebase', description: 'Impossible de préparer la base de données pour l\'importation.' });
+      setIsImporting(false);
+      return;
+    }
+    
     if (!firestore) {
         toast({ variant: 'destructive', title: 'Erreur', description: 'Firestore n\'est pas initialisé.' });
         setIsImporting(false);
@@ -111,10 +119,19 @@ export function MembersImport() {
     }
 
     setIsImporting(false);
-    toast({
-      title: 'Importation terminée',
-      description: `${successfulImports} sur ${importedMembers.length} membres ont été importés.`,
-    });
+    if(successfulImports > 0) {
+      toast({
+        title: 'Importation terminée',
+        description: `${successfulImports} sur ${importedMembers.length} membres ont été importés.`,
+      });
+    } else {
+        toast({
+        variant: 'destructive',
+        title: 'Échec de l\'importation',
+        description: `Aucun membre n'a pu être importé. Vérifiez la console pour les erreurs.`,
+      });
+    }
+
     setImportedMembers([]);
     setFileName('');
   };
