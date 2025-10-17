@@ -118,7 +118,8 @@ export function MembersTable() {
         const searchLower = searchQuery.toLowerCase();
         return (
           member.nom.toLowerCase().includes(searchLower) ||
-          member.email.toLowerCase().includes(searchLower)
+          member.email.toLowerCase().includes(searchLower) ||
+          (member.memo && member.memo.toLowerCase().includes(searchLower))
         );
       });
   }, [members, searchQuery, statusFilters]);
@@ -231,7 +232,7 @@ export function MembersTable() {
              <div className="relative w-full max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Rechercher par nom ou email..."
+                placeholder="Rechercher par nom, email ou mémo..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9"
