@@ -73,7 +73,6 @@ const memberSchema = z.object({
 });
 
 type MemberFormValues = z.infer<typeof memberSchema>;
-type StatusFilter = 'Active' | 'Inactive' | 'Pending';
 
 export function MembersTable() {
   const firestore = useFirestore();
@@ -90,7 +89,7 @@ export function MembersTable() {
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilters, setStatusFilters] = useState<StatusFilter[]>(['Active', 'Inactive', 'Pending']);
+  const [docFilters, setDocFilters] = useState<string[]>([]);
   const { toast } = useToast();
 
   const form = useForm<MemberFormValues>({
@@ -106,12 +105,18 @@ export function MembersTable() {
     },
   });
 
+  const availableDocFilters = useMemo(() => {
+    if (!members) return [];
+    const docs = members.map(m => m.doc || '').filter(Boolean);
+    return [...new Set(docs)];
+  }, [members]);
+
   const filteredMembers = useMemo(() => {
     if (!members) return [];
     return members
       .filter(member => {
-        // Filter by status
-        return statusFilters.length === 0 || statusFilters.includes(member.membershipStatus);
+        // Filter by doc
+        return docFilters.length === 0 || docFilters.includes(member.doc || '');
       })
       .filter(member => {
         // Filter by search query
@@ -122,7 +127,7 @@ export function MembersTable() {
           (member.memo && member.memo.toLowerCase().includes(searchLower))
         );
       });
-  }, [members, searchQuery, statusFilters]);
+  }, [members, searchQuery, docFilters]);
 
   useEffect(() => {
     if (selectedMember) {
@@ -209,9 +214,9 @@ export function MembersTable() {
     return initials.slice(0, 2).toUpperCase();
   }
 
-  const handleStatusFilterChange = (status: StatusFilter) => {
-    setStatusFilters(prev => 
-      prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]
+  const handleDocFilterChange = (docValue: string) => {
+    setDocFilters(prev => 
+      prev.includes(docValue) ? prev.filter(s => s !== docValue) : [...prev, docValue]
     );
   };
 
@@ -244,22 +249,22 @@ export function MembersTable() {
                   <Button variant="outline" className="gap-2">
                     <ListFilter className="h-4 w-4" />
                     Filtres
-                    {statusFilters.length < 3 && <span className="ml-1 h-5 w-5 flex items-center justify-center rounded-full bg-primary text-primary-foreground text-xs">{statusFilters.length}</span>}
+                    {docFilters.length > 0 && <span className="ml-1 h-5 w-5 flex items-center justify-center rounded-full bg-primary text-primary-foreground text-xs">{docFilters.length}</span>}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-56 p-3">
                   <div className="space-y-4">
-                    <h4 className="font-medium leading-none">Statut</h4>
+                    <h4 className="font-medium leading-none">Document</h4>
                     <div className="grid gap-2">
-                      {(['Active', 'Inactive', 'Pending'] as StatusFilter[]).map((status) => (
-                         <Label key={status} className="flex items-center gap-2 font-normal">
+                      {availableDocFilters.length > 0 ? availableDocFilters.map((docValue) => (
+                         <Label key={docValue} className="flex items-center gap-2 font-normal">
                           <Checkbox
-                            checked={statusFilters.includes(status)}
-                            onCheckedChange={() => handleStatusFilterChange(status)}
+                            checked={docFilters.includes(docValue)}
+                            onCheckedChange={() => handleDocFilterChange(docValue)}
                           />
-                          {status === 'Active' ? 'Actif' : status === 'Inactive' ? 'Inactif' : 'En attente'}
+                          {docValue}
                         </Label>
-                      ))}
+                      )) : <p className="text-xs text-muted-foreground">Aucun document à filtrer.</p>}
                     </div>
                   </div>
                 </PopoverContent>
@@ -488,5 +493,3 @@ export function MembersTable() {
     </>
   );
 }
-
-    
