@@ -4,27 +4,13 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { members, donations } from '@/lib/data';
+import { donations } from '@/lib/data';
 import { Users, DollarSign, LineChart } from 'lucide-react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import { format, parseISO } from 'date-fns';
 
 export default function DashboardPage() {
-  const totalMembers = members.length;
+  const totalMembers = 0; // Temporarily set to 0
   const totalDonations = donations.reduce((sum, d) => sum + d.amount, 0);
-  const activeMembers = members.filter(m => m.membershipStatus === 'Active').length;
-  const recentDonations = [...donations]
-    .sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime())
-    .slice(0, 5);
+  const activeMembers = 0; // Temporarily set to 0
 
   return (
     <div className="flex flex-col gap-6">
@@ -74,42 +60,10 @@ export default function DashboardPage() {
       <div>
         <Card>
           <CardHeader>
-            <CardTitle>Recent Donations</CardTitle>
+            <CardTitle>Recent Activity</CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Member</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
-                  <TableHead className="hidden sm:table-cell">Method</TableHead>
-                  <TableHead className="text-right">Date</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {recentDonations.map((donation) => {
-                  const member = members.find(m => m.id === donation.memberId);
-                  return (
-                    <TableRow key={donation.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-9 w-9">
-                            <AvatarImage src={member?.avatarUrl} alt={member?.nom} />
-                            <AvatarFallback>{member?.nom.charAt(0)}</AvatarFallback>
-                          </Avatar>
-                          <div className="font-medium">{donation.memberName}</div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">${donation.amount.toLocaleString()}</TableCell>
-                      <TableCell className="hidden sm:table-cell">
-                        <Badge variant="secondary">{donation.paymentMethod}</Badge>
-                      </TableCell>
-                      <TableCell className="text-right">{format(parseISO(donation.date), 'MMM d, yyyy')}</TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+            <p className="text-muted-foreground">Recent activity will be displayed here.</p>
           </CardContent>
         </Card>
       </div>
