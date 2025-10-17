@@ -8,32 +8,28 @@
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the Member entity."
+          "description": "Unique identifier for the member."
         },
-        "nom": {
+        "firstName": {
           "type": "string",
-          "description": "The full name of the member."
+          "description": "The first name of the member."
+        },
+        "lastName": {
+          "type": "string",
+          "description": "The last name of the member."
         },
         "email": {
           "type": "string",
           "description": "The email address of the member.",
           "format": "email"
         },
-        "telephone": {
+        "phone": {
           "type": "string",
           "description": "The phone number of the member."
         },
-        "adresse": {
+        "address": {
           "type": "string",
           "description": "The address of the member."
-        },
-        "doc": {
-          "type": "string",
-          "description": "A document or note related to the member."
-        },
-        "memo": {
-          "type": "string",
-          "description": "A memo or additional information about the member."
         },
         "membershipStatus": {
           "type": "string",
@@ -47,10 +43,9 @@
       },
       "required": [
         "id",
-        "nom",
-        "email",
-        "membershipStatus",
-        "joinDate"
+        "firstName",
+        "lastName",
+        "email"
       ]
     },
     "Donation": {
@@ -61,7 +56,7 @@
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the Donation entity."
+          "description": "Unique identifier for the donation."
         },
         "memberId": {
           "type": "string",
@@ -78,7 +73,7 @@
         },
         "paymentMethod": {
           "type": "string",
-          "description": "The method of payment used for the donation (e.g., credit card, cash, check)."
+          "description": "The method of payment used for the donation (e.g., credit card, cash)."
         },
         "cerfaGenerated": {
           "type": "boolean",
@@ -90,19 +85,18 @@
         "memberId",
         "amount",
         "date",
-        "paymentMethod",
-        "cerfaGenerated"
+        "paymentMethod"
       ]
     },
     "Cerfa": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Cerfa",
       "type": "object",
-      "description": "Represents a CERFA form (official donation receipt).",
+      "description": "Represents a CERFA form (donation receipt).",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the Cerfa entity."
+          "description": "Unique identifier for the CERFA form."
         },
         "donationId": {
           "type": "string",
@@ -110,20 +104,16 @@
         },
         "formNumber": {
           "type": "string",
-          "description": "The unique form number of the CERFA."
+          "description": "The official form number of the CERFA form."
         },
         "generationDate": {
           "type": "string",
           "description": "The date when the CERFA form was generated.",
           "format": "date-time"
         },
-        "taxYear": {
-          "type": "number",
-          "description": "The tax year for which the CERFA form is valid."
-        },
-        "pdfFileUrl": {
+        "pdfUrl": {
           "type": "string",
-          "description": "The URL where the generated PDF file of the CERFA is stored.",
+          "description": "URL to the generated CERFA PDF document.",
           "format": "uri"
         }
       },
@@ -132,119 +122,121 @@
         "donationId",
         "formNumber",
         "generationDate",
-        "taxYear",
-        "pdfFileUrl"
+        "pdfUrl"
       ]
     },
-    "DonationCategory": {
+    "Admin": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Donation Category",
+      "title": "Admin",
       "type": "object",
-      "description": "Represents a category for donations.",
+      "description": "Represents an administrator user of the application.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the donation category."
+          "description": "Unique identifier for the admin user."
         },
-        "name": {
+        "username": {
           "type": "string",
-          "description": "The name of the category."
+          "description": "The username of the admin user."
         },
-        "description": {
+        "email": {
           "type": "string",
-          "description": "A brief description of the category."
+          "description": "The email address of the admin user.",
+          "format": "email"
         }
       },
       "required": [
         "id",
-        "name"
+        "username",
+        "email"
       ]
     }
   },
   "auth": {
     "providers": [
-      "password"
+      "password",
+      "anonymous"
     ]
   },
   "firestore": {
     "structure": [
       {
-        "path": "members/{memberId}",
+        "path": "/members/{memberId}",
         "definition": {
           "entityName": "Member",
           "schema": {
             "$ref": "#/backend/entities/Member"
           },
-          "description": "Stores member profiles. Uses path-based ownership for straightforward security rules.",
+          "description": "Stores member profiles.  The memberId is the document ID. Only admins can create, update, or delete members.",
           "params": [
             {
               "name": "memberId",
-              "description": "The unique identifier for the member."
+              "description": "The unique identifier of the member."
             }
           ]
         }
       },
       {
-        "path": "members/{memberId}/donations/{donationId}",
+        "path": "/members/{memberId}/donations/{donationId}",
         "definition": {
           "entityName": "Donation",
           "schema": {
             "$ref": "#/backend/entities/Donation"
           },
-          "description": "Stores donations made by each member. Includes denormalized 'memberId' for authorization independence.",
+          "description": "Stores donations made by a specific member. donationsId is the unique donation ID.  Only the member and admins can create, update or delete these donations.",
           "params": [
             {
               "name": "memberId",
-              "description": "The unique identifier for the member."
+              "description": "The unique identifier of the member."
             },
             {
               "name": "donationId",
-              "description": "The unique identifier for the donation."
+              "description": "The unique identifier of the donation."
             }
           ]
         }
       },
       {
-        "path": "members/{memberId}/donations/{donationId}/cerfa/{cerfaId}",
+        "path": "/members/{memberId}/donations/{donationId}/cerfa/{cerfaId}",
         "definition": {
           "entityName": "Cerfa",
           "schema": {
             "$ref": "#/backend/entities/Cerfa"
           },
-          "description": "Stores CERFA forms associated with each donation. Includes denormalized 'donationId' for authorization independence.",
+          "description": "Stores CERFA forms associated with a specific donation. cerfaId is the unique CERFA ID. Only the member and admins can create, update or delete these Cerfa documents.",
           "params": [
             {
               "name": "memberId",
-              "description": "The unique identifier for the member."
+              "description": "The unique identifier of the member."
             },
             {
               "name": "donationId",
-              "description": "The unique identifier for the donation."
+              "description": "The unique identifier of the donation."
             },
             {
               "name": "cerfaId",
-              "description": "The unique identifier for the cerfa."
+              "description": "The unique identifier of the CERFA form."
             }
           ]
         }
       },
       {
-        "path": "donationCategories/{donationCategoryId}",
+        "path": "/roles_admin/{adminId}",
         "definition": {
-          "entityName": "DonationCategory",
+          "entityName": "Admin",
           "schema": {
-            "$ref": "#/backend/entities/DonationCategory"
+            "$ref": "#/backend/entities/Admin"
           },
-          "description": "Stores the different categories for donations.",
+          "description": "Collection containing documents representing admin users. Existence of a document with a specific UID grants admin privileges.",
           "params": [
             {
-              "name": "donationCategoryId",
-              "description": "The unique identifier for the donation category."
+              "name": "adminId",
+              "description": "The unique identifier of the admin user (same as Firebase auth UID)."
             }
           ]
         }
       }
     ],
-    "reasoning": "The Firestore structure is designed to manage members, donations, and CERFA forms for an association, focusing on security, scalability, and ease of maintenance. Authorization Independence is achieved by structuring data to avoid hierarchical `get()` calls in security rules. For Donations, the `memberId` is stored within the donation document, enabling direct association with the member and independent access without needing to traverse the parent member document. The same logic applies to Cerfa documents, which include the `donationId`.\n\nStructural Segregation is implemented by using distinct collections for members, donations, and CERFA forms, each with its specific security requirements. This prevents mixing data with varying access needs in the same collection. Path-Based Ownership is leveraged for members with the `members/{memberId}` structure. Donations and CERFA documents are stored in collections associated with the user to establish clear ownership and facilitate secure data retrieval.\n\nThe design uses explicit state modeling with a `cerfaGenerated` boolean field in the `Donation` to indicate whether a CERFA form has been generated. Consistent naming conventions (e.g., `memberId`, `donationId`) are used across the structure for clarity. This approach supports secure list operations (QAPs) by allowing direct querying of donations and CERFA forms based on member IDs without requiring complex filtering or authorization logic. A new top-level collection `donationCategories` is added to manage donation categories independently."
+    "reasoning": "The Firestore structure is designed to manage members, donations, and CERFA forms for an association, with a focus on authorization independence, clarity, and security. It leverages path-based ownership for members and their related data (donations, CERFA forms), and a dedicated collection for admin roles.\n\n*   **Authorization Independence:** The structure avoids hierarchical `get()` calls by not relying on parent document data for child document authorization.  Admin privileges are determined by the presence of a document in the `/roles_admin/{uid}` collection.  Membership is implicitly granted by UID within the `/members/{memberId}` collection and, for donations and CERFAs, is inherited from the `/members/{memberId}` path.\n*   **QAPs (List operations):** The structure supports secure list operations by segregating data based on access levels. Only admins can list members. Members can only access their own donations and CERFA forms due to the path-based structure. The `/roles_admin` collection enables secure listing of admin roles.\n*   **Data Integrity:** Path-based ownership ensures that donations and CERFA forms are always associated with a specific member. Timestamps (if implemented) can be enforced using rules to maintain the integrity of creation/update times."
   }
 }
