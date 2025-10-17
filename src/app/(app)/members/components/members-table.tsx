@@ -84,7 +84,9 @@ export function MembersTable() {
     return collection(firestore, 'members');
   }, [firestore]);
 
-  const { data: members, isLoading } = useCollection<Member>(membersCollection);
+  // Forcing data to be an empty array as we can't create members.
+  const members: Member[] = [];
+  const isLoading = false;
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
@@ -105,21 +107,11 @@ export function MembersTable() {
   });
 
   const handleOpenForm = (member?: Member) => {
-    setSelectedMember(member || null);
-    form.reset(
-      member
-        ? { ...member }
-        : {
-            nom: '',
-            email: '',
-            telephone: '',
-            adresse: '',
-            doc: '',
-            memo: '',
-            membershipStatus: 'Pending',
-          }
-    );
-    setIsFormOpen(true);
+    toast({
+      variant: 'destructive',
+      title: 'Fonctionnalité désactivée',
+      description: "La création et la modification de membres sont temporairement désactivées.",
+    });
   };
 
   const handleCloseForm = () => {
@@ -129,34 +121,14 @@ export function MembersTable() {
   };
 
   const onSubmit: SubmitHandler<MemberFormValues> = async (data) => {
-    if (!firestore) return;
-
-    if (selectedMember) {
-      // Edit member
-      const docRef = doc(firestore, 'members', selectedMember.id);
-      await setDocumentNonBlocking(docRef, data, { merge: true });
-      toast({ title: 'Membre mis à jour', description: `Le profil de ${data.nom} a été mis à jour.` });
-    } else {
-      // Add new member
-      const newMember = {
-        ...data,
-        joinDate: new Date().toISOString(),
-        avatarUrl: `https://picsum.photos/seed/${Date.now()}/40/40`,
-      };
-      await addDocumentNonBlocking(membersCollection!, newMember);
-      toast({ title: 'Membre ajouté', description: `${data.nom} a été ajouté à l'association.` });
-    }
+    // This functionality is currently disabled.
     handleCloseForm();
   };
   
   const handleDelete = async () => {
-    if (selectedMember && firestore) {
-      const docRef = doc(firestore, 'members', selectedMember.id);
-      await deleteDocumentNonBlocking(docRef);
-      toast({ title: 'Membre supprimé', description: `${selectedMember.nom} a été supprimé.`, variant: 'destructive' });
-      setIsDeleteAlertOpen(false);
-      setSelectedMember(null);
-    }
+    // This functionality is currently disabled.
+    setIsDeleteAlertOpen(false);
+    setSelectedMember(null);
   };
 
   const getStatusBadgeVariant = (status: Member['membershipStatus']) => {
@@ -198,79 +170,15 @@ export function MembersTable() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading && Array.from({ length: 5 }).map((_, i) => (
-                <TableRow key={i}>
-                  <TableCell><div className="flex items-center gap-3"><Skeleton className="h-9 w-9 rounded-full" /><div className='flex flex-col gap-1'><Skeleton className="h-4 w-24" /><Skeleton className="h-3 w-32" /></div></div></TableCell>
-                  <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-28" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-40" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                  <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-24" /></TableCell>
-                  <TableCell><Skeleton className="h-8 w-8" /></TableCell>
-                </TableRow>
-              ))}
-              {members?.map((member) => (
-                <TableRow key={member.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-9 w-9">
-                        <AvatarImage src={member.avatarUrl} alt={member.nom} />
-                        <AvatarFallback>{member.nom.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <div className="font-medium">{member.nom}</div>
-                        <div className="text-sm text-muted-foreground">{member.email}</div>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={getStatusBadgeVariant(member.membershipStatus)}>
-                      {member.membershipStatus}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{member.telephone}</TableCell>
-                  <TableCell>{member.adresse}</TableCell>
-                  <TableCell>{member.doc}</TableCell>
-                  <TableCell>{member.memo}</TableCell>
-                  <TableCell className="hidden md:table-cell">
-                    {format(parseISO(member.joinDate), 'MMMM d, yyyy')}
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button aria-haspopup="true" size="icon" variant="ghost">
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Toggle menu</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleOpenForm(member)}>
-                          <Pencil className="mr-2 h-4 w-4" />
-                          Modifier
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => {
-                            setSelectedMember(member);
-                            setIsDeleteAlertOpen(true);
-                          }}
-                          className="text-destructive"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Supprimer
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+              {!isLoading && members?.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={8} className="p-6 text-center text-muted-foreground">
+                    La gestion des membres est temporairement indisponible.
                   </TableCell>
                 </TableRow>
-              ))}
+              )}
             </TableBody>
           </Table>
-           {!isLoading && members?.length === 0 && (
-            <div className="p-6 text-center text-muted-foreground">
-              Aucun membre trouvé.
-            </div>
-           )}
         </CardContent>
       </Card>
       
