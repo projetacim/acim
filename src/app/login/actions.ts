@@ -2,7 +2,7 @@
 
 import { cookies } from 'next/headers';
 
-const HARDCODED_PASSWORD = 'admin';
+const HARDCODED_PASSWORD = 'password';
 const AUTH_COOKIE_NAME = 'auth-token';
 
 export async function login(prevState: any, formData: FormData) {
