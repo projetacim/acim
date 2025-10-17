@@ -49,12 +49,12 @@ export function MembersImport() {
         const json = XLSX.utils.sheet_to_json<any>(worksheet);
 
         const membersData: ImportedMember[] = json.map(row => ({
-            nom: row.nom || '',
-            email: row.email || '',
-            telephone: row.telephone || '',
-            adresse: row.adresse || '',
-            doc: row.doc || '',
-            memo: row.memo || '',
+            nom: String(row.nom || ''),
+            email: String(row.email || ''),
+            telephone: String(row.telephone || ''),
+            adresse: String(row.adresse || ''),
+            doc: String(row.doc || ''),
+            memo: String(row.memo || ''),
             membershipStatus: row.membershipStatus || 'Pending',
         }));
 

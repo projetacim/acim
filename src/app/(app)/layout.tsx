@@ -130,6 +130,11 @@ export default function AppLayout({
                         <Link href="/settings/donations">Don</Link>
                       </SidebarMenuSubButton>
                     </li>
+                     <li>
+                      <SidebarMenuSubButton asChild>
+                        <Link href="/settings/members-import">Membre</Link>
+                      </SidebarMenuSubButton>
+                    </li>
                   </SidebarMenuSub>
                 </CollapsibleContent>
               </SidebarMenuItem>
