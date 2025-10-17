@@ -1,45 +1,32 @@
 import type { Member, Donation } from './types';
 
+// This data is now only for fallback or initial demo purposes.
+// The main data is fetched from Firestore.
+
 export const members: Member[] = [
   {
     id: 'usr_1',
     nom: 'Alice Johnson',
     email: 'alice.j@example.com',
+    telephone: '0102030405',
+    adresse: '123 Main St, Anytown, USA',
+    doc: 'ID_123',
+    memo: 'VIP Member',
     membershipStatus: 'Active',
-    joinDate: '2023-01-15',
+    joinDate: '2023-01-15T00:00:00.000Z',
     avatarUrl: 'https://picsum.photos/seed/1/40/40',
   },
   {
     id: 'usr_2',
     nom: 'Bob Williams',
     email: 'bob.w@example.com',
+    telephone: '0607080910',
+    adresse: '456 Oak Ave, Anytown, USA',
+    doc: 'ID_456',
+    memo: '',
     membershipStatus: 'Active',
-    joinDate: '2022-11-20',
+    joinDate: '2022-11-20T00:00:00.000Z',
     avatarUrl: 'https://picsum.photos/seed/2/40/40',
-  },
-  {
-    id: 'usr_3',
-    nom: 'Charlie Brown',
-    email: 'charlie.b@example.com',
-    membershipStatus: 'Inactive',
-    joinDate: '2023-03-10',
-    avatarUrl: 'https://picsum.photos/seed/3/40/40',
-  },
-  {
-    id: 'usr_4',
-    nom: 'Diana Prince',
-    email: 'diana.p@example.com',
-    membershipStatus: 'Pending',
-    joinDate: '2024-05-01',
-    avatarUrl: 'https://picsum.photos/seed/4/40/40',
-  },
-  {
-    id: 'usr_5',
-    nom: 'Ethan Hunt',
-    email: 'ethan.h@example.com',
-    membershipStatus: 'Active',
-    joinDate: '2021-08-25',
-    avatarUrl: 'https://picsum.photos/seed/5/40/40',
   },
 ];
 
