@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useFirestore } from '@/firebase';
+import { useFirestore, useUser } from '@/firebase';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { collection } from 'firebase/firestore';
 import * as XLSX from 'xlsx';
@@ -11,7 +11,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { UploadCloud, Loader2, CheckCircle } from 'lucide-react';
-import { RequestFirebaseBackendTool } from '@/lib/api';
 
 type ImportedMember = {
   nom: string;
@@ -30,6 +29,7 @@ export function MembersImport() {
   const [isImporting, setIsImporting] = useState(false);
   const { toast } = useToast();
   const firestore = useFirestore();
+  const { user } = useUser();
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -85,24 +85,13 @@ export function MembersImport() {
 
     setIsImporting(true);
     
-    try {
-      // Use a privileged backend call to ensure collection creation and rule sync.
-      await RequestFirebaseBackendTool({});
-      toast({ title: 'Synchronisation Firebase', description: 'Préparation de la base de données terminée.' });
-    } catch (error) {
-      console.error("Erreur lors de la préparation de Firebase:", error);
-      toast({ variant: 'destructive', title: 'Erreur Firebase', description: 'Impossible de préparer la base de données pour l\'importation.' });
-      setIsImporting(false);
-      return;
-    }
-    
-    if (!firestore) {
-        toast({ variant: 'destructive', title: 'Erreur', description: 'Firestore n\'est pas initialisé.' });
+    if (!firestore || !user) {
+        toast({ variant: 'destructive', title: 'Erreur', description: 'Utilisateur ou base de données non disponible.' });
         setIsImporting(false);
         return;
     }
 
-    const membersCollection = collection(firestore, 'membre');
+    const membersCollection = collection(firestore, 'users', user.uid, 'membre');
     let successfulImports = 0;
     
     for (const member of importedMembers) {

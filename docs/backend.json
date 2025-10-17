@@ -161,14 +161,18 @@
   "firestore": {
     "structure": [
       {
-        "path": "/membre/{memberId}",
+        "path": "/users/{userId}/membre/{memberId}",
         "definition": {
           "entityName": "Member",
           "schema": {
             "$ref": "#/backend/entities/Member"
           },
-          "description": "Stores member profiles.  The memberId is the document ID. Only admins can create, update, or delete members.",
+          "description": "Stores member profiles under the user who created them.",
           "params": [
+            {
+              "name": "userId",
+              "description": "The UID of the authenticated user."
+            },
             {
               "name": "memberId",
               "description": "The unique identifier of the member."
@@ -177,14 +181,18 @@
         }
       },
       {
-        "path": "/membre/{memberId}/donations/{donationId}",
+        "path": "/users/{userId}/membre/{memberId}/donations/{donationId}",
         "definition": {
           "entityName": "Donation",
           "schema": {
             "$ref": "#/backend/entities/Donation"
           },
-          "description": "Stores donations made by a specific member. donationsId is the unique donation ID.  Only the member and admins can create, update or delete these donations.",
+          "description": "Stores donations made by a specific member. donationsId is the unique donation ID.",
           "params": [
+             {
+              "name": "userId",
+              "description": "The UID of the authenticated user."
+            },
             {
               "name": "memberId",
               "description": "The unique identifier of the member."
@@ -197,14 +205,18 @@
         }
       },
       {
-        "path": "/membre/{memberId}/donations/{donationId}/cerfa/{cerfaId}",
+        "path": "/users/{userId}/membre/{memberId}/donations/{donationId}/cerfa/{cerfaId}",
         "definition": {
           "entityName": "Cerfa",
           "schema": {
             "$ref": "#/backend/entities/Cerfa"
           },
-          "description": "Stores CERFA forms associated with a specific donation. cerfaId is the unique CERFA ID. Only the member and admins can create, update or delete these Cerfa documents.",
+          "description": "Stores CERFA forms associated with a specific donation. cerfaId is the unique CERFA ID.",
           "params": [
+            {
+              "name": "userId",
+              "description": "The UID of the authenticated user."
+            },
             {
               "name": "memberId",
               "description": "The unique identifier of the member."

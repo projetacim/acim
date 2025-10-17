@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, setDocumentNonBlocking, deleteDocumentNonBlocking, useUser } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import {
   Table,
@@ -79,10 +79,12 @@ type MemberFormValues = z.infer<typeof memberSchema>;
 
 export function MembersTable() {
   const firestore = useFirestore();
+  const { user } = useUser();
+
   const membersCollection = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return collection(firestore, 'membre');
-  }, [firestore]);
+    if (!firestore || !user) return null;
+    return collection(firestore, 'users', user.uid, 'membre');
+  }, [firestore, user]);
 
   const { data: members, isLoading } = useCollection<Member>(membersCollection);
 
@@ -140,8 +142,8 @@ export function MembersTable() {
   };
 
   const onSubmit: SubmitHandler<MemberFormValues> = async (data) => {
-    if (!firestore) {
-      toast({ variant: "destructive", title: "Erreur", description: "Firestore n'est pas initialisé." });
+    if (!firestore || !user) {
+      toast({ variant: "destructive", title: "Erreur", description: "Utilisateur ou base de données non disponible." });
       return;
     }
     
@@ -154,21 +156,21 @@ export function MembersTable() {
     };
 
     if (selectedMember) {
-      const docRef = doc(firestore, 'membre', selectedMember.id);
+      const docRef = doc(firestore, 'users', user.uid, 'membre', selectedMember.id);
       await setDocumentNonBlocking(docRef, memberData, { merge: true });
       toast({ title: 'Membre mis à jour', description: `Les informations de ${data.nom} ont été mises à jour.` });
     } else {
-      const collectionRef = collection(firestore, 'membre');
-      await addDocumentNonBlocking(collectionRef, { ...memberData, joinDate: new Date().toISOString() });
+      if (!membersCollection) return;
+      await addDocumentNonBlocking(membersCollection, { ...memberData, joinDate: new Date().toISOString() });
       toast({ title: 'Membre ajouté', description: `${data.nom} a été ajouté à la liste.` });
     }
     handleCloseForm();
   };
   
   const handleDelete = async () => {
-    if (!firestore || !selectedMember) return;
+    if (!firestore || !selectedMember || !user) return;
 
-    const docRef = doc(firestore, 'membre', selectedMember.id);
+    const docRef = doc(firestore, 'users', user.uid, 'membre', selectedMember.id);
     await deleteDocumentNonBlocking(docRef);
     toast({
       variant: 'destructive',
