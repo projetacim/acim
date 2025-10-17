@@ -1,8 +1,7 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
 
 import { login } from './actions';
 import { Button } from '@/components/ui/button';
@@ -35,7 +34,7 @@ export default function LoginPage() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <Input id="password" name="password" type="password" required />
+              <Input id="password" name="password" type="password" required defaultValue="password" />
             </div>
             {state?.error && (
               <p className="text-sm font-medium text-destructive">{state.error}</p>

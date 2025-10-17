@@ -1,6 +1,7 @@
 'use server';
 
 import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 
 const HARDCODED_PASSWORD = 'password';
 const AUTH_COOKIE_NAME = 'auth-token';
@@ -15,7 +16,7 @@ export async function login(prevState: any, formData: FormData) {
       maxAge: 60 * 60 * 24 * 7, // 1 week
       path: '/',
     });
-    return { success: true };
+    redirect('/');
   } else {
     return { error: 'Invalid password. Please try again.' };
   }
