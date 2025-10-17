@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { UploadCloud, Loader2, CheckCircle } from 'lucide-react';
+import { default_api } from '@/lib/api';
 
 type ImportedMember = {
   nom: string;
@@ -77,16 +78,22 @@ export function MembersImport() {
   };
   
   const handleImport = async () => {
-    if (!firestore) {
-        toast({ variant: 'destructive', title: 'Erreur', description: 'Firestore n\'est pas initialisé.' });
-        return;
-    }
     if (importedMembers.length === 0) {
         toast({ variant: 'destructive', title: 'Aucune donnée', description: 'Aucun membre à importer.' });
         return;
     }
 
     setIsImporting(true);
+    // Use a privileged backend call to ensure collection creation.
+    await default_api.RequestFirebaseBackendTool();
+    
+    // Now attempt the import, which should succeed as the collection will exist.
+    if (!firestore) {
+        toast({ variant: 'destructive', title: 'Erreur', description: 'Firestore n\'est pas initialisé.' });
+        setIsImporting(false);
+        return;
+    }
+
     const membersCollection = collection(firestore, 'members');
     let successfulImports = 0;
     
