@@ -50,10 +50,10 @@ export function MembersImport() {
         const membersData: ImportedMember[] = json.map(row => ({
             nom: row.nom || '',
             email: row.email || '',
-            telephone: row.telephone || undefined,
-            adresse: row.adresse || undefined,
-            doc: row.doc || undefined,
-            memo: row.memo || undefined,
+            telephone: row.telephone || '',
+            adresse: row.adresse || '',
+            doc: row.doc || '',
+            memo: row.memo || '',
             membershipStatus: row.membershipStatus || 'Pending',
         }));
 
