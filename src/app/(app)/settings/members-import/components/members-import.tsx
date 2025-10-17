@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { UploadCloud, Loader2, CheckCircle } from 'lucide-react';
-import { default_api } from '@/lib/api';
+import { RequestFirebaseBackendTool } from '@/lib/api';
 
 type ImportedMember = {
   nom: string;
@@ -85,7 +85,7 @@ export function MembersImport() {
 
     setIsImporting(true);
     // Use a privileged backend call to ensure collection creation.
-    await default_api.RequestFirebaseBackendTool();
+    await RequestFirebaseBackendTool({});
     
     // Now attempt the import, which should succeed as the collection will exist.
     if (!firestore) {
