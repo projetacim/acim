@@ -3,7 +3,7 @@ import type { Member, Donation } from './types';
 export const members: Member[] = [
   {
     id: 'usr_1',
-    name: 'Alice Johnson',
+    nom: 'Alice Johnson',
     email: 'alice.j@example.com',
     membershipStatus: 'Active',
     joinDate: '2023-01-15',
@@ -11,7 +11,7 @@ export const members: Member[] = [
   },
   {
     id: 'usr_2',
-    name: 'Bob Williams',
+    nom: 'Bob Williams',
     email: 'bob.w@example.com',
     membershipStatus: 'Active',
     joinDate: '2022-11-20',
@@ -19,7 +19,7 @@ export const members: Member[] = [
   },
   {
     id: 'usr_3',
-    name: 'Charlie Brown',
+    nom: 'Charlie Brown',
     email: 'charlie.b@example.com',
     membershipStatus: 'Inactive',
     joinDate: '2023-03-10',
@@ -27,7 +27,7 @@ export const members: Member[] = [
   },
   {
     id: 'usr_4',
-    name: 'Diana Prince',
+    nom: 'Diana Prince',
     email: 'diana.p@example.com',
     membershipStatus: 'Pending',
     joinDate: '2024-05-01',
@@ -35,7 +35,7 @@ export const members: Member[] = [
   },
   {
     id: 'usr_5',
-    name: 'Ethan Hunt',
+    nom: 'Ethan Hunt',
     email: 'ethan.h@example.com',
     membershipStatus: 'Active',
     joinDate: '2021-08-25',

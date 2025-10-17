@@ -94,8 +94,8 @@ export default function DashboardPage() {
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <Avatar className="h-9 w-9">
-                            <AvatarImage src={member?.avatarUrl} alt={member?.name} />
-                            <AvatarFallback>{member?.name.charAt(0)}</AvatarFallback>
+                            <AvatarImage src={member?.avatarUrl} alt={member?.nom} />
+                            <AvatarFallback>{member?.nom.charAt(0)}</AvatarFallback>
                           </Avatar>
                           <div className="font-medium">{donation.memberName}</div>
                         </div>

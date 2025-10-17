@@ -10,26 +10,30 @@
           "type": "string",
           "description": "Unique identifier for the Member entity."
         },
-        "firstName": {
+        "nom": {
           "type": "string",
-          "description": "The first name of the member."
-        },
-        "lastName": {
-          "type": "string",
-          "description": "The last name of the member."
+          "description": "The full name of the member."
         },
         "email": {
           "type": "string",
           "description": "The email address of the member.",
           "format": "email"
         },
-        "phone": {
+        "telephone": {
           "type": "string",
           "description": "The phone number of the member."
         },
-        "address": {
+        "adresse": {
           "type": "string",
           "description": "The address of the member."
+        },
+        "doc": {
+          "type": "string",
+          "description": "A document or note related to the member."
+        },
+        "memo": {
+          "type": "string",
+          "description": "A memo or additional information about the member."
         },
         "membershipStatus": {
           "type": "string",
@@ -43,8 +47,7 @@
       },
       "required": [
         "id",
-        "firstName",
-        "lastName",
+        "nom",
         "email",
         "membershipStatus",
         "joinDate"

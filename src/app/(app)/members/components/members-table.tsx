@@ -62,7 +62,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { format, parseISO } from 'date-fns';
 
 const memberSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters.'),
+  nom: z.string().min(2, 'Name must be at least 2 characters.'),
   email: z.string().email('Invalid email address.'),
   membershipStatus: z.enum(['Active', 'Inactive', 'Pending']),
 });
@@ -83,7 +83,7 @@ export function MembersTable({ initialMembers }: MembersTableProps) {
   const form = useForm<MemberFormValues>({
     resolver: zodResolver(memberSchema),
     defaultValues: {
-      name: '',
+      nom: '',
       email: '',
       membershipStatus: 'Pending',
     },
@@ -94,11 +94,11 @@ export function MembersTable({ initialMembers }: MembersTableProps) {
     form.reset(
       member
         ? {
-            name: member.name,
+            nom: member.nom,
             email: member.email,
             membershipStatus: member.membershipStatus,
           }
-        : { name: '', email: '', membershipStatus: 'Pending' }
+        : { nom: '', email: '', membershipStatus: 'Pending' }
     );
     setIsFormOpen(true);
   };
@@ -117,7 +117,7 @@ export function MembersTable({ initialMembers }: MembersTableProps) {
           m.id === selectedMember.id ? { ...selectedMember, ...data } : m
         )
       );
-      toast({ title: 'Member Updated', description: `${data.name}'s profile has been updated.` });
+      toast({ title: 'Member Updated', description: `${data.nom}'s profile has been updated.` });
     } else {
       // Add new member
       const newMember: Member = {
@@ -127,7 +127,7 @@ export function MembersTable({ initialMembers }: MembersTableProps) {
         avatarUrl: `https://picsum.photos/seed/${Date.now()}/40/40`,
       };
       setMembers([newMember, ...members]);
-      toast({ title: 'Member Added', description: `${data.name} has been added to the association.` });
+      toast({ title: 'Member Added', description: `${data.nom} has been added to the association.` });
     }
     handleCloseForm();
   };
@@ -135,7 +135,7 @@ export function MembersTable({ initialMembers }: MembersTableProps) {
   const handleDelete = () => {
     if (selectedMember) {
       setMembers(members.filter(m => m.id !== selectedMember.id));
-      toast({ title: 'Member Deleted', description: `${selectedMember.name} has been removed.`, variant: 'destructive' });
+      toast({ title: 'Member Deleted', description: `${selectedMember.nom} has been removed.`, variant: 'destructive' });
       setIsDeleteAlertOpen(false);
       setSelectedMember(null);
     }
@@ -182,11 +182,11 @@ export function MembersTable({ initialMembers }: MembersTableProps) {
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <Avatar className="h-9 w-9">
-                        <AvatarImage src={member.avatarUrl} alt={member.name} />
-                        <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
+                        <AvatarImage src={member.avatarUrl} alt={member.nom} />
+                        <AvatarFallback>{member.nom.charAt(0)}</AvatarFallback>
                       </Avatar>
                       <div>
-                        <div className="font-medium">{member.name}</div>
+                        <div className="font-medium">{member.nom}</div>
                         <div className="text-sm text-muted-foreground">{member.email}</div>
                       </div>
                     </div>
@@ -244,7 +244,7 @@ export function MembersTable({ initialMembers }: MembersTableProps) {
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
               <FormField
                 control={form.control}
-                name="name"
+                name="nom"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Full Name</FormLabel>
@@ -306,7 +306,7 @@ export function MembersTable({ initialMembers }: MembersTableProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete {selectedMember?.name}'s record.
+              This action cannot be undone. This will permanently delete {selectedMember?.nom}'s record.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

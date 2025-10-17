@@ -12,14 +12,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useToast } from '@/hooks/use-toast';
 import { UploadCloud, Loader2, CheckCircle } from 'lucide-react';
 
-// Assuming your Member type is defined in @/lib/types, and it aligns with your Firestore structure
-// We'll add a temporary type here for the imported data
 type ImportedMember = {
-  firstName: string;
-  lastName: string;
+  nom: string;
   email: string;
-  phone?: string;
-  address?: string;
+  telephone?: string;
+  adresse?: string;
+  doc?: string;
+  memo?: string;
   membershipStatus?: 'Active' | 'Inactive' | 'Pending';
 };
 
@@ -49,12 +48,12 @@ export function MembersImport() {
         const json = XLSX.utils.sheet_to_json<any>(worksheet);
 
         const membersData: ImportedMember[] = json.map(row => ({
-            // Adjust these keys to match the column headers in your Excel file
-            firstName: row.firstName || '',
-            lastName: row.lastName || '',
+            nom: row.nom || '',
             email: row.email || '',
-            phone: row.phone || undefined,
-            address: row.address || undefined,
+            telephone: row.telephone || undefined,
+            adresse: row.adresse || undefined,
+            doc: row.doc || undefined,
+            memo: row.memo || undefined,
             membershipStatus: row.membershipStatus || 'Pending',
         }));
 
@@ -91,7 +90,6 @@ export function MembersImport() {
     const membersCollection = collection(firestore, 'members');
     let successfulImports = 0;
     
-    // We'll import them one by one. For very large files, a batch write would be better.
     for (const member of importedMembers) {
       try {
         const newMember = {
@@ -121,7 +119,7 @@ export function MembersImport() {
         <CardHeader>
           <CardTitle>Téléverser un fichier Excel</CardTitle>
           <CardDescription>
-            Le fichier doit avoir les colonnes : firstName, lastName, email, phone, address, membershipStatus.
+            Le fichier doit avoir les colonnes : nom, email, telephone, adresse, doc, memo.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -165,19 +163,19 @@ export function MembersImport() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Prénom</TableHead>
                     <TableHead>Nom</TableHead>
                     <TableHead>Email</TableHead>
-                    <TableHead>Statut</TableHead>
+                    <TableHead>Téléphone</TableHead>
+                    <TableHead>Adresse</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {importedMembers.slice(0, 20).map((member, index) => (
                     <TableRow key={index}>
-                      <TableCell>{member.firstName}</TableCell>
-                      <TableCell>{member.lastName}</TableCell>
+                      <TableCell>{member.nom}</TableCell>
                       <TableCell>{member.email}</TableCell>
-                      <TableCell>{member.membershipStatus}</TableCell>
+                      <TableCell>{member.telephone}</TableCell>
+                      <TableCell>{member.adresse}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

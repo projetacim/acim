@@ -1,7 +1,11 @@
 export type Member = {
   id: string;
-  name: string;
+  nom: string;
   email: string;
+  telephone?: string;
+  adresse?: string;
+  doc?: string;
+  memo?: string;
   membershipStatus: 'Active' | 'Inactive' | 'Pending';
   joinDate: string;
   avatarUrl: string;
