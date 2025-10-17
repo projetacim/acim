@@ -186,19 +186,6 @@ export function MembersTable() {
     setIsDeleteAlertOpen(true);
   }
 
-  const getStatusBadgeVariant = (status: Member['membershipStatus']) => {
-    switch (status) {
-      case 'Active':
-        return 'default';
-      case 'Inactive':
-        return 'destructive';
-      case 'Pending':
-        return 'secondary';
-      default:
-        return 'outline';
-    }
-  };
-
   const getAvatarFallback = (name: string) => {
     const initials = name.split(' ').map(n => n[0]).join('');
     return initials.slice(0, 2).toUpperCase();
@@ -218,8 +205,9 @@ export function MembersTable() {
             <TableHeader>
               <TableRow>
                 <TableHead>Membre</TableHead>
-                <TableHead>Statut</TableHead>
                 <TableHead>Téléphone</TableHead>
+                <TableHead>Adresse</TableHead>
+                <TableHead>Mémo</TableHead>
                 <TableHead className="hidden md:table-cell">Date d'adhésion</TableHead>
                 <TableHead>
                   <span className="sr-only">Actions</span>
@@ -237,8 +225,9 @@ export function MembersTable() {
                         <Skeleton className="h-3 w-40" />
                       </div>
                     </TableCell>
-                    <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-28" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-48" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                     <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-24" /></TableCell>
                     <TableCell><Skeleton className="h-8 w-8" /></TableCell>
                   </TableRow>
@@ -257,10 +246,9 @@ export function MembersTable() {
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell>
-                    <Badge variant={getStatusBadgeVariant(member.membershipStatus)}>{member.membershipStatus}</Badge>
-                  </TableCell>
                   <TableCell>{member.telephone}</TableCell>
+                  <TableCell>{member.adresse}</TableCell>
+                  <TableCell>{member.memo}</TableCell>
                   <TableCell className="hidden md:table-cell">
                     {member.joinDate ? format(parseISO(member.joinDate), 'd MMM, yyyy') : 'N/A'}
                   </TableCell>
@@ -288,7 +276,7 @@ export function MembersTable() {
               ))}
               {!isLoading && members?.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="p-6 text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="p-6 text-center text-muted-foreground">
                     Aucun membre trouvé. Cliquez sur "Ajouter un membre" pour commencer.
                   </TableCell>
                 </TableRow>
