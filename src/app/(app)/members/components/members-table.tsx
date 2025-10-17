@@ -67,9 +67,8 @@ const memberSchema = z.object({
   email: z.string().email('Adresse e-mail invalide.'),
   telephone: z.string().optional(),
   adresse: z.string().optional(),
-  doc: z.string().optional(),
+  doc: z.enum(['M', 'C', 'Non', '']).optional(),
   memo: z.string().optional(),
-  membershipStatus: z.enum(['Active', 'Inactive', 'Pending']),
 });
 
 type MemberFormValues = z.infer<typeof memberSchema>;
@@ -101,7 +100,6 @@ export function MembersTable() {
       adresse: '',
       doc: '',
       memo: '',
-      membershipStatus: 'Pending',
     },
   });
 
@@ -136,9 +134,8 @@ export function MembersTable() {
         email: selectedMember.email,
         telephone: selectedMember.telephone || '',
         adresse: selectedMember.adresse || '',
-        doc: selectedMember.doc || '',
+        doc: (selectedMember.doc as 'M' | 'C' | 'Non' | '') || '',
         memo: selectedMember.memo || '',
-        membershipStatus: selectedMember.membershipStatus,
       });
     } else {
       form.reset({
@@ -148,7 +145,6 @@ export function MembersTable() {
         adresse: '',
         doc: '',
         memo: '',
-        membershipStatus: 'Pending',
       });
     }
   }, [selectedMember, form]);
@@ -176,6 +172,7 @@ export function MembersTable() {
       adresse: data.adresse || '',
       doc: data.doc || '',
       memo: data.memo || '',
+      membershipStatus: selectedMember?.membershipStatus || 'Pending'
     };
 
     if (selectedMember) {
@@ -354,7 +351,7 @@ export function MembersTable() {
       </Card>
       
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>{selectedMember ? 'Modifier le membre' : 'Ajouter un membre'}</DialogTitle>
             <DialogDescription>
@@ -362,12 +359,12 @@ export function MembersTable() {
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="grid grid-cols-1 gap-4 py-4 sm:grid-cols-2">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="grid grid-cols-2 gap-x-6 gap-y-4 py-4">
               <FormField
                 control={form.control}
                 name="nom"
                 render={({ field }) => (
-                  <FormItem className="sm:col-span-2">
+                  <FormItem className="col-span-2">
                     <FormLabel>Nom complet</FormLabel>
                     <FormControl>
                       <Input placeholder="John Doe" {...field} />
@@ -380,7 +377,7 @@ export function MembersTable() {
                 control={form.control}
                 name="email"
                 render={({ field }) => (
-                  <FormItem className="sm:col-span-2">
+                  <FormItem className="col-span-2">
                     <FormLabel>Email</FormLabel>
                     <FormControl>
                       <Input type="email" placeholder="john.doe@example.com" {...field} />
@@ -402,22 +399,22 @@ export function MembersTable() {
                   </FormItem>
                 )}
               />
-               <FormField
+              <FormField
                 control={form.control}
-                name="membershipStatus"
+                name="doc"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Statut</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormLabel>Document</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Sélectionner un statut" />
+                          <SelectValue placeholder="Sélectionner un type" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="Active">Actif</SelectItem>
-                        <SelectItem value="Inactive">Inactif</SelectItem>
-                        <SelectItem value="Pending">En attente</SelectItem>
+                        <SelectItem value="M">M</SelectItem>
+                        <SelectItem value="C">C</SelectItem>
+                        <SelectItem value="Non">Non</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -428,7 +425,7 @@ export function MembersTable() {
                 control={form.control}
                 name="adresse"
                 render={({ field }) => (
-                  <FormItem className="sm:col-span-2">
+                  <FormItem className="col-span-2">
                     <FormLabel>Adresse (facultatif)</FormLabel>
                     <FormControl>
                       <Textarea placeholder="123 Rue de la République, 75001 Paris" {...field} />
@@ -439,31 +436,18 @@ export function MembersTable() {
               />
               <FormField
                 control={form.control}
-                name="doc"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Document (facultatif)</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Lien ou référence doc" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
                 name="memo"
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="col-span-2">
                     <FormLabel>Mémo (facultatif)</FormLabel>
                     <FormControl>
-                      <Input placeholder="Note rapide" {...field} />
+                      <Textarea placeholder="Note rapide..." {...field} className="min-h-[100px]" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              <DialogFooter className="sm:col-span-2">
+              <DialogFooter className="col-span-2">
                 <Button type="button" variant="ghost" onClick={handleCloseForm}>
                   Annuler
                 </Button>
