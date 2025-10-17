@@ -237,7 +237,7 @@ export function MembersTable() {
                 placeholder="Rechercher par nom, email ou mémo..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
+                className="pl-9 border-black"
               />
             </div>
             <div className="flex items-center gap-2">
