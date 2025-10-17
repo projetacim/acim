@@ -1,126 +1,129 @@
-/**
- * @fileoverview Firestore Security Rules for the association management app.
- *
- * Core Philosophy:
- * This ruleset enforces a strict user-ownership model for member data and their associated donations and CERFA forms.
- * Only authenticated users can access the database, and they can only read and write data associated with their own member ID.
- * Donation categories are publicly readable, but only authorized users can create, update, or delete them (Not Implemented).
- *
- * Data Structure:
- * - /members/{memberId}: Stores member profiles, with the member ID as the document ID.
- * - /members/{memberId}/donations/{donationId}: Stores donations made by each member.
- * - /members/{memberId}/donations/{donationId}/cerfa/{cerfaId}: Stores CERFA forms associated with each donation.
- * - /donationCategories/{donationCategoryId}: Stores the different categories for donations.
- *
- * Key Security Decisions:
- * - Listing of members is disallowed to protect user privacy.
- * - CERFA and Donation documents include denormalized `memberId` and `donationId` fields to enable direct association and independent access.
- * - The rules explicitly deny any write operations to collections that are not owned by the authenticated user.
- *
- * Denormalization for Authorization:
- * - The `memberId` field is stored within Donation documents to enable direct association with the member and independent access without needing to traverse the parent member document.
- * - The `donationId` field is stored within Cerfa documents for the same reason.
- *
- * Structural Segregation:
- * - Distinct collections are used for members, donations, CERFA forms, and donation categories, each with its specific security requirements.
- */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Checks if the user is signed in.
-     * @path N/A
-     * @allow N/A
-     * @deny N/A
-     * @principle Authentication is required for all operations.
-     */
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    /**
-     * @description Checks if the authenticated user is the owner of the resource, based on the `memberId` parameter.
-     * @path N/A
-     * @allow N/A
-     * @deny N/A
-     * @principle Enforces ownership for data access.
-     */
-    function isOwner(memberId) {
-      return isSignedIn() && request.auth.uid == memberId;
-    }
-
-    /**
-     * @description Checks if the authenticated user is the owner of the resource and it exists.
-     * @path N/A
-     * @allow N/A
-     * @deny N/A
-     * @principle Enforces existence and ownership for destructive operations.
-     */
-    function isExistingOwner(memberId) {
-      return isOwner(memberId) && resource != null;
-    }
-
-    /**
-     * @description Rules for the /members/{memberId} collection.
-     * @path /members/{memberId}
-     * @allow (create) If the user is signed in and the memberId matches their UID, they can create their own profile.
-     * @deny (create) If the user is not signed in, or the memberId does not match their UID, they cannot create a profile.
-     * @allow (get) If the user is signed in and the memberId matches their UID, they can retrieve their own profile.
-     * @deny (get) If the user is not signed in, or the memberId does not match their UID, they cannot retrieve the profile.
-     * @principle Enforces document ownership for reads and writes to the /members collection.
+     * @description Enforces that only authenticated users can manage their own member profile.
+     * @path /databases/{database}/documents/members/{memberId}
+     * @allow (create) User with UID 'user123' can create their profile at /members/user123.
+     * @allow (get) User with UID 'user123' can read their profile at /members/user123.
+     * @allow (update) User with UID 'user123' can update their profile at /members/user123.
+     * @allow (delete) User with UID 'user123' can delete their profile at /members/user123.
+     * @deny (create) User with UID 'user123' cannot create a profile at /members/user456.
+     * @deny (get) User with UID 'user123' cannot read the profile at /members/user456.
+     * @deny (update) User with UID 'user123' cannot update the profile at /members/user456.
+     * @deny (delete) User with UID 'user123' cannot delete the profile at /members/user456.
+     * @principle Enforces document ownership for writes.
      */
     match /members/{memberId} {
+      // Utility function to check if the user is signed in
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      // Utility function to check if the authenticated user is the owner of the document
+      function isOwner(memberId) {
+        return request.auth.uid == memberId;
+      }
+
+      // Utility function to check if the authenticated user is the owner of an existing document
+      function isExistingOwner(memberId) {
+        return isOwner(memberId) && resource != null;
+      }
+
       allow get: if isOwner(memberId);
-      allow list: if false; // Listing members is not permitted.
-      allow create: if isOwner(memberId) && request.resource.data.id == memberId;
-      allow update: if isExistingOwner(memberId) && request.resource.data.id == resource.data.id;
+      allow list: if false; // Disallowing listing all users for privacy
+
+      allow create: if isSignedIn() && isOwner(memberId);
+      allow update: if isExistingOwner(memberId);
       allow delete: if isExistingOwner(memberId);
     }
 
     /**
-     * @description Rules for the /members/{memberId}/donations/{donationId} collection.
-     * @path /members/{memberId}/donations/{donationId}
-     * @allow (create) If the user is signed in and the memberId matches their UID, they can create a donation.  The donation must have the correct memberId.
-     * @deny (create) If the user is not signed in, or the memberId does not match their UID, they cannot create a donation.
-     * @allow (get) If the user is signed in and the memberId matches their UID, they can retrieve the donation.
-     * @deny (get) If the user is not signed in, or the memberId does not match their UID, they cannot retrieve the donation.
-     * @principle Enforces document ownership for reads and writes to the /donations subcollection.
+     * @description Enforces that only the owner of a member profile can manage the member's donations.
+     * @path /databases/{database}/documents/members/{memberId}/donations/{donationId}
+     * @allow (create) User with UID 'user123' can create a donation under their profile at /members/user123/donations/donation1.
+     * @allow (get) User with UID 'user123' can read a donation under their profile at /members/user123/donations/donation1.
+     * @allow (update) User with UID 'user123' can update a donation under their profile at /members/user123/donations/donation1.
+     * @allow (delete) User with UID 'user123' can delete a donation under their profile at /members/user123/donations/donation1.
+     * @deny (create) User with UID 'user456' cannot create a donation under the profile of user with UID 'user123' at /members/user123/donations/donation1.
+     * @deny (get) User with UID 'user456' cannot read a donation under the profile of user with UID 'user123' at /members/user123/donations/donation1.
+     * @deny (update) User with UID 'user456' cannot update a donation under the profile of user with UID 'user123' at /members/user123/donations/donation1.
+     * @deny (delete) User with UID 'user456' cannot delete a donation under the profile of user with UID 'user123' at /members/user123/donations/donation1.
+     * @principle Restricts access to a user's own data tree.
      */
     match /members/{memberId}/donations/{donationId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner(memberId) {
+        return request.auth.uid == memberId;
+      }
+
+      function isExistingOwner(memberId) {
+        return isOwner(memberId) && resource != null;
+      }
+
       allow get: if isOwner(memberId);
-      allow list: if isOwner(memberId);
-      allow create: if isOwner(memberId) && request.resource.data.memberId == memberId;
-      allow update: if isExistingOwner(memberId) && request.resource.data.memberId == resource.data.memberId;
+      allow list: if false;
+
+      allow create: if isSignedIn() && isOwner(memberId);
+      allow update: if isExistingOwner(memberId);
       allow delete: if isExistingOwner(memberId);
     }
 
     /**
-     * @description Rules for the /members/{memberId}/donations/{donationId}/cerfa/{cerfaId} collection.
-     * @path /members/{memberId}/donations/{donationId}/cerfa/{cerfaId}
-     * @allow (create) If the user is signed in and the memberId matches their UID, they can create a cerfa. The cerfa must have the correct donationId.
-     * @deny (create) If the user is not signed in, or the memberId does not match their UID, they cannot create a cerfa.
-     * @allow (get) If the user is signed in and the memberId matches their UID, they can retrieve the cerfa.
-     * @deny (get) If the user is not signed in, or the memberId does not match their UID, they cannot retrieve the cerfa.
-     * @principle Enforces document ownership for reads and writes to the /cerfa subcollection.
+     * @description Enforces that only the owner of a donation can manage CERFA forms associated with the donation.
+     * @path /databases/{database}/documents/members/{memberId}/donations/{donationId}/cerfa/{cerfaId}
+     * @allow (create) User with UID 'user123' can create a CERFA form under their donation at /members/user123/donations/donation1/cerfa/cerfa1.
+     * @allow (get) User with UID 'user123' can read a CERFA form under their donation at /members/user123/donations/donation1/cerfa/cerfa1.
+     * @allow (update) User with UID 'user123' can update a CERFA form under their donation at /members/user123/donations/donation1/cerfa/cerfa1.
+     * @allow (delete) User with UID 'user123' can delete a CERFA form under their donation at /members/user123/donations/donation1/cerfa/cerfa1.
+     * @deny (create) User with UID 'user456' cannot create a CERFA form under the donation of user with UID 'user123' at /members/user123/donations/donation1/cerfa/cerfa1.
+     * @deny (get) User with UID 'user456' cannot read a CERFA form under the donation of user with UID 'user123' at /members/user123/donations/donation1/cerfa/cerfa1.
+     * @deny (update) User with UID 'user456' cannot update a CERFA form under the donation of user with UID 'user123' at /members/user123/donations/donation1/cerfa/cerfa1.
+     * @deny (delete) User with UID 'user456' cannot delete a CERFA form under the donation of user with UID 'user123' at /members/user123/donations/donation1/cerfa/cerfa1.
+     * @principle Enforces that only the owner can manage nested data.
      */
     match /members/{memberId}/donations/{donationId}/cerfa/{cerfaId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner(memberId) {
+        return request.auth.uid == memberId;
+      }
+
+      function isExistingOwner(memberId) {
+        return isOwner(memberId) && resource != null;
+      }
+
       allow get: if isOwner(memberId);
-      allow list: if isOwner(memberId);
-      allow create: if isOwner(memberId); // No data validation on create
-      allow update: if isExistingOwner(memberId); // No data validation on update
+      allow list: if false;
+
+      allow create: if isSignedIn() && isOwner(memberId);
+      allow update: if isExistingOwner(memberId);
       allow delete: if isExistingOwner(memberId);
     }
 
     /**
-     * @description Rules for the /donationCategories/{donationCategoryId} collection.
-     * @path /donationCategories/{donationCategoryId}
-     * @allow (get, list) Anyone can read the donation categories.
-     * @deny (create, update, delete) Only authorized users can modify donation categories.  Not implemented.
+     * @description Allows public read access to donation categories.
+     * @path /databases/{database}/documents/donationCategories/{donationCategoryId}
+     * @allow (get) Any user can read a donation category.
+     * @allow (list) Any user can list donation categories.
+     * @deny (create) No user can create a donation category (admin only). // TODO: Add admin role to allow category creation.
+     * @deny (update) No user can update a donation category (admin only). // TODO: Add admin role to allow category update.
+     * @deny (delete) No user can delete a donation category (admin only). // TODO: Add admin role to allow category deletion.
+     * @principle Allows public read access with restricted write access.
      */
     match /donationCategories/{donationCategoryId} {
-      allow get, list: if true;
-      allow create, update, delete: if false; // TODO: Implement admin role check for donation categories
+      allow get: if true;
+      allow list: if true;
+
+      allow create: if false; // TODO: Add admin role validation
+      allow update: if false; // TODO: Add admin role validation
+      allow delete: if false; // TODO: Add admin role validation
     }
   }
 }
