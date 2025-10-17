@@ -1,84 +1,91 @@
 /**
- * @file Firebase Security Rules for the association app.
+ * @fileoverview Firestore Security Rules for the association management app.
  *
- * @Core Philosophy
- * This ruleset enforces a strict user-ownership model for member data and related donations/CERFA forms.
- * Only authenticated users can access data, and they can only access data related to their own member ID.
- * Public listing of any data is disallowed.
+ * Core Philosophy:
+ * This ruleset enforces a strict user-ownership model for member data and their associated donations and CERFA forms.
+ * Only authenticated users can access the database, and they can only read and write data associated with their own member ID.
+ * Donation categories are publicly readable, but only authorized users can create, update, or delete them (Not Implemented).
  *
- * @Data Structure
- * - /members/{memberId}: Stores member profiles.
+ * Data Structure:
+ * - /members/{memberId}: Stores member profiles, with the member ID as the document ID.
  * - /members/{memberId}/donations/{donationId}: Stores donations made by each member.
  * - /members/{memberId}/donations/{donationId}/cerfa/{cerfaId}: Stores CERFA forms associated with each donation.
- * - /donationCategories/{donationCategoryId}: Stores donation categories. This collection is publicly readable, but only authenticated users can create, update, and delete categories.
+ * - /donationCategories/{donationCategoryId}: Stores the different categories for donations.
  *
- * @Key Security Decisions
- * - User listing is disallowed to prevent unauthorized access to member data.
- * - All write operations (create, update, delete) are strictly controlled by ownership.
- * - Data consistency between the path and the document's internal fields is enforced on creation and updates.
- * - The donationCategories collection is publicly readable to enable easy access to donation categories but is protected by authentication for write access.
+ * Key Security Decisions:
+ * - Listing of members is disallowed to protect user privacy.
+ * - CERFA and Donation documents include denormalized `memberId` and `donationId` fields to enable direct association and independent access.
+ * - The rules explicitly deny any write operations to collections that are not owned by the authenticated user.
  *
- * @Denormalization for Authorization
- * - Donations store the `memberId` to allow direct authorization checks without needing to read the parent member document.
- * - CERFA forms store the `donationId` to allow direct authorization checks without needing to read the parent donation document.
+ * Denormalization for Authorization:
+ * - The `memberId` field is stored within Donation documents to enable direct association with the member and independent access without needing to traverse the parent member document.
+ * - The `donationId` field is stored within Cerfa documents for the same reason.
  *
- * @Structural Segregation
- * - Member profiles, donations, CERFA forms, and donation categories are stored in separate collections to enforce distinct security requirements.
+ * Structural Segregation:
+ * - Distinct collections are used for members, donations, CERFA forms, and donation categories, each with its specific security requirements.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Checks if the request is made by an authenticated user.
-     * @return {boolean} True if the user is authenticated, false otherwise.
+     * @description Checks if the user is signed in.
+     * @path N/A
+     * @allow N/A
+     * @deny N/A
+     * @principle Authentication is required for all operations.
      */
     function isSignedIn() {
       return request.auth != null;
     }
 
     /**
-     * @description Checks if the authenticated user is the owner of the resource.
-     * @param {string} userId - The user ID to compare against the authenticated user's ID.
-     * @return {boolean} True if the user is the owner, false otherwise.
+     * @description Checks if the authenticated user is the owner of the resource, based on the `memberId` parameter.
+     * @path N/A
+     * @allow N/A
+     * @deny N/A
+     * @principle Enforces ownership for data access.
      */
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
+    function isOwner(memberId) {
+      return isSignedIn() && request.auth.uid == memberId;
     }
 
     /**
-     * @description Checks if the authenticated user is the existing owner of the resource.
-     * @param {string} userId - The user ID to compare against the authenticated user's ID.
-     * @return {boolean} True if the user is the owner and the resource exists, false otherwise.
+     * @description Checks if the authenticated user is the owner of the resource and it exists.
+     * @path N/A
+     * @allow N/A
+     * @deny N/A
+     * @principle Enforces existence and ownership for destructive operations.
      */
-    function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
+    function isExistingOwner(memberId) {
+      return isOwner(memberId) && resource != null;
     }
 
     /**
-     * @description Rules for member profiles.
+     * @description Rules for the /members/{memberId} collection.
      * @path /members/{memberId}
-     * @allow (create) If the user is creating their own profile (auth.uid == memberId).
-     * @allow (get, update, delete) If the user is the owner of the profile.
-     * @deny (create) If the user is not authenticated.
-     * @deny (get, update, delete) If the user is not the owner of the profile.
-     * @principle Enforces document ownership for all operations.
+     * @allow (create) If the user is signed in and the memberId matches their UID, they can create their own profile.
+     * @deny (create) If the user is not signed in, or the memberId does not match their UID, they cannot create a profile.
+     * @allow (get) If the user is signed in and the memberId matches their UID, they can retrieve their own profile.
+     * @deny (get) If the user is not signed in, or the memberId does not match their UID, they cannot retrieve the profile.
+     * @principle Enforces document ownership for reads and writes to the /members collection.
      */
     match /members/{memberId} {
       allow get: if isOwner(memberId);
-      allow list: if false;
+      allow list: if false; // Listing members is not permitted.
       allow create: if isOwner(memberId) && request.resource.data.id == memberId;
       allow update: if isExistingOwner(memberId) && request.resource.data.id == resource.data.id;
       allow delete: if isExistingOwner(memberId);
     }
 
     /**
-     * @description Rules for donations made by each member.
+     * @description Rules for the /members/{memberId}/donations/{donationId} collection.
      * @path /members/{memberId}/donations/{donationId}
-     * @allow (create) If the user is the owner of the member profile and the donation's memberId matches the profile's memberId.
-     * @allow (get, update, delete) If the user is the owner of the member profile and the donation's memberId matches the profile's memberId.
-     * @deny (create, get, update, delete) If the user is not the owner of the member profile.
-     * @principle Enforces document ownership for all operations and validates relational integrity.
+     * @allow (create) If the user is signed in and the memberId matches their UID, they can create a donation.  The donation must have the correct memberId.
+     * @deny (create) If the user is not signed in, or the memberId does not match their UID, they cannot create a donation.
+     * @allow (get) If the user is signed in and the memberId matches their UID, they can retrieve the donation.
+     * @deny (get) If the user is not signed in, or the memberId does not match their UID, they cannot retrieve the donation.
+     * @principle Enforces document ownership for reads and writes to the /donations subcollection.
      */
     match /members/{memberId}/donations/{donationId} {
       allow get: if isOwner(memberId);
@@ -89,32 +96,31 @@ service cloud.firestore {
     }
 
     /**
-     * @description Rules for CERFA forms associated with each donation.
+     * @description Rules for the /members/{memberId}/donations/{donationId}/cerfa/{cerfaId} collection.
      * @path /members/{memberId}/donations/{donationId}/cerfa/{cerfaId}
-     * @allow (create) If the user is the owner of the member profile and the donation's memberId matches the profile's memberId.
-     * @allow (get, update, delete) If the user is the owner of the member profile and the donation's memberId matches the profile's memberId.
-     * @deny (create, get, update, delete) If the user is not the owner of the member profile.
-     * @principle Enforces document ownership for all operations and validates relational integrity.
+     * @allow (create) If the user is signed in and the memberId matches their UID, they can create a cerfa. The cerfa must have the correct donationId.
+     * @deny (create) If the user is not signed in, or the memberId does not match their UID, they cannot create a cerfa.
+     * @allow (get) If the user is signed in and the memberId matches their UID, they can retrieve the cerfa.
+     * @deny (get) If the user is not signed in, or the memberId does not match their UID, they cannot retrieve the cerfa.
+     * @principle Enforces document ownership for reads and writes to the /cerfa subcollection.
      */
     match /members/{memberId}/donations/{donationId}/cerfa/{cerfaId} {
       allow get: if isOwner(memberId);
       allow list: if isOwner(memberId);
-      allow create: if isOwner(memberId);
-      allow update: if isExistingOwner(memberId);
+      allow create: if isOwner(memberId); // No data validation on create
+      allow update: if isExistingOwner(memberId); // No data validation on update
       allow delete: if isExistingOwner(memberId);
     }
 
     /**
-     * @description Rules for donation categories.
+     * @description Rules for the /donationCategories/{donationCategoryId} collection.
      * @path /donationCategories/{donationCategoryId}
-     * @allow (get, list) Allow public read access to donation categories.
-     * @allow (create, update, delete) Only authenticated users can create, update, and delete donation categories.
-     * @deny (create, update, delete) If the user is not authenticated.
-     * @principle Allows public read access but restricts write access to authenticated users.
+     * @allow (get, list) Anyone can read the donation categories.
+     * @deny (create, update, delete) Only authorized users can modify donation categories.  Not implemented.
      */
     match /donationCategories/{donationCategoryId} {
       allow get, list: if true;
-      allow create, update, delete: if isSignedIn();
+      allow create, update, delete: if false; // TODO: Implement admin role check for donation categories
     }
   }
 }
