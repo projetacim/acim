@@ -4,7 +4,7 @@
  * Core Philosophy:
  * This ruleset enforces a strict user-ownership model for member profiles and their associated data (donations, CERFA forms).
  * Only the authenticated user who "owns" a member profile has read and write access to it and its subcollections.
- * The `donationCategories` collection is intended to be publicly readable, but only authorized users can create/modify them.
+ * The `donationCategories` collection is intended to be publicly readable, but only authenticated users can create/modify them.
  *
  * Data Structure:
  * - /members/{memberId}: Stores individual member profiles. 'memberId' must match the user's UID.
@@ -18,7 +18,7 @@
  * - User listing is disallowed.
  * - Strict ownership is enforced for member profiles and all associated subcollections.
  * - Denormalization is used extensively to avoid costly `get()` calls in rules.
- * - `donationCategories` are publicly readable but only authorized users can create/modify them.
+ * - `donationCategories` are publicly readable but only authenticated users can create/modify them.
  */
 rules_version = '2';
 service cloud.firestore {
@@ -48,6 +48,10 @@ service cloud.firestore {
 
     /**
      * @description Checks if the current user is the owner of the existing resource.
+     * @path N/A
+     * @allow N/A
+     * @deny N/A
+     * @principle Enforces ownership for updates and deletes, ensuring the document exists.
      */
     function isExistingOwner(userId) {
         return isOwner(userId) && resource != null;
@@ -120,8 +124,8 @@ service cloud.firestore {
 
       // Write Rules
       allow create: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
+      allow update: if isSignedIn() && resource != null;
+      allow delete: if isSignedIn() && resource != null;
     }
   }
 }
