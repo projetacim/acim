@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import {
@@ -36,7 +36,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { MoreHorizontal, PlusCircle, Pencil, Trash2 } from 'lucide-react';
 import type { Member } from '@/lib/types';
@@ -84,9 +84,7 @@ export function MembersTable() {
     return collection(firestore, 'members');
   }, [firestore]);
 
-  // Forcing data to be an empty array as we can't create members.
-  const members: Member[] = [];
-  const isLoading = false;
+  const { data: members, isLoading } = useCollection<Member>(membersCollection);
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
@@ -106,12 +104,33 @@ export function MembersTable() {
     },
   });
 
+  useEffect(() => {
+    if (selectedMember) {
+      form.reset({
+        nom: selectedMember.nom,
+        email: selectedMember.email,
+        telephone: selectedMember.telephone || '',
+        adresse: selectedMember.adresse || '',
+        doc: selectedMember.doc || '',
+        memo: selectedMember.memo || '',
+        membershipStatus: selectedMember.membershipStatus,
+      });
+    } else {
+      form.reset({
+        nom: '',
+        email: '',
+        telephone: '',
+        adresse: '',
+        doc: '',
+        memo: '',
+        membershipStatus: 'Pending',
+      });
+    }
+  }, [selectedMember, form]);
+
   const handleOpenForm = (member?: Member) => {
-    toast({
-      variant: 'destructive',
-      title: 'Fonctionnalité désactivée',
-      description: "La création et la modification de membres sont temporairement désactivées.",
-    });
+    setSelectedMember(member || null);
+    setIsFormOpen(true);
   };
 
   const handleCloseForm = () => {
@@ -121,15 +140,49 @@ export function MembersTable() {
   };
 
   const onSubmit: SubmitHandler<MemberFormValues> = async (data) => {
-    // This functionality is currently disabled.
+    if (!firestore) {
+      toast({ variant: "destructive", title: "Erreur", description: "Firestore n'est pas initialisé." });
+      return;
+    }
+    
+    const memberData = {
+      ...data,
+      telephone: data.telephone || '',
+      adresse: data.adresse || '',
+      doc: data.doc || '',
+      memo: data.memo || '',
+    };
+
+    if (selectedMember) {
+      const docRef = doc(firestore, 'members', selectedMember.id);
+      await setDocumentNonBlocking(docRef, memberData, { merge: true });
+      toast({ title: 'Membre mis à jour', description: `Les informations de ${data.nom} ont été mises à jour.` });
+    } else {
+      const collectionRef = collection(firestore, 'members');
+      await addDocumentNonBlocking(collectionRef, { ...memberData, joinDate: new Date().toISOString() });
+      toast({ title: 'Membre ajouté', description: `${data.nom} a été ajouté à la liste.` });
+    }
     handleCloseForm();
   };
   
   const handleDelete = async () => {
-    // This functionality is currently disabled.
+    if (!firestore || !selectedMember) return;
+
+    const docRef = doc(firestore, 'members', selectedMember.id);
+    await deleteDocumentNonBlocking(docRef);
+    toast({
+      variant: 'destructive',
+      title: 'Membre supprimé',
+      description: `Le profil de ${selectedMember.nom} a été définitivement supprimé.`,
+    });
     setIsDeleteAlertOpen(false);
     setSelectedMember(null);
   };
+  
+  const openDeleteAlert = (member: Member) => {
+    setSelectedMember(member);
+    setIsDeleteAlertOpen(true);
+  }
 
   const getStatusBadgeVariant = (status: Member['membershipStatus']) => {
     switch (status) {
@@ -143,6 +196,11 @@ export function MembersTable() {
         return 'outline';
     }
   };
+
+  const getAvatarFallback = (name: string) => {
+    const initials = name.split(' ').map(n => n[0]).join('');
+    return initials.slice(0, 2).toUpperCase();
+  }
 
   return (
     <>
@@ -160,9 +218,6 @@ export function MembersTable() {
                 <TableHead>Membre</TableHead>
                 <TableHead>Statut</TableHead>
                 <TableHead>Téléphone</TableHead>
-                <TableHead>Adresse</TableHead>
-                <TableHead>Doc</TableHead>
-                <TableHead>Mémo</TableHead>
                 <TableHead className="hidden md:table-cell">Date d'adhésion</TableHead>
                 <TableHead>
                   <span className="sr-only">Actions</span>
@@ -170,10 +225,69 @@ export function MembersTable() {
               </TableRow>
             </TableHeader>
             <TableBody>
+              {isLoading && (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell className="flex items-center gap-3">
+                      <Skeleton className="h-10 w-10 rounded-full" />
+                      <div className="space-y-1">
+                        <Skeleton className="h-4 w-32" />
+                        <Skeleton className="h-3 w-40" />
+                      </div>
+                    </TableCell>
+                    <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-28" /></TableCell>
+                    <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-8 w-8" /></TableCell>
+                  </TableRow>
+                ))
+              )}
+              {!isLoading && members?.map((member) => (
+                <TableRow key={member.id}>
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      <Avatar>
+                        <AvatarFallback>{getAvatarFallback(member.nom)}</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <div className="font-medium">{member.nom}</div>
+                        <div className="text-sm text-muted-foreground">{member.email}</div>
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={getStatusBadgeVariant(member.membershipStatus)}>{member.membershipStatus}</Badge>
+                  </TableCell>
+                  <TableCell>{member.telephone}</TableCell>
+                  <TableCell className="hidden md:table-cell">
+                    {member.joinDate ? format(parseISO(member.joinDate), 'd MMM, yyyy') : 'N/A'}
+                  </TableCell>
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button aria-haspopup="true" size="icon" variant="ghost">
+                          <MoreHorizontal className="h-4 w-4" />
+                          <span className="sr-only">Toggle menu</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleOpenForm(member)}>
+                          <Pencil className="mr-2 h-4 w-4" />
+                          Modifier
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => openDeleteAlert(member)} className="text-destructive">
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Supprimer
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))}
               {!isLoading && members?.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="p-6 text-center text-muted-foreground">
-                    La gestion des membres est temporairement indisponible.
+                  <TableCell colSpan={5} className="p-6 text-center text-muted-foreground">
+                    Aucun membre trouvé. Cliquez sur "Ajouter un membre" pour commencer.
                   </TableCell>
                 </TableRow>
               )}
@@ -182,7 +296,7 @@ export function MembersTable() {
         </CardContent>
       </Card>
       
-      <Dialog open={isFormOpen} onOpenChange={handleCloseForm}>
+      <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{selectedMember ? 'Modifier le membre' : 'Ajouter un membre'}</DialogTitle>
@@ -223,7 +337,7 @@ export function MembersTable() {
                 name="telephone"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Téléphone</FormLabel>
+                    <FormLabel>Téléphone (facultatif)</FormLabel>
                     <FormControl>
                       <Input placeholder="06 12 34 56 78" {...field} />
                     </FormControl>
@@ -258,7 +372,7 @@ export function MembersTable() {
                 name="adresse"
                 render={({ field }) => (
                   <FormItem className="sm:col-span-2">
-                    <FormLabel>Adresse</FormLabel>
+                    <FormLabel>Adresse (facultatif)</FormLabel>
                     <FormControl>
                       <Textarea placeholder="123 Rue de la République, 75001 Paris" {...field} />
                     </FormControl>
@@ -271,7 +385,7 @@ export function MembersTable() {
                 name="doc"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Document</FormLabel>
+                    <FormLabel>Document (facultatif)</FormLabel>
                     <FormControl>
                       <Input placeholder="Lien ou référence doc" {...field} />
                     </FormControl>
@@ -284,7 +398,7 @@ export function MembersTable() {
                 name="memo"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Mémo</FormLabel>
+                    <FormLabel>Mémo (facultatif)</FormLabel>
                     <FormControl>
                       <Input placeholder="Note rapide" {...field} />
                     </FormControl>
