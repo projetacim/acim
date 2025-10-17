@@ -102,7 +102,7 @@ export function MembersImport() {
         return;
     }
 
-    const membersCollection = collection(firestore, 'members');
+    const membersCollection = collection(firestore, 'membre');
     let successfulImports = 0;
     
     for (const member of importedMembers) {

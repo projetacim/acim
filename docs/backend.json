@@ -161,7 +161,7 @@
   "firestore": {
     "structure": [
       {
-        "path": "/members/{memberId}",
+        "path": "/membre/{memberId}",
         "definition": {
           "entityName": "Member",
           "schema": {
@@ -177,7 +177,7 @@
         }
       },
       {
-        "path": "/members/{memberId}/donations/{donationId}",
+        "path": "/membre/{memberId}/donations/{donationId}",
         "definition": {
           "entityName": "Donation",
           "schema": {
@@ -197,7 +197,7 @@
         }
       },
       {
-        "path": "/members/{memberId}/donations/{donationId}/cerfa/{cerfaId}",
+        "path": "/membre/{memberId}/donations/{donationId}/cerfa/{cerfaId}",
         "definition": {
           "entityName": "Cerfa",
           "schema": {

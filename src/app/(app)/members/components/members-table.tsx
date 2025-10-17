@@ -81,7 +81,7 @@ export function MembersTable() {
   const firestore = useFirestore();
   const membersCollection = useMemoFirebase(() => {
     if (!firestore) return null;
-    return collection(firestore, 'members');
+    return collection(firestore, 'membre');
   }, [firestore]);
 
   const { data: members, isLoading } = useCollection<Member>(membersCollection);
@@ -154,11 +154,11 @@ export function MembersTable() {
     };
 
     if (selectedMember) {
-      const docRef = doc(firestore, 'members', selectedMember.id);
+      const docRef = doc(firestore, 'membre', selectedMember.id);
       await setDocumentNonBlocking(docRef, memberData, { merge: true });
       toast({ title: 'Membre mis à jour', description: `Les informations de ${data.nom} ont été mises à jour.` });
     } else {
-      const collectionRef = collection(firestore, 'members');
+      const collectionRef = collection(firestore, 'membre');
       await addDocumentNonBlocking(collectionRef, { ...memberData, joinDate: new Date().toISOString() });
       toast({ title: 'Membre ajouté', description: `${data.nom} a été ajouté à la liste.` });
     }
@@ -168,7 +168,7 @@ export function MembersTable() {
   const handleDelete = async () => {
     if (!firestore || !selectedMember) return;
 
-    const docRef = doc(firestore, 'members', selectedMember.id);
+    const docRef = doc(firestore, 'membre', selectedMember.id);
     await deleteDocumentNonBlocking(docRef);
     toast({
       variant: 'destructive',
