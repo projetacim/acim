@@ -8,7 +8,7 @@ import {
   DollarSign,
   FileText,
   LogOut,
-  Settings,
+  User as UserIcon,
 } from 'lucide-react';
 import { useUser, useAuth } from '@/firebase';
 import { signOut } from 'firebase/auth';
@@ -21,21 +21,13 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarFooter,
-  SidebarTrigger,
   SidebarInset,
+  SidebarSeparator,
 } from '@/components/ui/sidebar';
-import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Logo } from '@/components/logo';
 import { Loader2 } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 export default function AppLayout({
   children,
@@ -53,8 +45,10 @@ export default function AppLayout({
   }, [user, isUserLoading, router]);
 
   const handleLogout = async () => {
-    await signOut(auth);
-    router.push('/login');
+    if (auth) {
+      await signOut(auth);
+      router.push('/login');
+    }
   };
 
   if (isUserLoading || !user) {
@@ -117,6 +111,18 @@ export default function AppLayout({
           </SidebarMenu>
         </SidebarContent>
         <SidebarFooter>
+          <SidebarSeparator />
+           <div className="flex items-center gap-2 p-2">
+              <Avatar className="h-8 w-8">
+                <AvatarImage src={user.photoURL ?? undefined} />
+                <AvatarFallback>{getAvatarFallback()}</AvatarFallback>
+              </Avatar>
+              <div className="flex flex-col overflow-hidden">
+                <span className="truncate text-sm font-medium text-sidebar-foreground">
+                  {user.isAnonymous ? 'Anonymous' : user.email}
+                </span>
+              </div>
+            </div>
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton onClick={handleLogout} tooltip="Logout">
@@ -128,35 +134,6 @@ export default function AppLayout({
         </SidebarFooter>
       </Sidebar>
       <SidebarInset>
-        <header className="flex h-14 items-center justify-between border-b bg-card px-4 lg:px-6">
-          <SidebarTrigger className="md:hidden" />
-          <div className="flex w-full items-center justify-end gap-4">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="rounded-full">
-                  <Avatar>
-                    <AvatarImage src={user.photoURL ?? undefined} />
-                    <AvatarFallback>{getAvatarFallback()}</AvatarFallback>
-                  </Avatar>
-                  <span className="sr-only">Toggle user menu</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel>{user.isAnonymous ? 'Anonymous User' : user.email}</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem>
-                  <Settings className="mr-2 h-4 w-4" />
-                  <span>Settings</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout}>
-                    <LogOut className="mr-2 h-4 w-4" />
-                    <span>Logout</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </header>
         <main className="flex-1 p-4 md:p-6">{children}</main>
       </SidebarInset>
     </SidebarProvider>
