@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { LogoWithText } from '@/components/logo-with-text';
+import { Logo } from '@/components/logo';
 import { Loader2 } from 'lucide-react';
 
 const loginSchema = z.object({
@@ -71,9 +71,9 @@ export default function LoginPage() {
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4">
-            <LogoWithText className="h-24 w-24 text-primary" />
+            <Logo className="h-24 w-24 text-primary" />
           </div>
-          <CardTitle className="text-2xl">Bienvenue</CardTitle>
+          <CardTitle className="text-2xl">ACIM</CardTitle>
           <CardDescription>Connectez-vous à votre compte</CardDescription>
         </CardHeader>
         <CardContent>
