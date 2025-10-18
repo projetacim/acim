@@ -43,7 +43,7 @@ import { sendCerfaEmail } from '@/lib/email';
 
 
 const paymentSchema = z.object({
-  amount: z.coerce.number().min(0.01, "Le montant doit être positif.").default(0),
+  amount: z.coerce.number().min(0, "Le montant ne peut pas être négatif.").default(0),
   date: z.date({ required_error: "La date est requise." }),
   paymentMethod: z.enum(['Carte de crédit', 'Virement bancaire', 'Espèces', 'Chèque']),
 });
@@ -53,7 +53,7 @@ const donationSchema = z.object({
   type: z.enum(['Don', 'Cotisation']),
   donationCategoryId: z.string().optional(),
   totalAmount: z.coerce.number().min(0.01, 'Le montant total doit être supérieur à 0.'),
-  payments: z.array(paymentSchema).min(1, "Veuillez ajouter au moins un paiement.").max(3, "Vous ne pouvez pas ajouter plus de 3 paiements."),
+  payments: z.array(paymentSchema).max(3, "Vous ne pouvez pas ajouter plus de 3 paiements."),
   memo: z.string().optional(),
   cerfaEligible: z.boolean().default(true),
   paymentStatus: z.enum(['EN ATTENTE', 'Partiel', 'Payé', 'Annulé']).optional(),
@@ -166,7 +166,7 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
                   type: 'Don',
                   donationCategoryId: defaultCategoryId,
                   totalAmount: 0,
-                  payments: [{ amount: 0, date: new Date(), paymentMethod: 'Carte de crédit' }],
+                  payments: [],
                   memo: '',
                   cerfaEligible: true,
                   cerfaNom: memberData.nom,
@@ -316,7 +316,9 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
               setIsSendingEmail(false);
             }
 
-            const transactionData: Omit<Transaction, 'id' | 'createdAt'>[] = data.payments.map(p => ({
+            const transactionData: Omit<Transaction, 'id' | 'createdAt'>[] = data.payments
+              .filter(p => p.amount > 0)
+              .map(p => ({
               type: donationToSave.type as 'Don' | 'Cotisation',
               relatedId: newDocRef.id,
               amount: Number(p.amount),
@@ -640,3 +642,5 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
     </Card>
   );
 }
+
+    
