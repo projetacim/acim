@@ -6,6 +6,7 @@ import { useData } from '@/app/(app)/data-provider';
 import { DateRange } from 'react-day-picker';
 import { format, subDays } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import Link from 'next/link';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,9 +20,10 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartStyle } from '@
 import { PieChart, Pie, Cell, Tooltip } from 'recharts';
 import { CalendarIcon, TrendingUp, Users, DollarSign, PenLine } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { Transaction } from '@/lib/types';
+import type { Transaction, Donation, Member, DonationCategory } from '@/lib/types';
 import { numberToWords } from '@/lib/number-to-words';
 import { Separator } from '@/components/ui/separator';
+import { Tooltip as UiTooltip, TooltipContent as UiTooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 
 const CHART_COLORS = {
@@ -35,21 +37,49 @@ const CHART_COLORS = {
 type PaymentMethod = keyof typeof CHART_COLORS;
 
 export function BilanView() {
-  const { transactions, isLoading } = useData();
+  const { transactions, donations, members, categories, isLoading } = useData();
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: subDays(new Date(), 29),
     to: new Date(),
   });
 
+  const enrichedTransactions = useMemo(() => {
+    if (!transactions || !donations || !members || !categories) return [];
+
+    const donationsMap = new Map(donations.map(d => [d.id, d]));
+    const membersMap = new Map(members.map(m => [m.id, m]));
+    const categoriesMap = new Map(categories.map(c => [c.id, c.name]));
+
+    return transactions
+        .map(t => {
+            const relatedDonation = donationsMap.get(t.relatedId);
+            if (!relatedDonation) return null;
+
+            const member = membersMap.get(relatedDonation.memberId);
+            const categoryName = relatedDonation.donationCategoryId
+                ? categoriesMap.get(relatedDonation.donationCategoryId)
+                : undefined;
+
+            return {
+                ...t,
+                memberName: member?.nom || 'Inconnu',
+                categoryName: categoryName || '',
+            };
+        })
+        .filter(Boolean) as (Transaction & { memberName: string; categoryName: string })[];
+
+  }, [transactions, donations, members, categories]);
+
+
   const filteredTransactions = useMemo(() => {
-    if (!transactions) return [];
-    return transactions.filter(t => {
+    if (!enrichedTransactions) return [];
+    return enrichedTransactions.filter(t => {
       const transactionDate = new Date(t.date);
       if (dateRange?.from && transactionDate < dateRange.from) return false;
       if (dateRange?.to && transactionDate > dateRange.to) return false;
       return true;
     });
-  }, [transactions, dateRange]);
+  }, [enrichedTransactions, dateRange]);
 
   const stats = useMemo(() => {
     const total = filteredTransactions.reduce((acc, t) => acc + t.amount, 0);
@@ -170,13 +200,13 @@ export function BilanView() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
-        <Card className="lg:col-span-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-7">
+        <Card className="lg:col-span-3">
             <CardHeader>
                 <CardTitle>Répartition par moyen de paiement</CardTitle>
             </CardHeader>
             <CardContent>
-                <ChartContainer config={{}} className="h-64 w-full">
+                <ChartContainer config={{}} className="mx-auto aspect-square max-h-64">
                     <PieChart>
                         <Tooltip
                             cursor={false}
@@ -191,33 +221,48 @@ export function BilanView() {
                 </ChartContainer>
             </CardContent>
         </Card>
-        <Card className="lg:col-span-3">
+        <Card className="lg:col-span-4">
           <CardHeader>
             <CardTitle>Détail des Transactions</CardTitle>
           </CardHeader>
           <CardContent>
-            <ScrollArea className="h-80">
+            <ScrollArea className="h-[340px]">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Date</TableHead>
+                    <TableHead>Membre</TableHead>
                     <TableHead>Type</TableHead>
-                    <TableHead>Moyen</TableHead>
+                    <TableHead>Catégorie</TableHead>
+                    <TableHead>Mémo</TableHead>
                     <TableHead className="text-right">Montant</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredTransactions.map((t) => (
                     <TableRow key={t.id}>
-                      <TableCell>{format(new Date(t.date), 'dd/MM/yyyy')}</TableCell>
+                      <TableCell className="font-medium">{t.memberName}</TableCell>
                       <TableCell><Badge variant={t.type === 'Don' ? 'secondary' : 'outline'}>{t.type}</Badge></TableCell>
-                      <TableCell><Badge variant="outline">{t.paymentMethod}</Badge></TableCell>
+                      <TableCell>{t.categoryName}</TableCell>
+                      <TableCell>
+                          {t.memo && t.memo.length > 20 ? (
+                            <UiTooltip>
+                                <TooltipTrigger>
+                                <span className="cursor-help text-muted-foreground">{t.memo.substring(0, 20)}...</span>
+                                </TooltipTrigger>
+                                <UiTooltipContent>
+                                <p className="max-w-xs">{t.memo}</p>
+                                </UiTooltipContent>
+                            </UiTooltip>
+                            ) : (
+                            <span className="text-muted-foreground">{t.memo}</span>
+                            )}
+                      </TableCell>
                       <TableCell className="text-right font-medium">{t.amount.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})}</TableCell>
                     </TableRow>
                   ))}
                    {filteredTransactions.length === 0 && (
                         <TableRow>
-                        <TableCell colSpan={4} className="p-6 text-center text-muted-foreground">
+                        <TableCell colSpan={5} className="p-6 text-center text-muted-foreground">
                             Aucune transaction sur cette période.
                         </TableCell>
                         </TableRow>
@@ -264,5 +309,7 @@ export function BilanView() {
       </Card>
     </div>
   );
+
+    
 
     
