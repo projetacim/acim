@@ -67,6 +67,7 @@ type DonationFormValues = z.infer<typeof donationSchema>;
 interface DonationFormProps {
   donationId?: string;
   memberIdParam?: string;
+  onFormSubmit?: () => void;
 }
 
 const A4_HEIGHT_POINTS = 841.89;
@@ -85,7 +86,7 @@ const cerfaCoordinates = {
 };
 
 
-export function DonationForm({ donationId, memberIdParam }: DonationFormProps) {
+export function DonationForm({ donationId, memberIdParam, onFormSubmit }: DonationFormProps) {
   const firestore = useFirestore();
   const { user } = useUser();
   const { toast } = useToast();
@@ -277,7 +278,8 @@ export function DonationForm({ donationId, memberIdParam }: DonationFormProps) {
         
         toast({ title: 'Don ajouté', description: `Un nouveau don/cotisation a été enregistré.` });
       }
-      router.push('/donations');
+      onFormSubmit?.();
+      router.push('/');
     } catch (e: any) {
         console.error("Error saving donation", e);
         toast({ variant: "destructive", title: "Erreur de sauvegarde", description: e.message });
@@ -596,7 +598,7 @@ export function DonationForm({ donationId, memberIdParam }: DonationFormProps) {
           </CardContent>
           <CardFooter className="flex justify-end gap-2">
             <Button type="button" variant="ghost" asChild>
-              <Link href="/donations">Annuler</Link>
+              <Link href="/">Annuler</Link>
             </Button>
             <Button type="submit" disabled={form.formState.isSubmitting}>
               {form.formState.isSubmitting ? (

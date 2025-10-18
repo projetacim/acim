@@ -29,6 +29,7 @@ export default function DashboardPage() {
   
   const onDonationFormClose = () => {
     setIsDonationFormOpen(false);
+    setSelectedMember(null); // Deselect member on close
   }
 
   return (
@@ -57,21 +58,17 @@ export default function DashboardPage() {
         </CardContent>
       </Card>
 
-      {selectedMember && (
-        <div className="flex flex-col gap-6">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div className="space-y-1">
-                <CardTitle>Historique des dons</CardTitle>
-                <p className="text-muted-foreground font-medium">{selectedMember.nom}</p>
-              </div>
-            </CardHeader>
-            <CardContent>
-                <DonationsTable selectedMemberId={selectedMember?.id ?? null} />
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div className="space-y-1">
+            <CardTitle>Historique des dons</CardTitle>
+            {selectedMember && <p className="text-muted-foreground font-medium">{selectedMember.nom}</p>}
+          </div>
+        </CardHeader>
+        <CardContent>
+            <DonationsTable selectedMemberId={selectedMember?.id ?? null} />
+        </CardContent>
+      </Card>
 
       <Dialog open={isDonationFormOpen} onOpenChange={setIsDonationFormOpen}>
         <DialogContent className="sm:max-w-4xl">
