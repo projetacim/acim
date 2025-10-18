@@ -28,6 +28,7 @@ import {
   SidebarSeparator,
   SidebarMenuSub,
   SidebarMenuSubButton,
+  SidebarTrigger,
 } from '@/components/ui/sidebar';
 import { Loader2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -128,6 +129,14 @@ export default function AppLayout({
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
+            <SidebarMenuItem>
+                <SidebarMenuButton asChild tooltip="Membres">
+                    <Link href="/">
+                        <Users />
+                        <span>Membres</span>
+                    </Link>
+                </SidebarMenuButton>
+            </SidebarMenuItem>
             
             <Collapsible asChild>
               <SidebarMenuItem>
@@ -210,6 +219,13 @@ export default function AppLayout({
         </SidebarFooter>
       </Sidebar>
       <SidebarInset>
+        <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background px-4 md:hidden">
+          <SidebarTrigger />
+          <div className="flex items-center gap-2">
+            <Image src="/logo.png" alt="ACIM Logo" width={28} height={28} />
+            <span className="font-semibold">ACIM</span>
+          </div>
+        </header>
         <main className="flex-1 p-4 md:p-6">{children}</main>
       </SidebarInset>
     </SidebarProvider>
