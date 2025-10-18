@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useFirestore, addDocumentNonBlocking, setDocumentNonBlocking, useUser } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
+import { collection, doc, getDocs } from 'firebase/firestore';
 import type { Donation, Member, DonationCategory, Transaction, Payment } from '@/lib/types';
 import { useForm, useFieldArray, type SubmitHandler, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -73,14 +73,22 @@ export function DonationForm({ member, donation, onFinished }: DonationFormProps
 
   const form = useForm<DonationFormValues>({
     resolver: zodResolver(donationSchema),
-    defaultValues: {
-      memberId: member.id,
-      type: 'Don',
-      donationCategoryId: '',
-      totalAmount: 0,
-      payments: [],
-      memo: '',
-      cerfaEligible: false,
+    defaultValues: isEditMode && donation ? {
+        memberId: donation.memberId,
+        type: donation.type,
+        donationCategoryId: donation.donationCategoryId || '',
+        totalAmount: donation.totalAmount,
+        payments: donation.payments.map(p => ({...p, date: new Date(p.date)})),
+        memo: donation.memo || '',
+        cerfaEligible: donation.cerfaEligible,
+    } : {
+        memberId: member.id,
+        type: 'Don',
+        donationCategoryId: '',
+        totalAmount: 0,
+        payments: [{ amount: 0, date: new Date(), paymentMethod: 'Espèces' }],
+        memo: '',
+        cerfaEligible: false,
     },
   });
   
@@ -91,18 +99,25 @@ export function DonationForm({ member, donation, onFinished }: DonationFormProps
 
   // Fetch categories
   useEffect(() => {
-    if (!firestore) return;
-    setIsLoadingCategories(true);
-    const catRef = collection(firestore, 'donationCategories');
-    const { getDocs } = require('firebase/firestore');
-    getDocs(catRef).then(snapshot => {
-      const cats = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as DonationCategory[];
-      setCategories(cats);
-      setIsLoadingCategories(false);
-    });
-  }, [firestore]);
+    async function fetchCategories() {
+        if (!firestore) return;
+        setIsLoadingCategories(true);
+        try {
+            const catRef = collection(firestore, 'donationCategories');
+            const snapshot = await getDocs(catRef);
+            const cats = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as DonationCategory[];
+            setCategories(cats);
+        } catch (error) {
+            console.error("Failed to fetch donation categories:", error);
+            toast({ variant: "destructive", title: "Erreur", description: "Impossible de charger les catégories de dons." });
+        } finally {
+            setIsLoadingCategories(false);
+        }
+    }
+    fetchCategories();
+  }, [firestore, toast]);
 
-  // Populate form for editing or new
+  // Populate form for editing
   useEffect(() => {
     if (isEditMode && donation) {
       form.reset({
@@ -114,16 +129,16 @@ export function DonationForm({ member, donation, onFinished }: DonationFormProps
         memo: donation.memo || '',
         cerfaEligible: donation.cerfaEligible,
       });
-    } else {
-      form.reset({
-        memberId: member.id,
-        type: 'Don',
-        donationCategoryId: '',
-        totalAmount: 0,
-        payments: [{ amount: 0, date: new Date(), paymentMethod: 'Espèces' }],
-        memo: '',
-        cerfaEligible: false,
-      });
+    } else if (!isEditMode) {
+         form.reset({
+            memberId: member.id,
+            type: 'Don',
+            donationCategoryId: '',
+            totalAmount: 0,
+            payments: [{ amount: 0, date: new Date(), paymentMethod: 'Espèces' }],
+            memo: '',
+            cerfaEligible: false,
+        });
     }
   }, [isEditMode, donation, member, form]);
 

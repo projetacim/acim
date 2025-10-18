@@ -1,7 +1,7 @@
 'use client';
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
-import { useFirestore, useCollection, useMemoFirebase, deleteDocumentNonBlocking, useUser, addDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, deleteDocumentNonBlocking, useUser } from '@/firebase';
 import { collection, doc, getDocs, query, where } from 'firebase/firestore';
 import {
   Table,
@@ -109,18 +109,29 @@ export function DonationsTable() {
     // Also delete associated transactions
     const transactionCollectionRef = collection(firestore, 'users', user.uid, 'transactions');
     const q = query(transactionCollectionRef, where("relatedId", "==", selectedDonation.id));
-    const querySnapshot = await getDocs(q);
-    querySnapshot.forEach(async (document) => {
-        await deleteDocumentNonBlocking(document.ref);
-    });
+    
+    try {
+      const querySnapshot = await getDocs(q);
+      const deletePromises = querySnapshot.docs.map(document => deleteDocumentNonBlocking(document.ref));
+      await Promise.all(deletePromises);
+  
+      await deleteDocumentNonBlocking(donationDocRef);
+  
+      toast({
+        variant: 'destructive',
+        title: 'Don supprimé',
+        description: `Le don de ${selectedDonation.memberName} et les transactions associées ont été supprimés.`,
+      });
+    } catch (error) {
+       console.error("Error deleting donation and/or transactions:", error);
+       toast({
+        variant: 'destructive',
+        title: 'Erreur de suppression',
+        description: "Une erreur est survenue.",
+      });
+    }
 
-    await deleteDocumentNonBlocking(donationDocRef);
 
-    toast({
-      variant: 'destructive',
-      title: 'Don supprimé',
-      description: `Le don de ${selectedDonation.memberName} et les transactions associées ont été supprimés.`,
-    });
     setIsDeleteAlertOpen(false);
     setSelectedDonation(null);
   };
@@ -152,7 +163,9 @@ export function DonationsTable() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
                <CardTitle>Historique des dons</CardTitle>
-                <Popover open={openMemberPopover} onOpenChange={setOpenMemberPopover}>
+            </div>
+            <div className="flex items-center gap-2">
+                 <Popover open={openMemberPopover} onOpenChange={setOpenMemberPopover}>
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
@@ -171,7 +184,10 @@ export function DonationsTable() {
                         <CommandList>
                           <CommandEmpty>Aucun membre trouvé.</CommandEmpty>
                            <CommandGroup>
-                             <CommandItem onSelect={() => setSelectedMemberId(null)}>
+                             <CommandItem onSelect={() => {
+                                 setSelectedMemberId(null);
+                                 setOpenMemberPopover(false);
+                                }}>
                                 <Check className={cn("mr-2 h-4 w-4", !selectedMemberId ? "opacity-100" : "opacity-0")} />
                                 Tous les membres
                             </CommandItem>
@@ -200,12 +216,10 @@ export function DonationsTable() {
                       </Command>
                     </PopoverContent>
                   </Popover>
-            </div>
-            <div className="flex items-center gap-2">
               {selectedMember && (
                 <Button onClick={() => handleOpenForm()}>
                   <PlusCircle className="mr-2 h-4 w-4" />
-                  Ajouter un don pour {selectedMember.nom}
+                  Ajouter un don
                 </Button>
               )}
             </div>
@@ -217,9 +231,10 @@ export function DonationsTable() {
               <TableRow>
                 <TableHead>Membre</TableHead>
                 <TableHead>Type</TableHead>
-                <TableHead className="text-right">Montant</TableHead>
-                <TableHead className="text-right">Payé</TableHead>
-                <TableHead>Statut</TableHead>
+                <TableHead className="text-right">Montant Total</TableHead>
+                <TableHead className="text-right">Montant Payé</TableHead>
+                <TableHead>Statut Paiement</TableHead>
+                <TableHead>Date</TableHead>
                 <TableHead>Éligible CERFA</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -232,6 +247,7 @@ export function DonationsTable() {
                   <TableCell className="text-right"><Skeleton className="h-4 w-16" /></TableCell>
                   <TableCell className="text-right"><Skeleton className="h-4 w-16" /></TableCell>
                   <TableCell><Skeleton className="h-6 w-24 rounded-full" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                   <TableCell><Skeleton className="h-6 w-6 rounded-full" /></TableCell>
                   <TableCell className="text-right"><Skeleton className="h-8 w-20" /></TableCell>
                 </TableRow>
@@ -245,6 +261,7 @@ export function DonationsTable() {
                   <TableCell className="text-right">{donation.totalAmount.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})}</TableCell>
                   <TableCell className="text-right">{getPaidAmount(donation.payments).toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})}</TableCell>
                   <TableCell>{getStatusBadge(donation.paymentStatus)}</TableCell>
+                  <TableCell>{new Date(donation.createdAt).toLocaleDateString('fr-FR')}</TableCell>
                   <TableCell>
                     {donation.cerfaEligible 
                         ? <CheckCircle className="h-5 w-5 text-green-500" /> 
@@ -266,7 +283,7 @@ export function DonationsTable() {
               ))}
                {!isLoading && donationsWithMemberNames.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="p-6 text-center text-muted-foreground">
+                  <TableCell colSpan={8} className="p-6 text-center text-muted-foreground">
                     {selectedMemberId ? 'Aucun don pour ce membre.' : 'Aucun don trouvé. Sélectionnez un membre pour commencer.'}
                   </TableCell>
                 </TableRow>
