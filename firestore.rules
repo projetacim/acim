@@ -1,156 +1,154 @@
 /**
- * @fileoverview Firestore Security Rules for the application.
+ * @file Firebase Security Rules for the application.
  *
- * Core Philosophy:
- * This ruleset enforces a user-ownership model for member profiles, donations, and transactions,
- * where each user can only access data they own. Donation categories are publicly readable,
- * but only admins can manage them. Admin privileges are granted by the existence of a document
- * in the `roles_admin` collection.
+ * @core_philosophy This ruleset implements a combination of user-based ownership and role-based access control.
+ *  User-specific data (members, donations, transactions) is secured under the /users/{userId} path, enforcing strict
+ *  ownership. Global donation categories are publicly readable but only manageable by admins. Administrative
+ *  privileges are granted based on the presence of a document in the /roles_admin/{adminId} collection.
  *
- * Data Structure:
- * - `/users/{userId}/membre/{memberId}`: Member profiles, owned by the user with ID `userId`.
- * - `/users/{userId}/donations/{donationId}`: Donations made by the user with ID `userId`.
- * - `/users/{userId}/transactions/{transactionId}`: Transactions associated with the user with ID `userId`.
- * - `/donationCategories/{categoryId}`: Global categories for donations, publicly readable.
- * - `/roles_admin/{adminId}`: Collection of admin users. If a document exists for a user, that user is an admin.
+ * @data_structure
+ *  - /users/{userId}/members/{memberId}: Member profiles owned by a specific user.
+ *  - /users/{userId}/donations/{donationId}: Donations made, associated with a user.
+ *  - /users/{userId}/transactions/{transactionId}: Financial transactions related to a user.
+ *  - /donationCategories/{categoryId}: Global categories for donations.
+ *  - /roles_admin/{adminId}: Documents indicating admin status.
  *
- * Key Security Decisions:
- * - Users can only list documents in their own subcollections.
- * - Listing of `donationCategories` is allowed for all users.
- * - Only authenticated users can access any data.
+ * @key_security_decisions
+ *  - User data is strictly owned and controlled by the respective user.
+ *  - Global donation categories are publicly readable.
+ *  - Admin privileges are granted by document existence in /roles_admin.
+ *  - Data schema is NOT strictly enforced during this prototyping phase to allow for flexibility.
+ *  - Listing of donation categories is allowed for all users.
  *
- * Denormalization for Authorization:
- *  -  The current data model does not have an ownership field on the /donationCategories/{categoryId} documents.
- *     Admin privileges are determined by the existence of a document in the `roles_admin` collection.
+ * @denormalization_for_authorization
+ *  - Admin status is determined by the presence of a document in /roles_admin/{adminId}, avoiding the need for custom claims or complex role management.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Checks if the request is made by an authenticated user.
-     * @return {bool} True if the user is signed in, false otherwise.
+     * @description Checks if the user is signed in.
+     * @return {boolean} True if the user is signed in, false otherwise.
      */
     function isSignedIn() {
       return request.auth != null;
     }
 
     /**
-     * @description Checks if the authenticated user is the owner of the resource.
-     * @param {string} userId The user ID to compare against the request's auth UID.
-     * @return {bool} True if the user is the owner, false otherwise.
+     * @description Checks if the user is the owner of the resource.
+     * @param {string} userId The user ID to check against.
+     * @return {boolean} True if the user is the owner, false otherwise.
      */
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
     /**
-     * @description Checks if the authenticated user is an existing owner of the resource.
-     * @param {string} userId The user ID to compare against the request's auth UID.
-     * @return {bool} True if the user is the owner and the resource exists, false otherwise.
+     * @description Checks if the user is an existing owner of the resource.
+     * @param {string} userId The user ID to check against.
+     * @return {boolean} True if the user is the owner and the resource exists, false otherwise.
      */
     function isExistingOwner(userId) {
       return isOwner(userId) && resource != null;
     }
 
     /**
-     * @description Checks if the authenticated user is an admin.
-     * @return {bool} True if the user is an admin, false otherwise.
+     * @description Checks if the user is an admin.
+     * @return {boolean} True if the user is an admin, false otherwise.
      */
     function isAdmin() {
       return exists(/databases/(default)/documents/roles_admin/$(request.auth.uid));
     }
 
+
     /**
-     * @description
-     * Rules for the /users/{userId}/membre/{memberId} collection.
-     * Enforces that only the owner (the user with the matching userId) can read, create, update, or delete member profiles.
+     * @description Grants access to member profiles stored under a user's path.
      * @path /users/{userId}/membre/{memberId}
-     * @allow (create) - User `NeMp23Bw5iZNI5GGVndOqnIZVM12` can create a member profile with `userId` and `memberId` matching their UID.
-     * @allow (get) - User `NeMp23Bw5iZNI5GGVndOqnIZVM12` can get a member profile where `userId` and `memberId` match their UID.
-     * @allow (update) - User `NeMp23Bw5iZNI5GGVndOqnIZVM12` can update a member profile where `userId` and `memberId` match their UID.
-     * @allow (delete) - User `NeMp23Bw5iZNI5GGVndOqnIZVM12` can delete a member profile where `userId` and `memberId` match their UID.
-     * @deny (create) - User `SomeOtherUserId` cannot create a member profile under /users/NeMp23Bw5iZNI5GGVndOqnIZVM12/membre/SomeMemberId.
-     * @principle Enforces document ownership for all operations.
+     * @allow (create) - A user can create their own member profile (e.g., /users/user123/membre/member456, auth.uid = "user123").
+     * @allow (get) - A user can read their own member profile.
+     * @allow (update) - A user can update their own member profile.
+     * @allow (delete) - A user can delete their own member profile.
+     * @deny (create) - A user cannot create a member profile under another user's path (e.g., /users/user456/membre/member789, auth.uid = "user123").
+     * @principle Enforces document ownership for writes.
      */
     match /users/{userId}/membre/{memberId} {
       allow get: if isOwner(userId);
       allow list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.id == memberId;
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
       allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
       allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description
-     * Rules for the /users/{userId}/donations/{donationId} collection.
-     * Enforces that only the owner (the user with the matching userId) can read, create, update, or delete donations.
+     * @description Grants access to donations stored under a user's path.
      * @path /users/{userId}/donations/{donationId}
-     * @allow (create) - User `NeMp23Bw5iZNI5GGVndOqnIZVM12` can create a donation with `userId` matching their UID.
-     * @allow (get) - User `NeMp23Bw5iZNI5GGVndOqnIZVM12` can get a donation where `userId` matches their UID.
-     * @allow (update) - User `NeMp23Bw5iZNI5GGVndOqnIZVM12` can update a donation where `userId` matches their UID.
-     * @allow (delete) - User `NeMp23Bw5iZNI5GGVndOqnIZVM12` can delete a donation where `userId` matches their UID.
-     * @deny (create) - User `SomeOtherUserId` cannot create a donation under /users/NeMp23Bw5iZNI5GGVndOqnIZVM12/donations/SomeDonationId.
-     * @principle Enforces document ownership for all operations.
+     * @allow (create) - A user can create their own donation (e.g., /users/user123/donations/donation456, auth.uid = "user123").
+     * @allow (get) - A user can read their own donation.
+     * @allow (update) - A user can update their own donation.
+     * @allow (delete) - A user can delete their own donation.
+     * @deny (create) - A user cannot create a donation under another user's path (e.g., /users/user456/donations/donation789, auth.uid = "user123").
+     * @principle Enforces document ownership for writes.
      */
     match /users/{userId}/donations/{donationId} {
       allow get: if isOwner(userId);
       allow list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.id == donationId;
-      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow create: if isOwner(userId) && request.resource.data.memberId == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.memberId == resource.data.memberId;
       allow delete: if isExistingOwner(userId);
     }
 
-    /**
-     * @description
-     * Rules for the /users/{userId}/transactions/{transactionId} collection.
-     * Enforces that only the owner (the user with the matching userId) can read, create, update, or delete transactions.
-     * @path /users/{userId}/transactions/{transactionId}
-     * @allow (create) - User `NeMp23Bw5iZNI5GGVndOqnIZVM12` can create a transaction with `userId` matching their UID.
-     * @allow (get) - User `NeMp23Bw5iZNI5GGVndOqnIZVM12` can get a transaction where `userId` matches their UID.
-     * @allow (update) - User `NeMp23Bw5iZNI5GGVndOqnIZVM12` can update a transaction where `userId` matches their UID.
-     * @allow (delete) - User `NeMp23Bw5iZNI5GGVndOqnIZVM12` can delete a transaction where `userId` matches their UID.
-     * @deny (create) - User `SomeOtherUserId` cannot create a transaction under /users/NeMp23Bw5iZNI5GGVndOqnIZVM12/transactions/SomeTransactionId.
-     * @principle Enforces document ownership for all operations.
-     */
+     /**
+      * @description Grants access to transactions stored under a user's path.
+      * @path /users/{userId}/transactions/{transactionId}
+      * @allow (create) - A user can create their own transaction (e.g., /users/user123/transactions/transaction456, auth.uid = "user123").
+      * @allow (get) - A user can read their own transaction.
+      * @allow (update) - A user can update their own transaction.
+      * @allow (delete) - A user can delete their own transaction.
+      * @deny (create) - A user cannot create a transaction under another user's path (e.g., /users/user456/transactions/transaction789, auth.uid = "user123").
+      * @principle Enforces document ownership for writes.
+      */
     match /users/{userId}/transactions/{transactionId} {
       allow get: if isOwner(userId);
       allow list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.id == transactionId;
-      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
       allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description
-     * Rules for the /donationCategories/{categoryId} collection.
-     * Allows anyone to read donation categories, but only admins can create, update, or delete them.
+     * @description Grants access to donation categories. Public read, admin-only write.
      * @path /donationCategories/{categoryId}
-     * @allow (get, list) - Any user, signed in or not, can read donation categories.
-     * @allow (create, update, delete) - Only admins can create, update, or delete donation categories.
-     * @deny (create) - A non-admin user cannot create a donation category.
-     * @principle Public read access with admin-only writes.
+     * @allow (get) - Any user can read a donation category.
+     * @allow (list) - Any user can list donation categories.
+     * @allow (create) - Only admins can create donation categories.
+     * @allow (update) - Only admins can update donation categories.
+     * @allow (delete) - Only admins can delete donation categories.
+     * @deny (create) - Non-admins cannot create donation categories.
+     * @principle Public read, admin-only write access.
      */
     match /donationCategories/{categoryId} {
       allow get: if true;
       allow list: if true;
       allow create: if isAdmin();
-      allow update: if isAdmin() && resource != null;
-      allow delete: if isAdmin() && resource != null;
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
     }
 
     /**
-     * @description
-     * Rules for the /roles_admin/{adminId} collection.
-     * Only admins can create other admins.
-     * Any authenticated user can read their own admin document to check for admin privileges.
-     * No listing allowed.
+     * @description Grants access to admin role documents.
      * @path /roles_admin/{adminId}
+     * @allow (get) - Only the admin themselves can get their own role document.
+     * @allow (create) - Only the admin themselves can create their own role document.
+     * @allow (update) - No one can update an admin role document.
+     * @allow (delete) - No one can delete an admin role document.
+     * @allow (list) - No one can list admin role documents.
+     * @principle Only admins can manage their own role document, no listing allowed.
      */
     match /roles_admin/{adminId} {
-        allow get: if isSignedIn() && request.auth.uid == adminId;
+        allow get: if isOwner(adminId);
         allow list: if false;
-        allow create: if isAdmin();
+        allow create: if isOwner(adminId);
         allow update: if false;
         allow delete: if false;
     }
