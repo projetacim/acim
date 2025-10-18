@@ -1,7 +1,8 @@
+
 'use client';
 
 import { useState } from 'react';
-import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
+import { useFirestore, addDocumentNonBlocking, setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -10,6 +11,7 @@ import { MoreHorizontal, PlusCircle, Pencil, Trash2 } from 'lucide-react';
 
 import type { DonationCategory } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
+import { useData } from '@/app/(app)/data-provider';
 
 import {
   Table,
@@ -67,13 +69,7 @@ type CategoryFormValues = z.infer<typeof categorySchema>;
 export function DonationCategories() {
   const firestore = useFirestore();
   const { toast } = useToast();
-
-  const categoriesCollection = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return collection(firestore, 'donationCategories');
-  }, [firestore]);
-
-  const { data: categories, isLoading } = useCollection<DonationCategory>(categoriesCollection);
+  const { categories, isLoading } = useData();
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);

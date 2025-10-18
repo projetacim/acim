@@ -1,8 +1,8 @@
 
 'use client';
 import { useState, useMemo, useEffect } from 'react';
-import { useFirestore, useCollection, useMemoFirebase, useUser, updateDocumentNonBlocking } from '@/firebase';
-import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
+import { useFirestore, useUser, updateDocumentNonBlocking } from '@/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 import {
   Table,
   TableBody,
@@ -28,6 +28,7 @@ import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useData } from '@/app/(app)/data-provider';
 
 
 type DonationWithMemberAndCategory = Donation & { memberName: string; categoryName?: string };
@@ -53,17 +54,10 @@ export function CerfaTable() {
   const firestore = useFirestore();
   const { user } = useUser();
   const { toast } = useToast();
+  const { members, donations, categories, isLoading } = useData();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
-
-  const membersCollection = useMemoFirebase(() => user ? collection(firestore, 'users', user.uid, 'membre') : null, [firestore, user]);
-  const donationsCollection = useMemoFirebase(() => user ? query(collection(firestore, 'users', user.uid, 'donations'), where('cerfaNumber', '!=', '')) : null, [firestore, user]);
-  const categoriesCollection = useMemoFirebase(() => user ? collection(firestore, 'donationCategories') : null, [firestore, user]);
-
-  const { data: members, isLoading: isLoadingMembers } = useCollection<Member>(membersCollection);
-  const { data: donations, isLoading: isLoadingDonations } = useCollection<Donation>(donationsCollection);
-  const { data: categories, isLoading: isLoadingCategories } = useCollection<DonationCategory>(categoriesCollection);
 
   const cerfaDonations = useMemo(() => {
     if (!donations || !members || !categories) return [];
@@ -190,8 +184,6 @@ export function CerfaTable() {
         toast({ variant: 'destructive', title: 'Erreur PDF', description: 'La génération du fichier CERFA a échoué.' });
     }
   };
-
-  const isLoading = isLoadingMembers || isLoadingDonations || isLoadingCategories;
 
   return (
     <>

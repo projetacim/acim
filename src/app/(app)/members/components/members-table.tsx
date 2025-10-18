@@ -3,7 +3,7 @@
 
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, setDocumentNonBlocking, deleteDocumentNonBlocking, useUser } from '@/firebase';
+import { useFirestore, addDocumentNonBlocking, setDocumentNonBlocking, deleteDocumentNonBlocking, useUser } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import * as XLSX from 'xlsx';
 import {
@@ -64,6 +64,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useData } from '@/app/(app)/data-provider';
 
 
 const memberSchema = z.object({
@@ -86,14 +87,7 @@ interface MembersTableProps {
 export function MembersTable({ onMemberSelect, selectedMember, onAddDonation }: MembersTableProps) {
   const firestore = useFirestore();
   const { user } = useUser();
-  const router = useRouter();
-
-  const membersCollection = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    return collection(firestore, 'users', user.uid, 'membre');
-  }, [firestore, user]);
-
-  const { data: members, isLoading } = useCollection<Member>(membersCollection);
+  const { members, isLoading, error } = useData();
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
@@ -196,7 +190,7 @@ export function MembersTable({ onMemberSelect, selectedMember, onAddDonation }: 
       await setDocumentNonBlocking(docRef, memberData, { merge: true });
       toast({ title: 'Membre mis à jour', description: `Les informations de ${data.nom} ont été mises à jour.` });
     } else {
-      if (!membersCollection) return;
+      const membersCollection = collection(firestore, 'users', user.uid, 'membre');
       await addDocumentNonBlocking(membersCollection, { ...memberData, joinDate: new Date().toISOString() });
       toast({ title: 'Membre ajouté', description: `${data.nom} a été ajouté à la liste.` });
     }

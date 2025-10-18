@@ -6,7 +6,7 @@ import { MembersTable } from './members/components/members-table';
 import { DonationsTable } from './donations/components/donations-table';
 import { PendingDonationsTable } from './donations/components/pending-donations-table';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
-import type { Member } from '@/lib/types';
+import type { Member, Donation, DonationCategory } from '@/lib/types';
 import {
   Dialog,
   DialogContent,
@@ -16,13 +16,15 @@ import {
 } from '@/components/ui/dialog';
 import { DonationForm } from './donations/components/donation-form';
 import { useRouter } from 'next/navigation';
+import { DataProvider, useData } from '@/app/(app)/data-provider';
+import { Loader2 } from 'lucide-react';
 
-export default function DashboardPage() {
+function DashboardContent() {
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [isDonationFormOpen, setIsDonationFormOpen] = useState(false);
   const [editingDonationId, setEditingDonationId] = useState<string | null>(null);
-  const router = useRouter();
-
+  
+  const { isLoading: isLoadingData } = useData();
 
   const handleAddDonationClick = (member: Member) => {
     if (member) {
@@ -31,24 +33,23 @@ export default function DashboardPage() {
       setIsDonationFormOpen(true);
     }
   };
-
-  const handleEditDonationClick = (donationId: string, member: Member) => {
-    setSelectedMember(member);
-    setEditingDonationId(donationId);
-    setIsDonationFormOpen(true);
-  }
   
   const onDonationFormClose = () => {
     setIsDonationFormOpen(false);
-    setSelectedMember(null);
+    // Keep member selected
     setEditingDonationId(null);
-    // Maybe refresh data here if needed
   }
 
   const handleMemberSelect = (member: Member | null) => {
-    // If we click the same member, we still want to keep it selected
-    // It will be deselected only by clicking on another member or a dedicated clear button if we add one.
     setSelectedMember(member);
+  }
+  
+  if (isLoadingData) {
+     return (
+      <div className="flex h-[80vh] w-full items-center justify-center">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
   }
 
   return (
@@ -102,4 +103,13 @@ export default function DashboardPage() {
       </Dialog>
     </div>
   );
+}
+
+
+export default function DashboardPage() {
+  return (
+    <DataProvider>
+      <DashboardContent />
+    </DataProvider>
+  )
 }

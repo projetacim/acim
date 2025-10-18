@@ -1,3 +1,4 @@
+
 'use client';
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
@@ -12,7 +13,7 @@ import {
   ChevronDown,
   Settings,
 } from 'lucide-react';
-import { useUser, useAuth, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useUser, useAuth, useFirestore, useMemoFirebase } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { collection } from 'firebase/firestore';
 import {
@@ -36,22 +37,14 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import type { Member, Donation } from '@/lib/types';
 import Image from 'next/image';
+import { useData, DataProvider } from '@/app/(app)/data-provider';
 
 
 function Stats() {
-  const firestore = useFirestore();
-  const { user } = useUser();
-
-  const membersCollection = useMemoFirebase(() => user ? collection(firestore, 'users', user.uid, 'membre') : null, [firestore, user]);
-  const donationsCollection = useMemoFirebase(() => user ? collection(firestore, 'users', user.uid, 'donations') : null, [firestore, user]);
-
-  const { data: members, isLoading: isLoadingMembers } = useCollection<Member>(membersCollection);
-  const { data: donations, isLoading: isLoadingDonations } = useCollection<Donation>(donationsCollection);
+  const { members, donations, isLoading } = useData();
   
   const totalMembers = useMemo(() => members?.length || 0, [members]);
   const totalDonations = useMemo(() => donations?.reduce((sum, d) => sum + d.totalAmount, 0) || 0, [donations]);
-
-  const isLoading = isLoadingMembers || isLoadingDonations;
 
   return (
      <div className="flex flex-col gap-4 px-2">
@@ -74,7 +67,7 @@ function Stats() {
 }
 
 
-export default function AppLayout({
+function AppLayoutContent({
   children,
 }: {
   children: React.ReactNode;
@@ -234,5 +227,17 @@ export default function AppLayout({
         <main className="flex-1 p-4 md:p-6">{children}</main>
       </SidebarInset>
     </SidebarProvider>
-  );
+  )
+}
+
+export default function AppLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+     <DataProvider>
+        <AppLayoutContent>{children}</AppLayoutContent>
+    </DataProvider>
+  )
 }

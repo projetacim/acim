@@ -1,7 +1,7 @@
 
 'use client';
 import { useState, useMemo, useEffect } from 'react';
-import { useFirestore, useCollection, useMemoFirebase, deleteDocumentNonBlocking, useUser, updateDocumentNonBlocking } from '@/firebase';
+import { useFirestore, deleteDocumentNonBlocking, useUser, updateDocumentNonBlocking } from '@/firebase';
 import { collection, doc, getDocs, query, where, updateDoc, getDoc } from 'firebase/firestore';
 import {
   Table,
@@ -35,6 +35,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { useData } from '@/app/(app)/data-provider';
 
 
 type DonationWithDetails = Donation & { memberName: string; categoryName?: string; };
@@ -66,13 +67,7 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
   const { toast } = useToast();
   const router = useRouter();
 
-  const membersCollection = useMemoFirebase(() => user ? collection(firestore, 'users', user.uid, 'membre') : null, [firestore, user]);
-  const donationsCollection = useMemoFirebase(() => user ? collection(firestore, 'users', user.uid, 'donations') : null, [firestore, user]);
-  const categoriesCollection = useMemoFirebase(() => user ? collection(firestore, 'donationCategories') : null, [firestore, user]);
-
-  const { data: members, isLoading: isLoadingMembers, error: membersError } = useCollection<Member>(membersCollection);
-  const { data: donations, isLoading: isLoadingDonations, error: donationsError } = useCollection<Donation>(donationsCollection);
-  const { data: categories, isLoading: isLoadingCategories, error: categoriesError } = useCollection<DonationCategory>(categoriesCollection);
+  const { members, donations, categories, isLoading } = useData();
   
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [isCancelAlertOpen, setIsCancelAlertOpen] = useState(false);
@@ -258,8 +253,6 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
         return <Badge variant="secondary">Inconnu</Badge>;
     }
   };
-
-  const isLoading = isLoadingMembers || isLoadingDonations || isLoadingCategories;
 
   return (
     <>

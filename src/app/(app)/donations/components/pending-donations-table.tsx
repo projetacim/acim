@@ -1,8 +1,6 @@
 
 'use client';
 import { useMemo } from 'react';
-import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
-import { collection } from 'firebase/firestore';
 import {
   Table,
   TableBody,
@@ -15,6 +13,8 @@ import { Badge } from '@/components/ui/badge';
 import type { Donation, Member, Payment, DonationCategory } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRouter } from 'next/navigation';
+import { useData } from '@/app/(app)/data-provider';
+
 
 type DonationWithMemberName = Donation & { memberName: string; categoryName?: string };
 
@@ -23,17 +23,8 @@ interface PendingDonationsTableProps {
 }
 
 export function PendingDonationsTable({ selectedMemberId }: PendingDonationsTableProps) {
-  const firestore = useFirestore();
-  const { user } = useUser();
   const router = useRouter();
-
-  const membersCollection = useMemoFirebase(() => user ? collection(firestore, 'users', user.uid, 'membre') : null, [firestore, user]);
-  const donationsCollection = useMemoFirebase(() => user ? collection(firestore, 'users', user.uid, 'donations') : null, [firestore, user]);
-  const categoriesCollection = useMemoFirebase(() => user ? collection(firestore, 'donationCategories') : null, [firestore, user]);
-
-  const { data: members, isLoading: isLoadingMembers } = useCollection<Member>(membersCollection);
-  const { data: donations, isLoading: isLoadingDonations } = useCollection<Donation>(donationsCollection);
-  const { data: categories, isLoading: isLoadingCategories } = useCollection<DonationCategory>(categoriesCollection);
+  const { members, donations, categories, isLoading } = useData();
   
   const pendingDonations = useMemo(() => {
     if (!donations || !members || !selectedMemberId || !categories) return [];
@@ -69,8 +60,6 @@ export function PendingDonationsTable({ selectedMemberId }: PendingDonationsTabl
         return <Badge variant="secondary">Inconnu</Badge>;
     }
   };
-
-  const isLoading = isLoadingMembers || isLoadingDonations || isLoadingCategories;
 
   if (!selectedMemberId) {
     return (
@@ -131,3 +120,4 @@ export function PendingDonationsTable({ selectedMemberId }: PendingDonationsTabl
       </div>
   );
 }
+
