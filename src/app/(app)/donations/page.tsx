@@ -31,13 +31,6 @@ export default function MembersPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Membres et Dons</h1>
-        <p className="text-muted-foreground">
-          Gérez les membres et leurs contributions sur une seule page.
-        </p>
-      </div>
-
       <Card>
         <CardHeader>
           <CardTitle>Membres</CardTitle>
