@@ -80,13 +80,24 @@ export function DonationsTable() {
   
   const handleDelete = async () => {
     if (!firestore || !selectedDonation || !user) return;
-    // TODO: Also delete the associated transactions
-    const docRef = doc(firestore, 'users', user.uid, 'donations', selectedDonation.id);
-    await deleteDocumentNonBlocking(docRef);
+    const donationDocRef = doc(firestore, 'users', user.uid, 'donations', selectedDonation.id);
+    
+    // Find related transactions and delete them
+    // This is a simple implementation. For large datasets, a Cloud Function would be better.
+    const transactionCollectionRef = collection(firestore, 'users', user.uid, 'transactions');
+    const { getDocs, query, where } = await import('firebase/firestore');
+    const q = query(transactionCollectionRef, where("relatedId", "==", selectedDonation.id));
+    const querySnapshot = await getDocs(q);
+    querySnapshot.forEach(async (document) => {
+        await deleteDocumentNonBlocking(document.ref);
+    });
+
+    await deleteDocumentNonBlocking(donationDocRef);
+
     toast({
       variant: 'destructive',
       title: 'Don supprimé',
-      description: `Le don de ${selectedDonation.memberName} a été supprimé.`,
+      description: `Le don de ${selectedDonation.memberName} et les transactions associées ont été supprimés.`,
     });
     setIsDeleteAlertOpen(false);
     setSelectedDonation(null);
@@ -123,7 +134,7 @@ export function DonationsTable() {
         <CardHeader>
              <div className="flex items-center justify-between">
                 <CardTitle>Historique</CardTitle>
-                <Button onClick={() => setIsTestDialogOpen(true)}>
+                <Button onClick={() => router.push('/donations/new')}>
                   <PlusCircle className="mr-2 h-4 w-4" />
                   Ajouter
                 </Button>
@@ -199,7 +210,7 @@ export function DonationsTable() {
           <AlertDialogHeader>
             <AlertDialogTitle>Êtes-vous sûr ?</AlertDialogTitle>
             <AlertDialogDescription>
-              Cette action est irréversible. Le don de {selectedDonation?.totalAmount}€ par {selectedDonation?.memberName} sera supprimé.
+              Cette action est irréversible. Le don de {selectedDonation?.totalAmount}€ par {selectedDonation?.memberName} sera supprimé, ainsi que toutes les transactions associées.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -211,68 +222,6 @@ export function DonationsTable() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Test Dialog */}
-      <Dialog open={isTestDialogOpen} onOpenChange={setIsTestDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Test de sélection de membre</DialogTitle>
-            <DialogDescription>
-              Ceci est un test pour isoler le combobox.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-              <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    aria-expanded={openCombobox}
-                    className="w-full justify-between"
-                  >
-                    {selectedTestMemberId
-                      ? members?.find((member) => member.id === selectedTestMemberId)?.nom
-                      : "Sélectionner un membre..."}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                  <Command>
-                    <CommandInput placeholder="Rechercher un membre..." />
-                    <CommandList>
-                      <CommandEmpty>Aucun membre trouvé.</CommandEmpty>
-                      <CommandGroup>
-                        {members?.map((member) => (
-                          <CommandItem
-                            key={member.id}
-                            value={member.nom}
-                            onSelect={(currentValue) => {
-                              setSelectedTestMemberId(member.id);
-                              setOpenCombobox(false);
-                            }}
-                          >
-                            <Check
-                              className={cn(
-                                "mr-2 h-4 w-4",
-                                selectedTestMemberId === member.id ? "opacity-100" : "opacity-0"
-                              )}
-                            />
-                            {member.nom}
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-
-              {selectedTestMember && (
-                <div className="mt-4 text-sm text-center">
-                    Membre sélectionné : <span className='font-bold'>{selectedTestMember.nom}</span>
-                </div>
-              )}
-          </div>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }
