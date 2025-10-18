@@ -260,7 +260,7 @@ export function MembersTable({ onMemberSelect, selectedMember, onAddDonation }: 
                 placeholder="Rechercher par nom, email ou mémo..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
+                className="pl-9 border-black bg-slate-100 dark:bg-slate-800"
               />
             </div>
             <div className="flex items-center gap-2">
@@ -509,3 +509,5 @@ export function MembersTable({ onMemberSelect, selectedMember, onAddDonation }: 
     </>
   );
 }
+
+    
