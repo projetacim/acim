@@ -44,7 +44,7 @@ export default function DashboardPage() {
       </Card>
 
       {selectedMember && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="flex flex-col gap-6">
           <Card>
             <CardHeader>
               <CardTitle>Dons en attente et partiels</CardTitle>
@@ -55,7 +55,7 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
           
-          <Card className="lg:col-span-2">
+          <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <div className="space-y-1">
                 <CardTitle>Historique des dons</CardTitle>
