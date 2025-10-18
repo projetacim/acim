@@ -127,6 +127,7 @@ export function DonationsTable() {
   const donationType = useWatch({ control: form.control, name: 'type' });
   
   const paidAmount = useMemo(() => {
+    if (!watchPayments) return 0;
     return watchPayments.reduce((acc, p) => acc + (p.amount || 0), 0);
   }, [watchPayments]);
 
@@ -406,9 +407,9 @@ export function DonationsTable() {
                                 <CommandGroup>
                                     {members?.map((member) => (
                                     <CommandItem
-                                        value={`${member.nom} ${member.email} ${member.adresse} ${member.memo}`}
+                                        value={`${member.nom} ${member.email} ${member.memo}`}
                                         key={member.id}
-                                        onSelect={() => {
+                                        onSelect={(currentValue) => {
                                             form.setValue("memberId", member.id);
                                             setMemberPopoverOpen(false);
                                         }}
