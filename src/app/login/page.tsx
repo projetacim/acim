@@ -71,7 +71,7 @@ export default function LoginPage() {
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4 flex flex-col items-center">
-             <Image src="https://www.a-c-i-m.fr/wp-content/uploads/2021/11/logo-ACIM-1.png" alt="ACIM Logo" width={100} height={100} />
+             <Image src="/logo.png" alt="ACIM Logo" width={100} height={100} />
           </div>
           <CardTitle className="text-2xl">ACIM</CardTitle>
           <CardDescription>Connectez-vous à votre compte</CardDescription>

@@ -114,7 +114,7 @@ export default function AppLayout({
       <Sidebar>
         <SidebarHeader>
           <div className="flex items-center gap-2">
-            <Image src="https://www.a-c-i-m.fr/wp-content/uploads/2021/11/logo-ACIM-1.png" alt="ACIM Logo" width={32} height={32} />
+            <Image src="/logo.png" alt="ACIM Logo" width={32} height={32} />
             <span className="text-lg font-semibold">ACIM</span>
           </div>
         </SidebarHeader>
