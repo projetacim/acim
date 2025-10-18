@@ -41,34 +41,38 @@ export default function MembersPage() {
       <Card>
         <CardHeader>
           <CardTitle>Membres</CardTitle>
+          <CardDescription>Sélectionnez un membre pour voir et gérer ses dons.</CardDescription>
         </CardHeader>
         <CardContent>
            <MembersTable onMemberSelect={setSelectedMember} selectedMember={selectedMember} onAddDonation={handleAddDonationClick} />
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Dons en attente et partiels</CardTitle>
-          <CardDescription>Vue d'ensemble des dons non soldés pour le membre sélectionné.</CardDescription>
-        </CardHeader>
-        <CardContent>
-            <PendingDonationsTable selectedMemberId={selectedMember?.id ?? null} />
-        </CardContent>
-      </Card>
-      
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div className="space-y-1">
-            <CardTitle>Historique des dons du membre sélectionné</CardTitle>
-            {selectedMember && <p className="text-muted-foreground font-medium">{selectedMember.nom}</p>}
-             {!selectedMember && <p className="text-sm text-muted-foreground">Sélectionnez un membre pour voir ses dons.</p>}
-          </div>
-        </CardHeader>
-        <CardContent>
-            <DonationsTable selectedMemberId={selectedMember?.id ?? null} />
-        </CardContent>
-      </Card>
+      {selectedMember && (
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle>Dons en attente et partiels</CardTitle>
+              <CardDescription>Vue d'ensemble des dons non soldés pour {selectedMember.nom}.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <PendingDonationsTable selectedMemberId={selectedMember?.id ?? null} />
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div className="space-y-1">
+                <CardTitle>Historique des dons</CardTitle>
+                <p className="text-muted-foreground font-medium">{selectedMember.nom}</p>
+              </div>
+            </CardHeader>
+            <CardContent>
+                <DonationsTable selectedMemberId={selectedMember?.id ?? null} />
+            </CardContent>
+          </Card>
+        </>
+      )}
 
       <Dialog open={isDonationFormOpen} onOpenChange={setIsDonationFormOpen}>
         <DialogContent className="sm:max-w-4xl">
