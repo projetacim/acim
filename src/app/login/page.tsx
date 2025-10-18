@@ -13,8 +13,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Logo } from '@/components/logo';
 import { Loader2 } from 'lucide-react';
+import Image from 'next/image';
 
 const loginSchema = z.object({
   email: z.string().email('Adresse e-mail invalide.'),
@@ -70,8 +70,8 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-background">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-4">
-            <Logo className="h-24 w-24 text-primary" />
+          <div className="mx-auto mb-4 flex flex-col items-center">
+             <Image src="https://www.a-c-i-m.fr/wp-content/uploads/2021/11/logo-ACIM-1.png" alt="ACIM Logo" width={100} height={100} />
           </div>
           <CardTitle className="text-2xl">ACIM</CardTitle>
           <CardDescription>Connectez-vous à votre compte</CardDescription>

@@ -29,12 +29,12 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
 } from '@/components/ui/sidebar';
-import { Logo } from '@/components/logo';
 import { Loader2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import type { Member, Donation } from '@/lib/types';
+import Image from 'next/image';
 
 
 function Stats() {
@@ -114,7 +114,7 @@ export default function AppLayout({
       <Sidebar>
         <SidebarHeader>
           <div className="flex items-center gap-2">
-            <Logo className="h-8 w-8 text-primary" />
+            <Image src="https://www.a-c-i-m.fr/wp-content/uploads/2021/11/logo-ACIM-1.png" alt="ACIM Logo" width={32} height={32} />
             <span className="text-lg font-semibold">ACIM</span>
           </div>
         </SidebarHeader>
