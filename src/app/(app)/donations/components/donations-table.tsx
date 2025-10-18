@@ -128,11 +128,11 @@ export function DonationsTable() {
   
   const paidAmount = useMemo(() => {
     if (!watchPayments) return 0;
-    return watchPayments.reduce((acc, p) => acc + (p.amount || 0), 0);
+    return watchPayments.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
   }, [watchPayments]);
 
   const remainingAmount = useMemo(() => {
-    const total = watchTotalAmount || 0;
+    const total = Number(watchTotalAmount) || 0;
     return total - paidAmount;
   }, [watchTotalAmount, paidAmount]);
 
@@ -201,7 +201,7 @@ export function DonationsTable() {
       return;
     }
     
-    const paidSum = data.payments.reduce((acc, p) => acc + p.amount, 0);
+    const paidSum = data.payments.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
     let finalPaymentStatus: 'EN ATTENTE' | 'Partiel' | 'Payé';
 
     if (paidSum <= 0) {
@@ -216,7 +216,7 @@ export function DonationsTable() {
         ...data,
         totalAmount: Number(data.totalAmount),
         donationCategoryId: data.type === 'Don' ? data.donationCategoryId : '',
-        payments: data.payments.map(p => ({...p, date: p.date.toISOString()})),
+        payments: data.payments.map(p => ({...p, amount: Number(p.amount), date: p.date.toISOString()})),
         paymentStatus: finalPaymentStatus,
     };
 
@@ -236,7 +236,7 @@ export function DonationsTable() {
             const transactionData: Omit<Transaction, 'id' | 'createdAt'>[] = data.payments.map(p => ({
               type: donationData.type,
               relatedId: newDoc.id,
-              amount: p.amount,
+              amount: Number(p.amount),
               date: p.date.toISOString(),
               paymentMethod: p.paymentMethod,
               memo: donationData.memo
@@ -401,7 +401,7 @@ export function DonationsTable() {
                         </PopoverTrigger>
                         <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                             <Command>
-                                <CommandInput placeholder="Rechercher par nom, email, mémo..." />
+                                <CommandInput placeholder="Rechercher par nom, email, mémo..." className="border-black" />
                                 <CommandList>
                                 <CommandEmpty>Aucun membre trouvé.</CommandEmpty>
                                 <CommandGroup>
@@ -409,7 +409,7 @@ export function DonationsTable() {
                                     <CommandItem
                                         value={`${member.nom} ${member.email} ${member.memo}`}
                                         key={member.id}
-                                        onSelect={(currentValue) => {
+                                        onSelect={() => {
                                             form.setValue("memberId", member.id);
                                             setMemberPopoverOpen(false);
                                         }}
