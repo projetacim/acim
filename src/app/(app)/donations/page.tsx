@@ -15,7 +15,6 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { DonationForm } from './components/donation-form';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
 export default function MembersPage() {
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
@@ -56,12 +55,6 @@ export default function MembersPage() {
             {selectedMember && <p className="text-muted-foreground font-medium">{selectedMember.nom}</p>}
              {!selectedMember && <p className="text-sm text-muted-foreground">Sélectionnez un membre pour voir ses dons.</p>}
           </div>
-           {selectedMember && (
-            <Button onClick={handleAddDonationClick}>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Ajouter un don
-            </Button>
-          )}
         </CardHeader>
         <CardContent>
             <DonationsTable selectedMemberId={selectedMember?.id ?? null} />
