@@ -1,3 +1,6 @@
+
+'use client';
+
 import { CerfaTable } from './components/cerfa-table';
 
 export default function CerfaPage() {
@@ -6,7 +9,7 @@ export default function CerfaPage() {
       <div className="space-y-1">
         <h1 className="text-3xl font-bold tracking-tight">Liste des CERFA</h1>
         <p className="text-muted-foreground">
-          Retrouvez ici tous les reçus fiscaux qui ont été générés.
+          Retrouvez et filtrez tous les reçus fiscaux qui ont été générés.
         </p>
       </div>
       <CerfaTable />

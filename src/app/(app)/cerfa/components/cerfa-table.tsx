@@ -19,6 +19,14 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { numberToWords } from '@/lib/number-to-words';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { CalendarIcon, Search } from 'lucide-react';
+import { Calendar } from '@/components/ui/calendar';
+import { DateRange } from 'react-day-picker';
+import { format } from 'date-fns';
+import { fr } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 
 type DonationWithMemberAndCategory = Donation & { memberName: string; categoryName?: string };
 
@@ -43,6 +51,9 @@ export function CerfaTable() {
   const firestore = useFirestore();
   const { user } = useUser();
   const { toast } = useToast();
+  
+  const [searchQuery, setSearchQuery] = useState('');
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
   const membersCollection = useMemoFirebase(() => user ? collection(firestore, 'users', user.uid, 'membre') : null, [firestore, user]);
   const donationsCollection = useMemoFirebase(() => user ? query(collection(firestore, 'users', user.uid, 'donations'), where('cerfaNumber', '!=', '')) : null, [firestore, user]);
@@ -65,9 +76,30 @@ export function CerfaTable() {
         memberName: memberMap.get(d.memberId) || 'Membre inconnu',
         categoryName: d.donationCategoryId ? categoryMap.get(d.donationCategoryId) : ''
       }))
+      .filter(d => {
+        // Date range filter
+        if (dateRange?.from && dateRange?.to) {
+          const donationDate = new Date(d.createdAt);
+          return donationDate >= dateRange.from && donationDate <= dateRange.to;
+        }
+        if (dateRange?.from) {
+          const donationDate = new Date(d.createdAt);
+          return donationDate >= dateRange.from;
+        }
+        return true;
+      })
+      .filter(d => {
+        // Search query filter
+        const searchLower = searchQuery.toLowerCase();
+        return (
+          d.memberName.toLowerCase().includes(searchLower) ||
+          (d.memo && d.memo.toLowerCase().includes(searchLower)) ||
+          d.cerfaNumber!.toLowerCase().includes(searchLower)
+        );
+      })
       .sort((a, b) => b.cerfaNumber!.localeCompare(a.cerfaNumber!));
 
-  }, [donations, members, categories]);
+  }, [donations, members, categories, searchQuery, dateRange]);
   
   
   const handleCerfaClick = async (donation: DonationWithMemberAndCategory) => {
@@ -126,6 +158,55 @@ export function CerfaTable() {
 
   return (
     <>
+      <div className="flex flex-col md:flex-row items-center gap-4 mb-4">
+        <div className="relative w-full md:max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Rechercher par n°, membre, mémo..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                id="date"
+                variant={"outline"}
+                className={cn(
+                  "w-full justify-start text-left font-normal md:w-auto",
+                  !dateRange && "text-muted-foreground"
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {dateRange?.from ? (
+                  dateRange.to ? (
+                    <>
+                      {format(dateRange.from, "d LLL, y", {locale:fr})} -{" "}
+                      {format(dateRange.to, "d LLL, y", {locale:fr})}
+                    </>
+                  ) : (
+                    format(dateRange.from, "d LLL, y", {locale:fr})
+                  )
+                ) : (
+                  <span>Choisir une période</span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                initialFocus
+                mode="range"
+                defaultMonth={dateRange?.from}
+                selected={dateRange}
+                onSelect={setDateRange}
+                numberOfMonths={2}
+                locale={fr}
+              />
+            </PopoverContent>
+          </Popover>
+      </div>
+
       <ScrollArea className="h-96 w-full rounded-md border">
         <Table>
             <TableHeader>
@@ -172,7 +253,7 @@ export function CerfaTable() {
             {!isLoading && cerfaDonations.length === 0 && (
                 <TableRow>
                 <TableCell colSpan={6} className="p-6 text-center text-muted-foreground">
-                    Aucun CERFA généré pour le moment.
+                    {searchQuery || dateRange ? "Aucun CERFA ne correspond à vos critères." : "Aucun CERFA généré pour le moment."}
                 </TableCell>
                 </TableRow>
             )}
@@ -182,5 +263,3 @@ export function CerfaTable() {
     </>
   );
 }
-
-    
