@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Logo } from '@/components/logo';
+import { LogoWithText } from '@/components/logo-with-text';
 import { Loader2 } from 'lucide-react';
 
 const registerSchema = z.object({
@@ -70,8 +70,8 @@ export default function RegisterPage() {
     <div className="flex min-h-screen items-center justify-center bg-background">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-4">
-            <Logo className="h-12 w-12 text-primary" />
+           <div className="mx-auto mb-4">
+            <LogoWithText className="h-24 w-24 text-primary" />
           </div>
           <CardTitle className="text-2xl">Créer un compte</CardTitle>
           <CardDescription>Entrez vos informations pour vous inscrire</CardDescription>
