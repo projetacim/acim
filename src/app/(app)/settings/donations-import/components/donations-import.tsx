@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -11,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { UploadCloud, Loader2, CheckCircle, AlertTriangle } from 'lucide-react';
+import { UploadCloud, Loader2, CheckCircle, AlertTriangle, FileDown } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 type ImportedDonation = {
@@ -193,6 +194,35 @@ export function DonationsImport() {
     setFileName('');
   };
 
+  const downloadTemplate = () => {
+    const sampleData = [
+      {
+        email_membre: "membre1@example.com",
+        type: "Don",
+        categorie_don: "Collecte Générale",
+        montant_total: 100,
+        date_paiement: "2024-01-15",
+        moyen_paiement: "Carte de crédit",
+        memo: "Don annuel",
+        eligible_cerfa: "oui"
+      },
+      {
+        email_membre: "membre2@example.com",
+        type: "Cotisation",
+        categorie_don: "",
+        montant_total: 50,
+        date_paiement: "2024-02-01",
+        moyen_paiement: "Chèque",
+        memo: "Cotisation annuelle 2024",
+        eligible_cerfa: "non"
+      }
+    ];
+    const worksheet = XLSX.utils.json_to_sheet(sampleData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Modèle Dons");
+    XLSX.writeFile(workbook, "modele_import_dons.xlsx");
+  };
+
   const donationsWithoutMembers = processedDonations.filter(p => !p.memberExists);
 
   return (
@@ -205,12 +235,16 @@ export function DonationsImport() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex w-full items-center space-x-2">
+          <div className="flex items-center space-x-2">
             <Input id="excel-file" type="file" accept=".xlsx, .xls" onChange={handleFileChange} className="hidden" disabled={isDataLoading} />
             <Button asChild variant="outline" disabled={isDataLoading}>
               <label htmlFor="excel-file" className="cursor-pointer">
                 {isDataLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Chargement...</> : <><UploadCloud className="mr-2 h-4 w-4" /> Choisir un fichier</>}
               </label>
+            </Button>
+            <Button onClick={downloadTemplate} variant="secondary" size="sm">
+                <FileDown className="mr-2 h-4 w-4" />
+                Télécharger le modèle
             </Button>
             {isProcessing && <Loader2 className="h-5 w-5 animate-spin" />}
             {fileName && !isProcessing && <span className="text-sm text-muted-foreground">{fileName}</span>}
@@ -284,3 +318,5 @@ export function DonationsImport() {
     </div>
   );
 }
+
+    
