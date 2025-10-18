@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { useFirestore, addDocumentNonBlocking, setDocumentNonBlocking, useUser } from '@/firebase';
+import { useFirestore, addDocumentNonBlocking, setDocumentNonBlocking, useUser, updateDocumentNonBlocking } from '@/firebase';
 import { collection, doc, getDocs, getDoc, updateDoc, query, where } from 'firebase/firestore';
 import type { Donation, Member, DonationCategory, Transaction } from '@/lib/types';
 import { useForm, useFieldArray, type SubmitHandler, useWatch } from 'react-hook-form';
@@ -179,25 +179,32 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
   }, [paidAmount, watchTotalAmount]);
 
 
-  const generateCerfaNumber = async (donationId: string) => {
-    if (!firestore || !user) return null;
+  const generateCerfaNumber = (donationId: string) => {
+    if (!firestore || !user) return;
 
     const year = new Date().getFullYear();
     const donationsRef = collection(firestore, 'users', user.uid, 'donations');
-    const q = query(donationsRef, where("cerfaNumber", ">=", `${year}-0000`), where("cerfaNumber", "<", `${year+1}-0000`));
     
-    const querySnapshot = await getDocs(q);
-    const nextId = querySnapshot.docs.length + 1;
-    const cerfaNumber = `${year}-${nextId.toString().padStart(4, '0')}`;
-
-    const donationDocRef = doc(firestore, 'users', user.uid, 'donations', donationId);
-    await updateDoc(donationDocRef, { cerfaNumber: cerfaNumber });
-    
-    toast({ title: 'N° CERFA généré', description: `Le numéro ${cerfaNumber} a été assigné.` });
-    return cerfaNumber;
+    // This is a simplified client-side way to get the next number.
+    // For a truly robust solution, a server-side counter (e.g., in a Cloud Function) would be better
+    // to avoid race conditions, but this is a good starting point for many apps.
+    getDocs(query(donationsRef, where("cerfaNumber", ">=", `${year}-0000`), where("cerfaNumber", "<", `${year+1}-0000`)))
+        .then(querySnapshot => {
+            const nextId = querySnapshot.docs.length + 1;
+            const cerfaNumber = `${year}-${nextId.toString().padStart(4, '0')}`;
+            const donationDocRef = doc(firestore, 'users', user.uid, 'donations', donationId);
+            
+            updateDocumentNonBlocking(donationDocRef, { cerfaNumber: cerfaNumber });
+            
+            toast({ title: 'N° CERFA généré', description: `Le numéro ${cerfaNumber} a été assigné.` });
+        })
+        .catch(err => {
+            console.error("Error generating CERFA number: ", err);
+            toast({ variant: 'destructive', title: 'Erreur CERFA', description: 'Impossible de générer le numéro.' });
+        });
   };
 
-  const onSubmit: SubmitHandler<DonationFormValues> = async (data) => {
+  const onSubmit: SubmitHandler<DonationFormValues> = (data) => {
     if (!firestore || !user) {
       toast({ variant: "destructive", title: "Erreur", description: "Utilisateur ou base de données non disponible." });
       return;
@@ -222,54 +229,52 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
         paymentStatus: finalPaymentStatus,
     };
     
-    try {
-      if (isEditMode && donationId) {
-        const donationDocRef = doc(firestore, 'users', user.uid, 'donations', donationId);
-        const donationSnap = await getDoc(donationDocRef);
-        const existingDonation = donationSnap.data() as Donation;
+    if (isEditMode && donationId) {
+      const donationDocRef = doc(firestore, 'users', user.uid, 'donations', donationId);
+      // We need to fetch the original creation date to preserve it
+      getDoc(donationDocRef).then(donationSnap => {
+          const existingDonation = donationSnap.data() as Donation;
+          setDocumentNonBlocking(donationDocRef, { ...donationData, createdAt: existingDonation.createdAt }, { merge: true });
+          
+          if (finalPaymentStatus === 'Payé' && !existingDonation.cerfaNumber && donationData.cerfaEligible) {
+              generateCerfaNumber(donationId);
+          }
+          toast({ title: 'Don mis à jour' });
+      });
 
-        await setDocumentNonBlocking(donationDocRef, { ...donationData, createdAt: existingDonation?.createdAt }, { merge: true });
-        
-        if (finalPaymentStatus === 'Payé' && !existingDonation.cerfaNumber && donationData.cerfaEligible) {
-            await generateCerfaNumber(donationId);
-        }
-
-        toast({ title: 'Don mis à jour' });
-      } else {
-        const collectionRef = collection(firestore, 'users', user.uid, 'donations');
-        const newDocData = { ...donationData, createdAt: new Date().toISOString() };
-        const newDocRef = await addDocumentNonBlocking(collectionRef, newDocData);
-        
-        if (newDocRef) {
-             if (newDocData.paymentStatus === 'Payé' && newDocData.cerfaEligible) {
-                await generateCerfaNumber(newDocRef.id);
-            }
-
-            if (newDocData.payments.length > 0) {
-                const transactionData: Omit<Transaction, 'id' | 'createdAt'>[] = (data.payments || []).map(p => ({
-                  type: donationData.type,
-                  relatedId: newDocRef.id,
-                  amount: Number(p.amount),
-                  date: p.date.toISOString(),
-                  paymentMethod: p.paymentMethod,
-                  memo: donationData.memo
-                }));
-                
-                const transactionRef = collection(firestore, 'users', user.uid, 'transactions');
-                for(const trans of transactionData){
-                     await addDocumentNonBlocking(transactionRef, {...trans, createdAt: new Date().toISOString()});
+    } else {
+      const collectionRef = collection(firestore, 'users', user.uid, 'donations');
+      const newDocData = { ...donationData, createdAt: new Date().toISOString() };
+      
+      addDocumentNonBlocking(collectionRef, newDocData)
+        .then(newDocRef => {
+            if (newDocRef) {
+                if (newDocData.paymentStatus === 'Payé' && newDocData.cerfaEligible) {
+                    generateCerfaNumber(newDocRef.id);
                 }
+
+                if (newDocData.payments.length > 0) {
+                    const transactionRef = collection(firestore, 'users', user.uid, 'transactions');
+                    for(const p of data.payments || []){
+                         const transData = {
+                            type: donationData.type,
+                            relatedId: newDocRef.id,
+                            amount: Number(p.amount),
+                            date: p.date.toISOString(),
+                            paymentMethod: p.paymentMethod,
+                            memo: donationData.memo,
+                            createdAt: new Date().toISOString()
+                         };
+                         addDocumentNonBlocking(transactionRef, transData);
+                    }
+                }
+                 toast({ title: 'Don ajouté', description: `Un nouveau don/cotisation a été enregistré.` });
             }
-        }
-        
-        toast({ title: 'Don ajouté', description: `Un nouveau don/cotisation a été enregistré.` });
-      }
-      form.reset();
-      onFormSubmit();
-    } catch (e: any) {
-        console.error("Error saving donation", e);
-        toast({ variant: "destructive", title: "Erreur de sauvegarde", description: e.message });
+        });
     }
+
+    form.reset();
+    onFormSubmit();
   };
   
   const getStatusBadge = (status: Donation['paymentStatus']) => {
@@ -479,3 +484,5 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
     </Card>
   );
 }
+
+    
