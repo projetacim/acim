@@ -1,9 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, setDocumentNonBlocking, useUser, useDoc } from '@/firebase';
+import { useFirestore, addDocumentNonBlocking, setDocumentNonBlocking, useUser } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import type { Donation, Member, DonationCategory, Transaction, Payment } from '@/lib/types';
 import { useForm, useFieldArray, type SubmitHandler, useWatch } from 'react-hook-form';
@@ -28,16 +26,15 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Calendar } from '@/components/ui/calendar';
-import { CalendarIcon, ChevronsUpDown, Check, PlusCircle, X, Loader2 } from 'lucide-react';
+import { CalendarIcon, PlusCircle, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 
 
 const paymentSchema = z.object({
@@ -47,7 +44,7 @@ const paymentSchema = z.object({
 });
 
 const donationSchema = z.object({
-  memberId: z.string().min(1, 'Veuillez sélectionner un membre.'),
+  memberId: z.string(), // Is now hidden, but required for submission
   type: z.enum(['Don', 'Cotisation']),
   donationCategoryId: z.string().optional(),
   totalAmount: z.coerce.number().min(0.01, 'Le montant total doit être supérieur à 0.'),
@@ -59,32 +56,25 @@ const donationSchema = z.object({
 type DonationFormValues = z.infer<typeof donationSchema>;
 
 interface DonationFormProps {
-  donationId?: string;
+  member: Member;
+  donation?: Donation | null;
+  onFinished: () => void;
 }
 
-export function DonationForm({ donationId }: DonationFormProps) {
+export function DonationForm({ member, donation, onFinished }: DonationFormProps) {
   const firestore = useFirestore();
   const { user } = useUser();
   const { toast } = useToast();
-  const router = useRouter();
 
-  // Data fetching
-  const membersCollection = useMemoFirebase(() => user ? collection(firestore, 'users', user.uid, 'membre') : null, [firestore, user]);
-  const categoriesCollection = useMemoFirebase(() => collection(firestore, 'donationCategories'), [firestore]);
-  const donationDocRef = useMemoFirebase(() => (donationId && user) ? doc(firestore, 'users', user.uid, 'donations', donationId) : null, [donationId, user, firestore]);
+  const [categories, setCategories] = useState<DonationCategory[]>([]);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(true);
 
-  const { data: members, isLoading: isLoadingMembers } = useCollection<Member>(membersCollection);
-  const { data: categories, isLoading: isLoadingCategories } = useCollection<DonationCategory>(categoriesCollection);
-  const { data: existingDonation, isLoading: isLoadingDonation } = useDoc<Donation>(donationDocRef);
-
-  const [openMemberPopover, setOpenMemberPopover] = useState(false);
-  
-  const isEditMode = !!donationId;
+  const isEditMode = !!donation;
 
   const form = useForm<DonationFormValues>({
     resolver: zodResolver(donationSchema),
     defaultValues: {
-      memberId: '',
+      memberId: member.id,
       type: 'Don',
       donationCategoryId: '',
       totalAmount: 0,
@@ -99,7 +89,45 @@ export function DonationForm({ donationId }: DonationFormProps) {
     name: "payments"
   });
 
-  // Watchers for reactive UI
+  // Fetch categories
+  useEffect(() => {
+    if (!firestore) return;
+    setIsLoadingCategories(true);
+    const catRef = collection(firestore, 'donationCategories');
+    const { getDocs } = require('firebase/firestore');
+    getDocs(catRef).then(snapshot => {
+      const cats = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as DonationCategory[];
+      setCategories(cats);
+      setIsLoadingCategories(false);
+    });
+  }, [firestore]);
+
+  // Populate form for editing or new
+  useEffect(() => {
+    if (isEditMode && donation) {
+      form.reset({
+        memberId: donation.memberId,
+        type: donation.type,
+        donationCategoryId: donation.donationCategoryId || '',
+        totalAmount: donation.totalAmount,
+        payments: donation.payments.map(p => ({...p, date: new Date(p.date)})),
+        memo: donation.memo || '',
+        cerfaEligible: donation.cerfaEligible,
+      });
+    } else {
+      form.reset({
+        memberId: member.id,
+        type: 'Don',
+        donationCategoryId: '',
+        totalAmount: 0,
+        payments: [{ amount: 0, date: new Date(), paymentMethod: 'Espèces' }],
+        memo: '',
+        cerfaEligible: false,
+      });
+    }
+  }, [isEditMode, donation, member, form]);
+
+
   const watchPayments = useWatch({ control: form.control, name: 'payments' });
   const watchTotalAmount = useWatch({ control: form.control, name: 'totalAmount' });
   const donationType = useWatch({ control: form.control, name: 'type' });
@@ -121,30 +149,6 @@ export function DonationForm({ donationId }: DonationFormProps) {
     return 'Payé';
   }, [paidAmount, watchTotalAmount]);
 
-  // Effect to populate form in edit mode
-  useEffect(() => {
-    if (isEditMode && existingDonation) {
-      form.reset({
-        memberId: existingDonation.memberId,
-        type: existingDonation.type,
-        donationCategoryId: existingDonation.donationCategoryId || '',
-        totalAmount: existingDonation.totalAmount,
-        payments: existingDonation.payments.map(p => ({...p, date: new Date(p.date)})),
-        memo: existingDonation.memo || '',
-        cerfaEligible: existingDonation.cerfaEligible,
-      });
-    } else if (!isEditMode) {
-      form.reset({
-        memberId: '',
-        type: 'Don',
-        donationCategoryId: '',
-        totalAmount: 0,
-        payments: [{ amount: 0, date: new Date(), paymentMethod: 'Espèces' }],
-        memo: '',
-        cerfaEligible: false,
-      });
-    }
-  }, [isEditMode, existingDonation, form]);
 
   const onSubmit: SubmitHandler<DonationFormValues> = async (data) => {
     if (!firestore || !user) {
@@ -165,6 +169,7 @@ export function DonationForm({ donationId }: DonationFormProps) {
     
     const donationData: Omit<Donation, 'id' | 'createdAt'> = {
         ...data,
+        memberId: member.id,
         memo: data.memo || '',
         totalAmount: Number(data.totalAmount),
         donationCategoryId: data.type === 'Don' ? data.donationCategoryId : '',
@@ -173,9 +178,9 @@ export function DonationForm({ donationId }: DonationFormProps) {
     };
 
     try {
-      if (isEditMode) {
-        const donationRef = doc(firestore, 'users', user.uid, 'donations', donationId);
-        await setDocumentNonBlocking(donationRef, { ...donationData, createdAt: existingDonation?.createdAt }, { merge: true });
+      if (isEditMode && donation) {
+        const donationRef = doc(firestore, 'users', user.uid, 'donations', donation.id);
+        await setDocumentNonBlocking(donationRef, { ...donationData, createdAt: donation.createdAt }, { merge: true });
         toast({ title: 'Don mis à jour' });
         // TODO: Handle transaction updates if necessary
       } else {
@@ -201,7 +206,7 @@ export function DonationForm({ donationId }: DonationFormProps) {
         
         toast({ title: 'Don ajouté', description: `Un nouveau don/cotisation a été enregistré.` });
       }
-      router.push('/donations');
+      onFinished();
     } catch (e: any) {
         console.error("Error saving donation", e);
         toast({ variant: "destructive", title: "Erreur de sauvegarde", description: e.message });
@@ -220,78 +225,10 @@ export function DonationForm({ donationId }: DonationFormProps) {
         return <Badge variant="secondary">Inconnu</Badge>;
     }
   };
-
-  const isLoading = isLoadingMembers || isLoadingDonation || isLoadingCategories;
-  if (isLoading) {
-    return <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin"/></div>
-  }
-
+  
   return (
-    <Card>
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)}>
-          <CardContent className="space-y-6 pt-6">
-            <FormField
-              control={form.control}
-              name="memberId"
-              render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel>Membre</FormLabel>
-                  <Popover open={openMemberPopover} onOpenChange={setOpenMemberPopover}>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant="outline"
-                          role="combobox"
-                          className={cn(
-                            "w-full justify-between",
-                            !field.value && "text-muted-foreground"
-                          )}
-                        >
-                          {field.value
-                            ? members?.find(
-                                (member) => member.id === field.value
-                              )?.nom
-                            : "Sélectionner un membre"}
-                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                      <Command>
-                        <CommandInput placeholder="Rechercher un membre..." />
-                        <CommandList>
-                          <CommandEmpty>Aucun membre trouvé.</CommandEmpty>
-                          <CommandGroup>
-                            {members?.map((member) => (
-                              <CommandItem
-                                value={member.nom}
-                                key={member.id}
-                                onSelect={() => {
-                                  form.setValue("memberId", member.id);
-                                  setOpenMemberPopover(false);
-                                }}
-                              >
-                                <Check
-                                  className={cn(
-                                    "mr-2 h-4 w-4",
-                                    member.id === field.value
-                                      ? "opacity-100"
-                                      : "opacity-0"
-                                  )}
-                                />
-                                {member.nom}
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 py-4">
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -451,19 +388,17 @@ export function DonationForm({ donationId }: DonationFormProps) {
                 </FormItem>
               )}
             />
-          </CardContent>
-          <CardFooter className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" asChild>
-              <Link href="/donations">Annuler</Link>
+          <div className="flex justify-end gap-2 pt-4">
+            <Button type="button" variant="ghost" onClick={onFinished}>
+              Annuler
             </Button>
             <Button type="submit" disabled={form.formState.isSubmitting}>
               {form.formState.isSubmitting ? (
                 <><Loader2 className="mr-2 h-4 w-4 animate-spin"/>Enregistrement...</>
               ) : 'Enregistrer'}
             </Button>
-          </CardFooter>
+          </div>
         </form>
       </Form>
-    </Card>
   );
 }
