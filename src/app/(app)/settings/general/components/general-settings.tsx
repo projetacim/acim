@@ -44,7 +44,7 @@ export function GeneralSettings() {
     setIsResetting(true);
 
     try {
-      const collectionsToDelete = ['transactions', 'donations', 'membre'];
+      const collectionsToDelete = ['transactions', 'donations'];
       let totalDeleted = 0;
 
       for (const collectionName of collectionsToDelete) {
@@ -78,7 +78,7 @@ export function GeneralSettings() {
 
       toast({
         title: 'Réinitialisation terminée',
-        description: `Toutes les données de test (membres, dons, transactions) ont été effacées. ${totalDeleted} documents supprimés.`,
+        description: `Toutes les données de test (dons, transactions) ont été effacées. ${totalDeleted} documents supprimés.`,
       });
     } catch (error) {
       console.error('Failed to reset data:', error);
@@ -104,9 +104,9 @@ export function GeneralSettings() {
         </CardHeader>
         <CardContent className="flex items-center justify-between">
           <div>
-            <h3 className="font-semibold">Réinitialiser la base de test</h3>
+            <h3 className="font-semibold">Réinitialiser les données de test</h3>
             <p className="text-sm text-muted-foreground">
-              Supprime tous les membres, dons et transactions. Le compteur CERFA sera réinitialisé.
+              Supprime tous les dons et transactions, mais conserve les membres. Le compteur CERFA sera réinitialisé.
             </p>
           </div>
           <Button
@@ -129,7 +129,7 @@ export function GeneralSettings() {
           <AlertDialogHeader>
             <AlertDialogTitle>Êtes-vous absolument sûr ?</AlertDialogTitle>
             <AlertDialogDescription>
-              Cette action est **irréversible**. Elle supprimera définitivement **tous les membres, tous les dons, et toutes les transactions**. Votre application reviendra à un état initial, comme si vous veniez de commencer. C'est utile pour démarrer une nouvelle phase de test.
+              Cette action est **irréversible**. Elle supprimera définitivement **tous les dons et toutes les transactions**. Les membres seront conservés. Ceci est utile pour redémarrer une phase de test sans avoir à réimporter tous vos membres.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -139,7 +139,7 @@ export function GeneralSettings() {
               disabled={isResetting}
               className="bg-destructive hover:bg-destructive/90"
             >
-              Je comprends le risque, tout supprimer
+              Je comprends, tout supprimer sauf les membres
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
