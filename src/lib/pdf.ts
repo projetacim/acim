@@ -87,6 +87,7 @@ export async function generateCerfaPdf(donation: Donation, member: Member): Prom
     return Buffer.from(pdfBytes);
 }
 
+// This function needs to be a client-side function to open a new window
 export async function openCerfaPdf(donation: Donation, member: Member) {
     'use client';
     try {
