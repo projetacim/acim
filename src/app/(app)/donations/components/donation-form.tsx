@@ -480,8 +480,8 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
               </div>
 
               {/* COLONNE DROITE */}
-              <div className="space-y-6">
-                 <div className="space-y-2 rounded-md bg-muted p-3 text-sm h-full">
+              <div className="flex flex-col gap-6">
+                 <div className="space-y-2 rounded-md bg-muted p-3 text-sm">
                     <h3 className="font-medium mb-3">Résumé</h3>
                     <div className="flex justify-between">
                         <span className="text-muted-foreground">Payé</span>
@@ -496,11 +496,7 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
                         {getStatusBadge(paymentStatus)}
                     </div>
                  </div>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                <FormField
+                 <FormField
                     control={form.control}
                     name="memo"
                     render={({ field }) => (
@@ -515,15 +511,15 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
                     control={form.control}
                     name="cerfaEligible"
                     render={({ field }) => (
-                        <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-4 h-fit mt-8">
+                        <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-4">
                         <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange}/></FormControl>
                         <div className="space-y-1 leading-none"><FormLabel>Éligible pour un reçu fiscal (CERFA)</FormLabel></div>
                         </FormItem>
                     )}
                 />
+              </div>
             </div>
-
-
+            
             {/* PAIEMENTS - pleine largeur */}
             <div className="pt-4">
               <FormLabel>Paiements</FormLabel>
