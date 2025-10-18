@@ -17,7 +17,11 @@ import { useRouter } from 'next/navigation';
 
 type DonationWithMemberName = Donation & { memberName: string };
 
-export function PendingDonationsTable() {
+interface PendingDonationsTableProps {
+  selectedMemberId: string | null;
+}
+
+export function PendingDonationsTable({ selectedMemberId }: PendingDonationsTableProps) {
   const firestore = useFirestore();
   const { user } = useUser();
   const router = useRouter();
@@ -29,18 +33,18 @@ export function PendingDonationsTable() {
   const { data: donations, isLoading: isLoadingDonations } = useCollection<Donation>(donationsCollection);
   
   const pendingDonations = useMemo(() => {
-    if (!donations || !members) return [];
+    if (!donations || !members || !selectedMemberId) return [];
     const memberMap = new Map(members.map(m => [m.id, m.nom]));
     
     return donations
-      .filter(d => d.paymentStatus === 'EN ATTENTE' || d.paymentStatus === 'Partiel')
+      .filter(d => d.memberId === selectedMemberId && (d.paymentStatus === 'EN ATTENTE' || d.paymentStatus === 'Partiel'))
       .map(d => ({
         ...d,
         memberName: memberMap.get(d.memberId) || 'Membre inconnu'
       }))
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-  }, [donations, members]);
+  }, [donations, members, selectedMemberId]);
   
   const getPaidAmount = (payments: Payment[] | undefined) => {
       if(!payments) return 0;
@@ -60,6 +64,14 @@ export function PendingDonationsTable() {
 
   const isLoading = isLoadingMembers || isLoadingDonations;
 
+  if (!selectedMemberId) {
+    return (
+       <div className="rounded-md border p-6 text-center text-muted-foreground">
+          Sélectionnez un membre pour voir ses dons en attente.
+       </div>
+    )
+  }
+
   return (
     <div className="rounded-md border">
         <Table>
@@ -74,7 +86,7 @@ export function PendingDonationsTable() {
             </TableRow>
             </TableHeader>
             <TableBody>
-            {isLoading && Array.from({ length: 2 }).map((_, i) => (
+            {isLoading && Array.from({ length: 1 }).map((_, i) => (
                 <TableRow key={i}>
                     <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                     <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
@@ -99,7 +111,7 @@ export function PendingDonationsTable() {
             {!isLoading && pendingDonations.length === 0 && (
                 <TableRow>
                 <TableCell colSpan={6} className="p-6 text-center text-muted-foreground">
-                    Aucun don en attente ou partiel trouvé.
+                    Aucun don en attente ou partiel pour ce membre.
                 </TableCell>
                 </TableRow>
             )}

@@ -50,17 +50,17 @@ export default function MembersPage() {
       <Card>
         <CardHeader>
           <CardTitle>Dons en attente et partiels</CardTitle>
-          <CardDescription>Vue d'ensemble de tous les dons non soldés.</CardDescription>
+          <CardDescription>Vue d'ensemble des dons non soldés pour le membre sélectionné.</CardDescription>
         </CardHeader>
         <CardContent>
-            <PendingDonationsTable />
+            <PendingDonationsTable selectedMemberId={selectedMember?.id ?? null} />
         </CardContent>
       </Card>
       
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div className="space-y-1">
-            <CardTitle>Dons du membre sélectionné</CardTitle>
+            <CardTitle>Historique des dons du membre sélectionné</CardTitle>
             {selectedMember && <p className="text-muted-foreground font-medium">{selectedMember.nom}</p>}
              {!selectedMember && <p className="text-sm text-muted-foreground">Sélectionnez un membre pour voir ses dons.</p>}
           </div>
