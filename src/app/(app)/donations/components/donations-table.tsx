@@ -133,11 +133,12 @@ export function DonationsTable() {
       <Card>
         <CardHeader>
              <div className="flex items-center justify-between">
-                <CardTitle>Historique</CardTitle>
-                <Button onClick={() => router.push('/donations/new')}>
-                  <PlusCircle className="mr-2 h-4 w-4" />
-                  Ajouter
-                </Button>
+                <div className="flex items-center gap-2">
+                    <CardTitle>Historique</CardTitle>
+                    <Button variant="ghost" size="icon" onClick={() => setIsTestDialogOpen(true)}>
+                        <PlusCircle className="h-5 w-5" />
+                    </Button>
+                </div>
             </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -280,3 +281,5 @@ export function DonationsTable() {
     </>
   );
 }
+
+    
