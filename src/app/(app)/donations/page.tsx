@@ -33,7 +33,7 @@ export default function MembersPage() {
     <div className="flex flex-col gap-6">
       <Card>
         <CardHeader>
-          <CardTitle>Membres</CardTitle>
+          
           <CardDescription>Sélectionnez un membre pour voir et gérer ses dons.</CardDescription>
         </CardHeader>
         <CardContent>
