@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -12,8 +12,9 @@ import {
   ChevronDown,
   Settings,
 } from 'lucide-react';
-import { useUser, useAuth } from '@/firebase';
+import { useUser, useAuth, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { signOut } from 'firebase/auth';
+import { collection } from 'firebase/firestore';
 import {
   SidebarProvider,
   Sidebar,
@@ -33,6 +34,44 @@ import { Loader2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import type { Member, Donation } from '@/lib/types';
+
+
+function Stats() {
+  const firestore = useFirestore();
+  const { user } = useUser();
+
+  const membersCollection = useMemoFirebase(() => user ? collection(firestore, 'users', user.uid, 'membre') : null, [firestore, user]);
+  const donationsCollection = useMemoFirebase(() => user ? collection(firestore, 'users', user.uid, 'donations') : null, [firestore, user]);
+
+  const { data: members, isLoading: isLoadingMembers } = useCollection<Member>(membersCollection);
+  const { data: donations, isLoading: isLoadingDonations } = useCollection<Donation>(donationsCollection);
+  
+  const totalMembers = useMemo(() => members?.length || 0, [members]);
+  const totalDonations = useMemo(() => donations?.reduce((sum, d) => sum + d.totalAmount, 0) || 0, [donations]);
+
+  const isLoading = isLoadingMembers || isLoadingDonations;
+
+  return (
+     <div className="flex flex-col gap-4 px-2">
+        <div className="rounded-lg bg-sidebar-accent p-3 text-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-sidebar-accent-foreground/80">Membres</span>
+            <Users className="h-4 w-4 text-sidebar-accent-foreground/60" />
+          </div>
+          {isLoading ? <Loader2 className="mt-1 h-4 w-4 animate-spin" /> : <div className="mt-1 text-lg font-bold">{totalMembers}</div>}
+        </div>
+         <div className="rounded-lg bg-sidebar-accent p-3 text-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-sidebar-accent-foreground/80">Total Dons</span>
+             <DollarSign className="h-4 w-4 text-sidebar-accent-foreground/60" />
+          </div>
+           {isLoading ? <Loader2 className="mt-1 h-4 w-4 animate-spin" /> : <div className="mt-1 text-lg font-bold">{totalDonations.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})}</div>}
+        </div>
+      </div>
+  )
+}
+
 
 export default function AppLayout({
   children,
@@ -90,14 +129,6 @@ export default function AppLayout({
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild tooltip="Membres & Dons">
-                <Link href="/donations">
-                  <Users />
-                  <span>Membres & Dons</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
               <SidebarMenuButton asChild tooltip="CERFA Assistant">
                 <Link href="/cerfa">
                   <FileText />
@@ -131,8 +162,11 @@ export default function AppLayout({
                 </CollapsibleContent>
               </SidebarMenuItem>
             </Collapsible>
-
           </SidebarMenu>
+          <div className="mt-auto flex flex-col gap-4">
+            <SidebarSeparator />
+            <Stats />
+          </div>
         </SidebarContent>
         <SidebarFooter>
           <SidebarSeparator />

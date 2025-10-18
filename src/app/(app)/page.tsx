@@ -1,72 +1,81 @@
+'use client';
+
+import { useState } from 'react';
+import { MembersTable } from './members/components/members-table';
+import { DonationsTable } from './donations/components/donations-table';
+import { PendingDonationsTable } from './donations/components/pending-donations-table';
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
+import type { Member } from '@/lib/types';
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import { donations } from '@/lib/data';
-import { Users, DollarSign, LineChart } from 'lucide-react';
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import { DonationForm } from './donations/components/donation-form';
 
 export default function DashboardPage() {
-  const totalMembers = 0; // Temporarily set to 0
-  const totalDonations = donations.reduce((sum, d) => sum + d.amount, 0);
-  const activeMembers = 0; // Temporarily set to 0
+  const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+  const [isDonationFormOpen, setIsDonationFormOpen] = useState(false);
+
+  const handleAddDonationClick = () => {
+    if (selectedMember) {
+      setIsDonationFormOpen(true);
+    }
+  };
+  
+  const onDonationFormClose = () => {
+    setIsDonationFormOpen(false);
+  }
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Members</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalMembers}</div>
-            <p className="text-xs text-muted-foreground">
-              All members in the association
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total Donations
-            </CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              ${totalDonations.toLocaleString()}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Total funds raised
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Members</CardTitle>
-            <LineChart className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{activeMembers}</div>
-            <p className="text-xs text-muted-foreground">
-              Currently active and engaged members
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-      <div>
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground">Recent activity will be displayed here.</p>
-          </CardContent>
-        </Card>
-      </div>
+      <Card>
+        <CardHeader>
+          
+          <CardDescription>Sélectionnez un membre pour voir et gérer ses dons.</CardDescription>
+        </CardHeader>
+        <CardContent>
+           <MembersTable onMemberSelect={setSelectedMember} selectedMember={selectedMember} onAddDonation={handleAddDonationClick} />
+        </CardContent>
+      </Card>
+
+      {selectedMember && (
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle>Dons en attente et partiels</CardTitle>
+              <CardDescription>Vue d'ensemble des dons non soldés pour {selectedMember.nom}.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <PendingDonationsTable selectedMemberId={selectedMember?.id ?? null} />
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div className="space-y-1">
+                <CardTitle>Historique des dons</CardTitle>
+                <p className="text-muted-foreground font-medium">{selectedMember.nom}</p>
+              </div>
+            </CardHeader>
+            <CardContent>
+                <DonationsTable selectedMemberId={selectedMember?.id ?? null} />
+            </CardContent>
+          </Card>
+        </>
+      )}
+
+      <Dialog open={isDonationFormOpen} onOpenChange={setIsDonationFormOpen}>
+        <DialogContent className="sm:max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Ajouter un don</DialogTitle>
+             {selectedMember && <DialogDescription>Enregistrement d'un nouveau don pour {selectedMember.nom}.</DialogDescription>}
+          </DialogHeader>
+          {selectedMember && <DonationForm memberIdParam={selectedMember.id} onFormSubmit={onDonationFormClose} />}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
