@@ -70,9 +70,9 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
   const donationsCollection = useMemoFirebase(() => user ? collection(firestore, 'users', user.uid, 'donations') : null, [firestore, user]);
   const categoriesCollection = useMemoFirebase(() => user ? collection(firestore, 'donationCategories') : null, [firestore, user]);
 
-  const { data: members, isLoading: isLoadingMembers } = useCollection<Member>(membersCollection);
-  const { data: donations, isLoading: isLoadingDonations } = useCollection<Donation>(donationsCollection);
-  const { data: categories, isLoading: isLoadingCategories } = useCollection<DonationCategory>(categoriesCollection);
+  const { data: members, isLoading: isLoadingMembers, error: membersError } = useCollection<Member>(membersCollection);
+  const { data: donations, isLoading: isLoadingDonations, error: donationsError } = useCollection<Donation>(donationsCollection);
+  const { data: categories, isLoading: isLoadingCategories, error: categoriesError } = useCollection<DonationCategory>(categoriesCollection);
   
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [isCancelAlertOpen, setIsCancelAlertOpen] = useState(false);
@@ -81,7 +81,7 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
   const processedDonations = useMemo(() => {
     if (!donations || !members || !categories) return [];
     
-    const memberMap = new Map(members.map(m => [m.id, m.nom]));
+    const memberMap = new Map(members.map(m => [m.id, m]));
     const categoryMap = new Map(categories.map(c => [c.id, c.name]));
     
     let filteredDonations = donations;
@@ -90,11 +90,15 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
     }
     
     return filteredDonations
-      .map(d => ({
-        ...d,
-        memberName: memberMap.get(d.memberId) || 'Membre inconnu',
-        categoryName: d.donationCategoryId ? categoryMap.get(d.donationCategoryId) : ''
-      }))
+      .map(d => {
+        const member = memberMap.get(d.memberId);
+        return {
+          ...d,
+          memberName: member?.nom || 'Membre inconnu',
+          memberAddress: member?.adresse || '',
+          categoryName: d.donationCategoryId ? categoryMap.get(d.donationCategoryId) : ''
+        }
+      })
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   }, [donations, members, categories, selectedMemberId]);
@@ -103,113 +107,80 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
       if(!payments) return 0;
       return payments.reduce((acc, p) => acc + p.amount, 0);
   }
-
-  const generateCerfaNumber = async (donationId: string) => {
-    if (!firestore || !user) return;
-
-    const year = new Date().getFullYear();
-    const donationsRef = collection(firestore, 'users', user.uid, 'donations');
-    
-    const q = query(donationsRef, where("cerfaNumber", ">=", `${year}-0000`), where("cerfaNumber", "<", `${year+1}-0000`));
-
-    try {
-        const querySnapshot = await getDocs(q);
-        const nextId = querySnapshot.docs.length + 1;
-        const cerfaNumber = `${year}-${nextId.toString().padStart(4, '0')}`;
-        const donationDocRef = doc(firestore, 'users', user.uid, 'donations', donationId);
-        
-        await updateDocumentNonBlocking(donationDocRef, { 
-            cerfaNumber: cerfaNumber,
-            cerfaDate: new Date().toISOString()
-        });
-        
-        toast({ title: 'N° CERFA généré', description: `Le numéro ${cerfaNumber} a été assigné.` });
-        return cerfaNumber;
-    } catch(err) {
-        console.error("Error generating CERFA number: ", err);
-        toast({ variant: 'destructive', title: 'Erreur Permission CERFA', description: 'Impossible de sauvegarder le numéro CERFA.' });
-        return null;
-    }
-  };
   
   const handleCerfaClick = async (donation: DonationWithDetails) => {
-    if (!donation.cerfaEligible) return;
-     if (!firestore || !user) return;
-
-    let cerfaNumber = donation.cerfaNumber;
-    if (!cerfaNumber && donation.paymentStatus === 'Payé') {
-        const generatedNumber = await generateCerfaNumber(donation.id);
-        if (!generatedNumber) return; // Stop if number generation failed
-        cerfaNumber = generatedNumber;
+    if (!donation.cerfaNumber) {
+        toast({ variant: 'destructive', title: 'Action impossible', description: 'Aucun numéro de CERFA à générer.' });
+        return;
     }
-    
-    if (cerfaNumber) {
-        try {
-            const memberDocRef = doc(firestore, 'users', user.uid, 'membre', donation.memberId);
-            const memberSnap = await getDoc(memberDocRef);
-            if (!memberSnap.exists()) {
-                toast({ variant: 'destructive', title: 'Erreur', description: 'Membre introuvable.' });
-                return;
-            }
-            const member = memberSnap.data() as Member;
+    if (!firestore || !user) return;
 
-            const templateBytes = await fetch('/cerfa_template.pdf').then(res => res.arrayBuffer());
-            const pdfDoc = await PDFDocument.load(templateBytes);
-            const page = pdfDoc.getPages()[0];
-            const { width, height } = page.getSize();
-
-            const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-            const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-            const textColor = rgb(0, 0, 0);
-
-            if (donation.paymentStatus === 'Annulé') {
-                page.drawText('ANNULÉ', {
-                    x: width / 2 - 150,
-                    y: height / 2 + 100,
-                    font: boldFont,
-                    size: 100,
-                    color: rgb(1, 0, 0),
-                    opacity: 0.2,
-                    rotate: degrees(-45),
-                });
-            }
-
-            const lastPayment = donation.payments.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
-            const paymentDate = new Date(lastPayment.date);
-            const formattedDate = format(paymentDate, 'dd/MM/yyyy');
-            
-            const cerfaDate = donation.cerfaDate ? new Date(donation.cerfaDate) : new Date();
-            const formattedCerfaDate = format(cerfaDate, 'dd/MM/yyyy');
-
-            const paymentMethods = [...new Set(donation.payments.map(p => {
-                if (p.paymentMethod === 'Carte de crédit') return 'CB';
-                return p.paymentMethod;
-            }))].join(', ');
-
-            page.drawText(cerfaNumber, { ...cerfaCoordinates.cerfaId, font, size: 10, color: textColor });
-            page.drawText(member.nom, { ...cerfaCoordinates.donorName, font, size: 10, color: textColor });
-            page.drawText(member.adresse || '', { ...cerfaCoordinates.donorAddress, font, size: 10, color: textColor });
-            
-            page.drawText(donation.totalAmount.toFixed(2), { ...cerfaCoordinates.amountInDigits, font, size: 10, color: textColor });
-            page.drawText(numberToWords(donation.totalAmount) + ' euros', { ...cerfaCoordinates.amountInWords, font, size: 8, color: textColor });
-            
-            page.drawText(formattedDate, { ...cerfaCoordinates.paymentDate, font, size: 10, color: textColor });
-            page.drawText(formattedCerfaDate, { ...cerfaCoordinates.signatureDate, font, size: 10, color: textColor });
-            page.drawText(formattedCerfaDate, { ...cerfaCoordinates.signatureDate2, font, size: 10, color: textColor });
-
-            page.drawText(paymentMethods, { ...cerfaCoordinates.paymentMethod, font, size: 10, color: textColor });
-
-            const pdfBytes = await pdfDoc.save();
-            const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-            const url = URL.createObjectURL(blob);
-            window.open(url, '_blank');
-            
-        } catch (error) {
-            console.error("Failed to generate PDF:", error);
-            toast({ variant: 'destructive', title: 'Erreur PDF', description: 'La génération du fichier CERFA a échoué.' });
+    try {
+        const memberDocRef = doc(firestore, 'users', user.uid, 'membre', donation.memberId);
+        const memberSnap = await getDoc(memberDocRef);
+        if (!memberSnap.exists()) {
+            toast({ variant: 'destructive', title: 'Erreur', description: 'Membre introuvable.' });
+            return;
         }
-    } else {
-        toast({ variant: 'destructive', title: 'Action impossible', description: 'Le don doit être entièrement payé pour générer un CERFA.' });
+        const member = memberSnap.data() as Member;
+
+        const templateBytes = await fetch('/cerfa_template.pdf').then(res => res.arrayBuffer());
+        const pdfDoc = await PDFDocument.load(templateBytes);
+        const page = pdfDoc.getPages()[0];
+        const { width, height } = page.getSize();
+
+        const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+        const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+        const textColor = rgb(0, 0, 0);
+
+        if (donation.paymentStatus === 'Annulé') {
+            page.drawText('ANNULÉ', {
+                x: width / 2 - 150,
+                y: height / 2 + 100,
+                font: boldFont,
+                size: 100,
+                color: rgb(1, 0, 0),
+                opacity: 0.2,
+                rotate: degrees(-45),
+            });
+        }
+
+        const lastPayment = donation.payments.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+        const paymentDate = new Date(lastPayment.date);
+        const formattedDate = format(paymentDate, 'dd/MM/yyyy');
+        
+        const cerfaDate = donation.cerfaDate ? new Date(donation.cerfaDate) : new Date();
+        const formattedCerfaDate = format(cerfaDate, 'dd/MM/yyyy');
+
+        const paymentMethods = [...new Set(donation.payments.map(p => {
+            if (p.paymentMethod === 'Carte de crédit') return 'CB';
+            return p.paymentMethod;
+        }))].join(', ');
+        
+        const donorName = donation.cerfaNom || member.nom;
+        const donorAddress = donation.cerfaAdresse || member.adresse || '';
+
+        page.drawText(donation.cerfaNumber, { ...cerfaCoordinates.cerfaId, font, size: 10, color: textColor });
+        page.drawText(donorName, { ...cerfaCoordinates.donorName, font, size: 10, color: textColor });
+        page.drawText(donorAddress, { ...cerfaCoordinates.donorAddress, font, size: 10, color: textColor });
+        
+        page.drawText(donation.totalAmount.toFixed(2), { ...cerfaCoordinates.amountInDigits, font, size: 10, color: textColor });
+        page.drawText(numberToWords(donation.totalAmount) + ' euros', { ...cerfaCoordinates.amountInWords, font, size: 8, color: textColor });
+        
+        page.drawText(formattedDate, { ...cerfaCoordinates.paymentDate, font, size: 10, color: textColor });
+        page.drawText(formattedCerfaDate, { ...cerfaCoordinates.signatureDate, font, size: 10, color: textColor });
+        page.drawText(formattedCerfaDate, { ...cerfaCoordinates.signatureDate2, font, size: 10, color: textColor });
+
+        page.drawText(paymentMethods, { ...cerfaCoordinates.paymentMethod, font, size: 10, color: textColor });
+
+        const pdfBytes = await pdfDoc.save();
+        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
+        
+    } catch (error) {
+        console.error("Failed to generate PDF:", error);
+        toast({ variant: 'destructive', title: 'Erreur PDF', description: 'La génération du fichier CERFA a échoué.' });
     }
   };
 
@@ -350,9 +321,9 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
                             variant="link" 
                             className={cn("p-0 h-auto", donation.paymentStatus === 'Annulé' && 'text-red-500')}
                             onClick={() => handleCerfaClick(donation)}
-                            disabled={donation.paymentStatus !== 'Payé' && !donation.cerfaNumber && donation.paymentStatus !== 'Annulé'}
+                            disabled={!donation.cerfaNumber}
                         >
-                            {donation.cerfaNumber || (donation.paymentStatus === 'Payé' ? 'Générer' : 'N/A')}
+                            {donation.cerfaNumber || 'N/A'}
                         </Button>
                     ) : (
                         <span className="text-muted-foreground">Non éligible</span>
@@ -398,7 +369,7 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Êtes-vous sûr ?</AlertDialogTitle>
             <AlertDialogDescription>
-              Cette action est irréversible. Le don de {selectedDonation?.totalAmount.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})} par {selectedDonation?.memberName} sera supprimé, ainsi que toutes les transactions associées.
+              Cette action est irréversible. Le don de ${selectedDonation?.totalAmount.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})} par ${selectedDonation?.memberName} sera supprimé, ainsi que toutes les transactions associées.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -415,7 +386,7 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Annuler le don avec CERFA ?</AlertDialogTitle>
             <AlertDialogDescription>
-              Cette action est irréversible. Le don de {selectedDonation?.totalAmount.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})} par {selectedDonation?.memberName} sera marqué comme "Annulé". Le reçu fiscal (CERFA n°{selectedDonation?.cerfaNumber}) sera invalidé.
+              Cette action est irréversible. Le don de ${selectedDonation?.totalAmount.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})} par ${selectedDonation?.memberName} sera marqué comme "Annulé". Le reçu fiscal (CERFA n°{selectedDonation?.cerfaNumber}) sera invalidé.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

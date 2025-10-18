@@ -4,8 +4,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useFirestore, addDocumentNonBlocking, setDocumentNonBlocking, useUser } from '@/firebase';
-import { collection, doc, getDocs, getDoc } from 'firebase/firestore';
+import { useFirestore, addDocumentNonBlocking, setDocumentNonBlocking, useUser, updateDocumentNonBlocking } from '@/firebase';
+import { collection, doc, getDocs, getDoc, query, where } from 'firebase/firestore';
 import type { Donation, Member, DonationCategory, Transaction, Payment } from '@/lib/types';
 import { useForm, useFieldArray, type SubmitHandler, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -146,8 +146,8 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
             if(memberSnap.exists()) {
               const memberData = {id: memberSnap.id, ...memberSnap.data()} as Member;
               setMember(memberData);
-              form.setValue('cerfaNom', memberData.nom);
-              form.setValue('cerfaAdresse', memberData.adresse || '');
+              form.setValue('cerfaNom', existingDonation.cerfaNom || memberData.nom);
+              form.setValue('cerfaAdresse', existingDonation.cerfaAdresse || memberData.adresse || '');
             }
 
             form.reset({
@@ -158,8 +158,8 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
               payments: existingDonation.payments.map(p => ({...p, date: new Date(p.date)})),
               memo: existingDonation.memo || '',
               cerfaEligible: existingDonation.cerfaEligible,
-              cerfaNom: member?.nom || '',
-              cerfaAdresse: member?.adresse || '',
+              cerfaNom: existingDonation.cerfaNom || member?.nom || '',
+              cerfaAdresse: existingDonation.cerfaAdresse || member?.adresse || '',
               cerfaDate: existingDonation.cerfaDate ? new Date(existingDonation.cerfaDate) : new Date(),
             });
           }
@@ -222,6 +222,29 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
     return 'Payé';
   }, [paidAmount, watchTotalAmount]);
 
+  const generateCerfaNumber = async () => {
+    if (!firestore || !user) return null;
+
+    const year = new Date().getFullYear();
+    const donationsRef = collection(firestore, 'users', user.uid, 'donations');
+    const q = query(donationsRef, where("cerfaNumber", ">=", `${year}-0000`), where("cerfaNumber", "<", `${year+1}-0000`));
+
+    try {
+        const querySnapshot = await getDocs(q);
+        const existingNumbers = querySnapshot.docs.map(doc => doc.data().cerfaNumber);
+        let nextId = 1;
+        while (existingNumbers.includes(`${year}-${nextId.toString().padStart(4, '0')}`)) {
+            nextId++;
+        }
+        const cerfaNumber = `${year}-${nextId.toString().padStart(4, '0')}`;
+        return cerfaNumber;
+    } catch(err) {
+        console.error("Error generating CERFA number: ", err);
+        toast({ variant: 'destructive', title: 'Erreur Permission CERFA', description: 'Impossible de générer un numéro CERFA.' });
+        return null;
+    }
+  };
+
 
   const onSubmit: SubmitHandler<DonationFormValues> = async (data) => {
     if (!firestore || !user) {
@@ -229,18 +252,9 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
       return;
     }
     
-    const paidSum = data.payments.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
-    let finalPaymentStatus: 'EN ATTENTE' | 'Partiel' | 'Payé';
-
-    if (paidSum <= 0) {
-        finalPaymentStatus = 'EN ATTENTE';
-    } else if (paidSum < data.totalAmount) {
-        finalPaymentStatus = 'Partiel';
-    } else {
-        finalPaymentStatus = 'Payé';
-    }
+    let finalPaymentStatus = paymentStatus;
     
-    const donationData: Omit<Donation, 'id' | 'createdAt'> = {
+    let donationData: Partial<Donation> = {
         ...data,
         totalAmount: Number(data.totalAmount),
         donationCategoryId: data.type === 'Don' ? data.donationCategoryId : '',
@@ -250,24 +264,46 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
     };
 
     try {
-      if (isEditMode) {
+      if (isEditMode && currentDonation) {
         const donationDocRef = doc(firestore, 'users', user.uid, 'donations', donationId);
-        const donationSnap = await getDoc(donationDocRef);
-        const existingDonation = donationSnap.data();
-        await setDocumentNonBlocking(donationDocRef, { ...donationData, createdAt: existingDonation?.createdAt }, { merge: true });
+        
+        const wasPaid = currentDonation.paymentStatus === 'Payé';
+        const isNowPaid = finalPaymentStatus === 'Payé';
+
+        if(isNowPaid && !wasPaid && data.cerfaEligible && !currentDonation.cerfaNumber) {
+            const newCerfaNumber = await generateCerfaNumber();
+            if(newCerfaNumber){
+                donationData.cerfaNumber = newCerfaNumber;
+                donationData.cerfaDate = (data.cerfaDate || new Date()).toISOString();
+                 toast({ title: 'N° CERFA généré', description: `Le numéro ${newCerfaNumber} a été assigné.` });
+            }
+        }
+        
+        await updateDocumentNonBlocking(donationDocRef, donationData);
         toast({ title: 'Don mis à jour' });
       } else {
         const collectionRef = collection(firestore, 'users', user.uid, 'donations');
-        const newDocRef = await addDocumentNonBlocking(collectionRef, { ...donationData, createdAt: new Date().toISOString() });
+        const donationToSave = { ...donationData, createdAt: new Date().toISOString() };
+
+        if(finalPaymentStatus === 'Payé' && data.cerfaEligible) {
+            const newCerfaNumber = await generateCerfaNumber();
+             if(newCerfaNumber){
+                donationToSave.cerfaNumber = newCerfaNumber;
+                donationToSave.cerfaDate = (data.cerfaDate || new Date()).toISOString();
+                 toast({ title: 'N° CERFA généré', description: `Le numéro ${newCerfaNumber} a été assigné.` });
+            }
+        }
+
+        const newDocRef = await addDocumentNonBlocking(collectionRef, donationToSave);
         
         if (newDocRef) {
             const transactionData: Omit<Transaction, 'id' | 'createdAt'>[] = data.payments.map(p => ({
-              type: donationData.type,
+              type: donationToSave.type as 'Don' | 'Cotisation',
               relatedId: newDocRef.id,
               amount: Number(p.amount),
               date: p.date.toISOString(),
               paymentMethod: p.paymentMethod,
-              memo: donationData.memo
+              memo: donationToSave.memo
             }));
             
             const transactionRef = collection(firestore, 'users', user.uid, 'transactions');
@@ -279,7 +315,7 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
         toast({ title: 'Don ajouté', description: `Un nouveau don/cotisation a été enregistré.` });
       }
       onFormSubmit?.();
-      router.push('/');
+      // No automatic redirection
     } catch (e: any) {
         console.error("Error saving donation", e);
         toast({ variant: "destructive", title: "Erreur de sauvegarde", description: e.message });
@@ -311,10 +347,8 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
         const templateBytes = await fetch('/cerfa_template.pdf').then(res => res.arrayBuffer());
         const pdfDoc = await PDFDocument.load(templateBytes);
         const page = pdfDoc.getPages()[0];
-        const { width, height } = page.getSize();
-
+        
         const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-        const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
         const textColor = rgb(0, 0, 0);
         
         const formValues = form.getValues();
@@ -597,8 +631,8 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
             )}
           </CardContent>
           <CardFooter className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" asChild>
-              <Link href="/">Annuler</Link>
+            <Button type="button" variant="ghost" onClick={onFormSubmit}>
+              Annuler
             </Button>
             <Button type="submit" disabled={form.formState.isSubmitting}>
               {form.formState.isSubmitting ? (

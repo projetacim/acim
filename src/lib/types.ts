@@ -31,6 +31,9 @@ export type Donation = {
   cerfaNumber?: string;
   cerfaDate?: string; // ISO string
   createdAt: string;
+  // CERFA specific fields, can be different from member's default info
+  cerfaNom?: string;
+  cerfaAdresse?: string;
 };
 
 export type Transaction = {
