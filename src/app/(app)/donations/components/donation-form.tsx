@@ -315,7 +315,6 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
         toast({ title: 'Don ajouté', description: `Un nouveau don/cotisation a été enregistré.` });
       }
       onFormSubmit?.();
-      // No automatic redirection
     } catch (e: any) {
         console.error("Error saving donation", e);
         toast({ variant: "destructive", title: "Erreur de sauvegarde", description: e.message });
