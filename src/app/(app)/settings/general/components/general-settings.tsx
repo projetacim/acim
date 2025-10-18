@@ -44,30 +44,41 @@ export function GeneralSettings() {
     setIsResetting(true);
 
     try {
-      // Step 1: Reset CERFA numbers on all donations
-      const donationsRef = collection(firestore, 'users', user.uid, 'donations');
-      const donationsSnapshot = await getDocs(donationsRef);
-      const donationBatch = writeBatch(firestore);
-      
-      donationsSnapshot.forEach(donationDoc => {
-        // We remove the cerfaNumber field
-        donationBatch.update(donationDoc.ref, { cerfaNumber: "" });
-      });
-      await donationBatch.commit();
+      const collectionsToDelete = ['transactions', 'donations', 'membre'];
+      let totalDeleted = 0;
 
-      // Step 2: Delete all transactions
-      const transactionsRef = collection(firestore, 'users', user.uid, 'transactions');
-      const transactionsSnapshot = await getDocs(transactionsRef);
-      const transactionBatch = writeBatch(firestore);
+      for (const collectionName of collectionsToDelete) {
+        const collectionRef = collection(firestore, 'users', user.uid, collectionName);
+        const snapshot = await getDocs(collectionRef);
+        if (snapshot.empty) continue;
 
-      transactionsSnapshot.forEach(transactionDoc => {
-        transactionBatch.delete(transactionDoc.ref);
-      });
-      await transactionBatch.commit();
+        // Firestore limits batches to 500 operations
+        const batches = [];
+        let currentBatch = writeBatch(firestore);
+        let operationsInBatch = 0;
+
+        snapshot.docs.forEach((doc, index) => {
+          currentBatch.delete(doc.ref);
+          operationsInBatch++;
+          totalDeleted++;
+          if (operationsInBatch === 500) {
+            batches.push(currentBatch);
+            currentBatch = writeBatch(firestore);
+            operationsInBatch = 0;
+          }
+        });
+
+        if (operationsInBatch > 0) {
+          batches.push(currentBatch);
+        }
+
+        await Promise.all(batches.map(batch => batch.commit()));
+      }
+
 
       toast({
         title: 'Réinitialisation terminée',
-        description: 'Toutes les transactions et les numéros CERFA ont été effacés.',
+        description: `Toutes les données de test (membres, dons, transactions) ont été effacées. ${totalDeleted} documents supprimés.`,
       });
     } catch (error) {
       console.error('Failed to reset data:', error);
@@ -93,9 +104,9 @@ export function GeneralSettings() {
         </CardHeader>
         <CardContent className="flex items-center justify-between">
           <div>
-            <h3 className="font-semibold">Réinitialiser les données</h3>
+            <h3 className="font-semibold">Réinitialiser la base de test</h3>
             <p className="text-sm text-muted-foreground">
-              Supprime toutes les transactions et réinitialise tous les numéros CERFA.
+              Supprime tous les membres, dons et transactions. Le compteur CERFA sera réinitialisé.
             </p>
           </div>
           <Button
@@ -118,7 +129,7 @@ export function GeneralSettings() {
           <AlertDialogHeader>
             <AlertDialogTitle>Êtes-vous absolument sûr ?</AlertDialogTitle>
             <AlertDialogDescription>
-              Cette action est **irréversible**. Elle supprimera définitivement **toutes** les transactions enregistrées et effacera **tous** les numéros de CERFA générés pour tous les dons. Les dons eux-mêmes ne seront pas supprimés, mais leur lien avec les reçus fiscaux sera perdu.
+              Cette action est **irréversible**. Elle supprimera définitivement **tous les membres, tous les dons, et toutes les transactions**. Votre application reviendra à un état initial, comme si vous veniez de commencer. C'est utile pour démarrer une nouvelle phase de test.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -128,7 +139,7 @@ export function GeneralSettings() {
               disabled={isResetting}
               className="bg-destructive hover:bg-destructive/90"
             >
-              Je comprends le risque, supprimer les données
+              Je comprends le risque, tout supprimer
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
