@@ -80,9 +80,10 @@ type MemberFormValues = z.infer<typeof memberSchema>;
 interface MembersTableProps {
     onMemberSelect: (member: Member | null) => void;
     selectedMember: Member | null;
+    onAddDonation: (member: Member) => void;
 }
 
-export function MembersTable({ onMemberSelect, selectedMember }: MembersTableProps) {
+export function MembersTable({ onMemberSelect, selectedMember, onAddDonation }: MembersTableProps) {
   const firestore = useFirestore();
   const { user } = useUser();
   const router = useRouter();
@@ -243,6 +244,11 @@ export function MembersTable({ onMemberSelect, selectedMember }: MembersTablePro
     XLSX.writeFile(workbook, 'membres.xlsx');
     toast({ title: 'Exportation réussie', description: 'Le fichier Excel a été téléchargé.' });
   };
+  
+  const handleAddDonationClick = (e: React.MouseEvent, member: Member) => {
+      e.stopPropagation();
+      onAddDonation(member);
+  }
 
   return (
     <>
@@ -347,16 +353,16 @@ export function MembersTable({ onMemberSelect, selectedMember }: MembersTablePro
                     <TableCell>{member.doc}</TableCell>
                     <TableCell>{member.memo}</TableCell>
                     <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
-                        <Button variant="ghost" size="icon" onClick={() => router.push(`/donations/new?memberId=${member.id}`)}>
+                        <div className="flex items-center justify-end gap-2">
+                        <Button variant="ghost" size="icon" onClick={(e) => handleAddDonationClick(e, member)}>
                             <DollarSign className="h-4 w-4 text-green-600" />
                             <span className="sr-only">Ajouter un don</span>
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleOpenForm(member)}>
+                        <Button variant="ghost" size="icon" onClick={(e) => {e.stopPropagation(); handleOpenForm(member)}}>
                             <Pencil className="h-4 w-4" />
                             <span className="sr-only">Modifier</span>
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={() => openDeleteAlert(member)} className="text-destructive hover:text-destructive">
+                        <Button variant="ghost" size="icon" onClick={(e) => {e.stopPropagation(); openDeleteAlert(member)}} className="text-destructive hover:text-destructive">
                             <Trash2 className="h-4 w-4" />
                             <span className="sr-only">Supprimer</span>
                         </Button>

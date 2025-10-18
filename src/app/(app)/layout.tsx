@@ -91,7 +91,7 @@ export default function AppLayout({
             </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuButton asChild tooltip="Membres & Dons">
-                <Link href="/members">
+                <Link href="/donations">
                   <Users />
                   <span>Membres & Dons</span>
                 </Link>
