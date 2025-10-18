@@ -10,24 +10,20 @@
           "type": "string",
           "description": "Unique identifier for the member."
         },
-        "firstName": {
+        "nom": {
           "type": "string",
-          "description": "The first name of the member."
-        },
-        "lastName": {
-          "type": "string",
-          "description": "The last name of the member."
+          "description": "The name of the member."
         },
         "email": {
           "type": "string",
           "description": "The email address of the member.",
           "format": "email"
         },
-        "phone": {
+        "telephone": {
           "type": "string",
           "description": "The phone number of the member."
         },
-        "address": {
+        "adresse": {
           "type": "string",
           "description": "The address of the member."
         },
@@ -39,12 +35,19 @@
           "type": "string",
           "description": "The date when the member joined the association.",
           "format": "date-time"
+        },
+        "doc": {
+          "type": "string",
+          "description": "Document type for the member."
+        },
+        "memo": {
+          "type": "string",
+          "description": "A memo for the member."
         }
       },
       "required": [
         "id",
-        "firstName",
-        "lastName",
+        "nom",
         "email"
       ]
     },
@@ -52,7 +55,7 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Donation",
       "type": "object",
-      "description": "Represents a donation made by a member.",
+      "description": "Represents a donation or contribution made by a member.",
       "properties": {
         "id": {
           "type": "string",
@@ -60,70 +63,117 @@
         },
         "memberId": {
           "type": "string",
-          "description": "Reference to Member. (Relationship: Member 1:N Donation)"
+          "description": "Reference to Member."
+        },
+        "type": {
+          "type": "string",
+          "enum": ["Don", "Cotisation"],
+          "description": "The type of contribution."
+        },
+        "donationCategoryId": {
+          "type": "string",
+          "description": "Reference to DonationCategory, applicable if type is 'Don'."
         },
         "amount": {
           "type": "number",
           "description": "The amount of the donation."
         },
-        "date": {
-          "type": "string",
-          "description": "The date when the donation was made.",
-          "format": "date-time"
-        },
         "paymentMethod": {
           "type": "string",
-          "description": "The method of payment used for the donation (e.g., credit card, cash)."
+          "enum": ["Carte de crédit", "Virement bancaire", "Espèces", "Chèque"],
+          "description": "The method of payment."
         },
-        "cerfaGenerated": {
+        "date": {
+          "type": "string",
+          "description": "The date of the donation.",
+          "format": "date-time"
+        },
+        "memo": {
+          "type": "string",
+          "description": "A memo for the donation."
+        },
+        "cerfaEligible": {
           "type": "boolean",
-          "description": "Indicates whether a CERFA form has been generated for this donation."
+          "description": "Indicates if a CERFA form can be generated for this donation."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "The creation date of the donation record.",
+          "format": "date-time"
         }
       },
       "required": [
         "id",
         "memberId",
+        "type",
         "amount",
         "date",
-        "paymentMethod"
+        "paymentMethod",
+        "cerfaEligible"
       ]
     },
-    "Cerfa": {
+    "Transaction": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Cerfa",
+      "title": "Transaction",
       "type": "object",
-      "description": "Represents a CERFA form (donation receipt).",
+      "description": "Represents a financial transaction.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the CERFA form."
+          "description": "Unique identifier for the transaction."
         },
-        "donationId": {
+        "type": {
           "type": "string",
-          "description": "Reference to Donation. (Relationship: Donation 1:1 Cerfa)"
+          "enum": ["Don", "Cotisation", "Événement"],
+          "description": "The type of transaction."
         },
-        "formNumber": {
+        "relatedId": {
           "type": "string",
-          "description": "The official form number of the CERFA form."
+          "description": "ID of the source document (e.g., Donation ID, Event Registration ID)."
         },
-        "generationDate": {
+        "amount": {
+          "type": "number",
+          "description": "The amount of the transaction."
+        },
+        "date": {
           "type": "string",
-          "description": "The date when the CERFA form was generated.",
+          "description": "The date of the transaction.",
           "format": "date-time"
         },
-        "pdfUrl": {
+        "paymentMethod": {
           "type": "string",
-          "description": "URL to the generated CERFA PDF document.",
-          "format": "uri"
+          "enum": ["Carte de crédit", "Virement bancaire", "Espèces", "Chèque"],
+          "description": "The method of payment."
+        },
+        "memo": {
+          "type": "string",
+          "description": "A memo for the transaction."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "The creation date of the transaction record.",
+          "format": "date-time"
         }
       },
       "required": [
         "id",
-        "donationId",
-        "formNumber",
-        "generationDate",
-        "pdfUrl"
+        "type",
+        "relatedId",
+        "amount",
+        "date"
       ]
+    },
+    "DonationCategory": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "DonationCategory",
+      "type": "object",
+      "description": "Represents a category for donations.",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" }
+      },
+      "required": ["id", "name"]
     },
     "Admin": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -167,69 +217,37 @@
           "schema": {
             "$ref": "#/backend/entities/Member"
           },
-          "description": "Stores member profiles under the user who created them.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The UID of the authenticated user."
-            },
-            {
-              "name": "memberId",
-              "description": "The unique identifier of the member."
-            }
-          ]
+          "description": "Stores member profiles under the user who created them."
         }
       },
       {
-        "path": "/users/{userId}/membre/{memberId}/donations/{donationId}",
+        "path": "/users/{userId}/donations/{donationId}",
         "definition": {
           "entityName": "Donation",
           "schema": {
             "$ref": "#/backend/entities/Donation"
           },
-          "description": "Stores donations made by a specific member. donationsId is the unique donation ID.",
-          "params": [
-             {
-              "name": "userId",
-              "description": "The UID of the authenticated user."
-            },
-            {
-              "name": "memberId",
-              "description": "The unique identifier of the member."
-            },
-            {
-              "name": "donationId",
-              "description": "The unique identifier of the donation."
-            }
-          ]
+          "description": "Stores donations made."
+        }
+      },
+       {
+        "path": "/users/{userId}/transactions/{transactionId}",
+        "definition": {
+          "entityName": "Transaction",
+          "schema": {
+            "$ref": "#/backend/entities/Transaction"
+          },
+          "description": "Stores all financial transactions."
         }
       },
       {
-        "path": "/users/{userId}/membre/{memberId}/donations/{donationId}/cerfa/{cerfaId}",
+        "path": "/donationCategories/{categoryId}",
         "definition": {
-          "entityName": "Cerfa",
+          "entityName": "DonationCategory",
           "schema": {
-            "$ref": "#/backend/entities/Cerfa"
+            "$ref": "#/backend/entities/DonationCategory"
           },
-          "description": "Stores CERFA forms associated with a specific donation. cerfaId is the unique CERFA ID.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The UID of the authenticated user."
-            },
-            {
-              "name": "memberId",
-              "description": "The unique identifier of the member."
-            },
-            {
-              "name": "donationId",
-              "description": "The unique identifier of the donation."
-            },
-            {
-              "name": "cerfaId",
-              "description": "The unique identifier of the CERFA form."
-            }
-          ]
+          "description": "Global categories for donations."
         }
       },
       {
@@ -239,16 +257,9 @@
           "schema": {
             "$ref": "#/backend/entities/Admin"
           },
-          "description": "Collection containing documents representing admin users. Existence of a document with a specific UID grants admin privileges.",
-          "params": [
-            {
-              "name": "adminId",
-              "description": "The unique identifier of the admin user (same as Firebase auth UID)."
-            }
-          ]
+          "description": "Collection containing documents representing admin users. Existence of a document with a specific UID grants admin privileges."
         }
       }
-    ],
-    "reasoning": "The Firestore structure is designed to manage members, donations, and CERFA forms for an association, with a focus on authorization independence, clarity, and security. It leverages path-based ownership for members and their related data (donations, CERFA forms), and a dedicated collection for admin roles.\n\n*   **Authorization Independence:** The structure avoids hierarchical `get()` calls by not relying on parent document data for child document authorization.  Admin privileges are determined by the presence of a document in the `/roles_admin/{uid}` collection.  Membership is implicitly granted by UID within the `/members/{memberId}` collection and, for donations and CERFAs, is inherited from the `/members/{memberId}` path.\n*   **QAPs (List operations):** The structure supports secure list operations by segregating data based on access levels. Only admins can list members. Members can only access their own donations and CERFA forms due to the path-based structure. The `/roles_admin` collection enables secure listing of admin roles.\n*   **Data Integrity:** Path-based ownership ensures that donations and CERFA forms are always associated with a specific member. Timestamps (if implemented) can be enforced using rules to maintain the integrity of creation/update times."
+    ]
   }
 }
