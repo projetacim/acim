@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -38,7 +39,7 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Checkbox } from '@/components/ui/checkbox';
-import { openCerfaPdf } from '@/lib/pdf';
+import { openCerfaPdf } from '@/lib/cerfa-actions';
 import { sendCerfaEmail } from '@/lib/email';
 
 

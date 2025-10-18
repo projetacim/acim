@@ -1,4 +1,5 @@
 
+
 'use client';
 import { useState, useMemo, useEffect } from 'react';
 import { useFirestore, useUser, updateDocumentNonBlocking } from '@/firebase';
@@ -16,7 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import type { Donation, Member, DonationCategory } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-import { openCerfaPdf, generateCerfaPdf } from '@/lib/pdf';
+import { openCerfaPdf } from '@/lib/cerfa-actions';
 import { sendCerfaEmail } from '@/lib/email';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
@@ -285,3 +286,4 @@ export function CerfaTable() {
     </>
   );
 }
+

@@ -86,17 +86,3 @@ export async function generateCerfaPdf(donation: Donation, member: Member): Prom
     const pdfBytes = await pdfDoc.save();
     return Buffer.from(pdfBytes);
 }
-
-// This function needs to be a client-side function to open a new window
-export async function openCerfaPdf(donation: Donation, member: Member) {
-    'use client';
-    try {
-        const pdfBytes = await generateCerfaPdf(donation, member);
-        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-        const url = URL.createObjectURL(blob);
-        window.open(url, '_blank');
-    } catch (error) {
-        console.error("Failed to generate or open PDF:", error);
-        // You might want to show a toast to the user here
-    }
-}

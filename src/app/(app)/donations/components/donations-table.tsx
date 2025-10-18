@@ -1,4 +1,5 @@
 
+
 'use client';
 import { useState, useMemo, useEffect } from 'react';
 import { useFirestore, deleteDocumentNonBlocking, useUser, updateDocumentNonBlocking } from '@/firebase';
@@ -28,7 +29,7 @@ import type { Donation, Member, Payment, DonationCategory } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRouter } from 'next/navigation';
-import { openCerfaPdf } from '@/lib/pdf';
+import { openCerfaPdf } from '@/lib/cerfa-actions';
 import { sendCerfaEmail } from '@/lib/email';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -362,3 +363,4 @@ export function DonationsTable({ selectedMemberId, onEditDonation }: DonationsTa
     </>
   );
 }
+
