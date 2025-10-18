@@ -7,6 +7,7 @@ import { DateRange } from 'react-day-picker';
 import { format, subDays } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import Link from 'next/link';
+import * as XLSX from 'xlsx';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,12 +19,13 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartStyle } from '@/components/ui/chart';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { CalendarIcon, TrendingUp, Users, DollarSign, PenLine } from 'lucide-react';
+import { CalendarIcon, TrendingUp, Users, DollarSign, PenLine, FileDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Transaction, Donation, Member, DonationCategory } from '@/lib/types';
 import { numberToWords } from '@/lib/number-to-words';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip as UiTooltip, TooltipContent as UiTooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useToast } from '@/hooks/use-toast';
 
 
 const CHART_COLORS = {
@@ -58,6 +60,7 @@ const CustomLegend = (props: any) => {
 
 export function BilanView() {
   const { transactions, donations, members, categories, isLoading } = useData();
+  const { toast } = useToast();
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: subDays(new Date(), 29),
     to: new Date(),
@@ -131,6 +134,23 @@ export function BilanView() {
     }, {} as any)
   }, [chartData]);
   
+  const exportToExcel = () => {
+    const dataToExport = filteredTransactions.map(t => ({
+      'Date': format(new Date(t.date), 'dd/MM/yyyy'),
+      'Membre': t.memberName,
+      'Type': t.type,
+      'Catégorie': t.categoryName,
+      'Moyen de paiement': t.paymentMethod,
+      'Montant': t.amount,
+      'Mémo': t.memo,
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Transactions');
+    XLSX.writeFile(workbook, `bilan_transactions_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+    toast({ title: 'Exportation réussie', description: 'Le fichier Excel a été téléchargé.' });
+  };
+  
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -150,7 +170,11 @@ export function BilanView() {
 
   return (
     <div className="space-y-6">
-       <div className="flex justify-end">
+       <div className="flex justify-end gap-2">
+         <Button onClick={exportToExcel} variant="outline" disabled={filteredTransactions.length === 0}>
+            <FileDown className="mr-2 h-4 w-4" />
+            Exporter
+         </Button>
          <Popover>
             <PopoverTrigger asChild>
               <Button
@@ -226,7 +250,7 @@ export function BilanView() {
             <CardHeader>
                 <CardTitle>Répartition par moyen de paiement</CardTitle>
             </CardHeader>
-            <CardContent className="h-[250px] flex items-center justify-center">
+            <CardContent className="h-[340px] flex items-center justify-center">
                {chartData.length > 0 ? (
                 <ChartContainer config={chartConfig} className="min-h-[250px] w-full">
                     <PieChart>
