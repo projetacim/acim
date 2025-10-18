@@ -135,19 +135,57 @@ export function BilanView() {
   }, [chartData]);
   
   const exportToExcel = () => {
-    const dataToExport = filteredTransactions.map(t => ({
-      'Date': format(new Date(t.date), 'dd/MM/yyyy'),
-      'Membre': t.memberName,
-      'Type': t.type,
-      'Catégorie': t.categoryName,
-      'Moyen de paiement': t.paymentMethod,
-      'Montant': t.amount,
-      'Mémo': t.memo,
-    }));
-    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    // 1. Prepare data
+    const dateHeader = `Période du ${dateRange?.from ? format(dateRange.from, 'dd/MM/yyyy') : 'début'} au ${dateRange?.to ? format(dateRange.to, 'dd/MM/yyyy') : 'fin'}`;
+
+    const summaryHeader = ['Moyen de Paiement', 'Montant Total'];
+    const summaryData = chartData.map(item => [item.name, item.value]);
+
+    const transactionsHeader = ['Date', 'Membre', 'Type', 'Catégorie', 'Moyen de paiement', 'Montant', 'Mémo'];
+    const transactionsData = filteredTransactions.map(t => [
+      format(new Date(t.date), 'dd/MM/yyyy'),
+      t.memberName,
+      t.type,
+      t.categoryName,
+      t.paymentMethod,
+      t.amount,
+      t.memo,
+    ]);
+
+    // 2. Create worksheet
+    const worksheet = XLSX.utils.aoa_to_sheet([]);
+    
+    // 3. Add data to worksheet
+    XLSX.utils.sheet_add_aoa(worksheet, [[dateHeader]], { origin: 'A1' });
+    XLSX.utils.sheet_add_aoa(worksheet, [[]], { origin: 'A2' }); // Empty row for spacing
+    
+    XLSX.utils.sheet_add_aoa(worksheet, [summaryHeader], { origin: 'A3' });
+    XLSX.utils.sheet_add_aoa(worksheet, summaryData, { origin: 'A4' });
+    
+    const nextRow = 4 + summaryData.length;
+    XLSX.utils.sheet_add_aoa(worksheet, [[]], { origin: `A${nextRow}` }); // Empty row
+
+    XLSX.utils.sheet_add_aoa(worksheet, [transactionsHeader], { origin: `A${nextRow + 1}` });
+    XLSX.utils.sheet_add_aoa(worksheet, transactionsData, { origin: `A${nextRow + 2}` });
+
+    // Auto-fit columns
+    const columnWidths = [
+      {wch: 15}, // Date
+      {wch: 25}, // Membre
+      {wch: 15}, // Type
+      {wch: 20}, // Catégorie
+      {wch: 20}, // Moyen de paiement
+      {wch: 15}, // Montant
+      {wch: 40}  // Mémo
+    ];
+    worksheet['!cols'] = columnWidths;
+
+
+    // 4. Create workbook and export
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Transactions');
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Bilan');
     XLSX.writeFile(workbook, `bilan_transactions_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+
     toast({ title: 'Exportation réussie', description: 'Le fichier Excel a été téléchargé.' });
   };
   
@@ -326,3 +364,5 @@ export function BilanView() {
     </div>
   );
 }
+
+    
