@@ -23,19 +23,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { PlusCircle, Pencil, Trash2, CheckCircle, XCircle, ChevronsUpDown, Check } from 'lucide-react';
 import type { Donation, Member, Payment } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
@@ -50,10 +43,8 @@ export function DonationsTable() {
   const { toast } = useToast();
   const router = useRouter();
 
-  // State for the new test dialog
-  const [isTestDialogOpen, setIsTestDialogOpen] = useState(false);
   const [openCombobox, setOpenCombobox] = useState(false);
-  const [selectedTestMemberId, setSelectedTestMemberId] = useState<string | null>(null);
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
 
   const membersCollection = useMemoFirebase(() => user ? collection(firestore, 'users', user.uid, 'membre') : null, [firestore, user]);
   const donationsCollection = useMemoFirebase(() => user ? collection(firestore, 'users', user.uid, 'donations') : null, [firestore, user]);
@@ -82,8 +73,6 @@ export function DonationsTable() {
     if (!firestore || !selectedDonation || !user) return;
     const donationDocRef = doc(firestore, 'users', user.uid, 'donations', selectedDonation.id);
     
-    // Find related transactions and delete them
-    // This is a simple implementation. For large datasets, a Cloud Function would be better.
     const transactionCollectionRef = collection(firestore, 'users', user.uid, 'transactions');
     const { getDocs, query, where } = await import('firebase/firestore');
     const q = query(transactionCollectionRef, where("relatedId", "==", selectedDonation.id));
@@ -123,23 +112,80 @@ export function DonationsTable() {
 
   const isLoading = isLoadingMembers || isLoadingDonations;
 
-  const selectedTestMember = useMemo(() => {
-    if (!selectedTestMemberId || !members) return null;
-    return members.find(m => m.id === selectedTestMemberId);
-  }, [selectedTestMemberId, members]);
+  const selectedMember = useMemo(() => {
+    if (!selectedMemberId || !members) return null;
+    return members.find(m => m.id === selectedMemberId);
+  }, [selectedMemberId, members]);
 
   return (
     <>
       <Card>
         <CardHeader>
-             <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                    <CardTitle>Historique</CardTitle>
-                    <Button variant="ghost" size="icon" onClick={() => setIsTestDialogOpen(true)}>
-                        <PlusCircle className="h-5 w-5" />
-                    </Button>
-                </div>
+          <div className="flex items-start justify-between gap-4">
+              <div>
+                <CardTitle>Ajouter un don ou une cotisation</CardTitle>
+                <CardDescription className="mt-1">Sélectionnez un membre puis cliquez sur "Ajouter" pour créer un nouveau don.</CardDescription>
+              </div>
+              <Button 
+                onClick={() => router.push(`/donations/new?memberId=${selectedMemberId}`)} 
+                disabled={!selectedMemberId || isLoadingMembers}
+              >
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Ajouter un don
+              </Button>
             </div>
+            <div className="pt-4">
+              <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={openCombobox}
+                    className="w-[350px] justify-between"
+                    disabled={isLoadingMembers}
+                  >
+                    {isLoadingMembers ? "Chargement..." : (selectedMember
+                      ? selectedMember.nom
+                      : "Sélectionner un membre...")}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[350px] p-0">
+                  <Command>
+                    <CommandInput placeholder="Rechercher un membre..." />
+                    <CommandList>
+                      <CommandEmpty>Aucun membre trouvé.</CommandEmpty>
+                      <CommandGroup>
+                        {members?.map((member) => (
+                          <CommandItem
+                            key={member.id}
+                            value={member.nom}
+                            onSelect={(currentValue) => {
+                              setSelectedMemberId(member.id === selectedMemberId ? null : member.id);
+                              setOpenCombobox(false);
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                selectedMemberId === member.id ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {member.nom}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+          </div>
+        </CardHeader>
+      </Card>
+
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle>Historique des dons et cotisations</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
@@ -222,62 +268,6 @@ export function DonationsTable() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-       <Dialog open={isTestDialogOpen} onOpenChange={setIsTestDialogOpen}>
-        <DialogContent className="sm:max-w-xl h-[500px]">
-          <DialogHeader>
-            <DialogTitle>Test Combobox Membre</DialogTitle>
-            <DialogDescription>
-              Sélectionnez un membre dans la liste ci-dessous.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4 flex justify-center">
-            <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  aria-expanded={openCombobox}
-                  className="w-[350px] justify-between"
-                >
-                  {selectedTestMember
-                    ? selectedTestMember.nom
-                    : "Sélectionner un membre..."}
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[350px] p-0">
-                <Command>
-                  <CommandInput placeholder="Rechercher un membre..." />
-                  <CommandList>
-                    <CommandEmpty>Aucun membre trouvé.</CommandEmpty>
-                    <CommandGroup>
-                      {members?.map((member) => (
-                        <CommandItem
-                          key={member.id}
-                          value={member.nom}
-                          onSelect={(currentValue) => {
-                            setSelectedTestMemberId(member.id === selectedTestMemberId ? null : member.id);
-                            setOpenCombobox(false);
-                          }}
-                        >
-                          <Check
-                            className={cn(
-                              "mr-2 h-4 w-4",
-                              selectedTestMemberId === member.id ? "opacity-100" : "opacity-0"
-                            )}
-                          />
-                          {member.nom}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-          </div>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }

@@ -31,7 +31,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Calendar } from '@/components/ui/calendar';
-import { CalendarIcon, ChevronsUpDown, Check, PlusCircle, X, Loader2 } from 'lucide-react';
+import { CalendarIcon, PlusCircle, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -60,18 +60,18 @@ type DonationFormValues = z.infer<typeof donationSchema>;
 
 interface DonationFormProps {
   donationId?: string;
+  memberIdParam?: string;
 }
 
-export function DonationForm({ donationId }: DonationFormProps) {
+export function DonationForm({ donationId, memberIdParam }: DonationFormProps) {
   const firestore = useFirestore();
   const { user } = useUser();
   const { toast } = useToast();
   const router = useRouter();
 
-  const [members, setMembers] = useState<Member[]>([]);
+  const [member, setMember] = useState<Member | null>(null);
   const [categories, setCategories] = useState<DonationCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [openMemberPopover, setOpenMemberPopover] = useState(false);
   
   const isEditMode = !!donationId;
 
@@ -97,13 +97,10 @@ export function DonationForm({ donationId }: DonationFormProps) {
     async function fetchData() {
       if (!user || !firestore) return;
       setIsLoading(true);
+      
+      const memberIdToFetch = isEditMode ? null : memberIdParam;
 
       try {
-        const membersCollectionRef = collection(firestore, 'users', user.uid, 'membre');
-        const membersSnapshot = await getDocs(membersCollectionRef);
-        const membersList = membersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Member[];
-        setMembers(membersList);
-
         const categoriesCollectionRef = collection(firestore, 'donationCategories');
         const categoriesSnapshot = await getDocs(categoriesCollectionRef);
         const categoriesList = categoriesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as DonationCategory[];
@@ -114,6 +111,14 @@ export function DonationForm({ donationId }: DonationFormProps) {
           const donationSnap = await getDoc(donationDocRef);
           if (donationSnap.exists()) {
             const existingDonation = donationSnap.data() as Donation;
+            form.setValue('memberId', existingDonation.memberId);
+            
+            const memberDocRef = doc(firestore, 'users', user.uid, 'membre', existingDonation.memberId);
+            const memberSnap = await getDoc(memberDocRef);
+            if(memberSnap.exists()) {
+              setMember({id: memberSnap.id, ...memberSnap.data()} as Member);
+            }
+
             form.reset({
               memberId: existingDonation.memberId,
               type: existingDonation.type,
@@ -124,16 +129,24 @@ export function DonationForm({ donationId }: DonationFormProps) {
               cerfaEligible: existingDonation.cerfaEligible,
             });
           }
-        } else {
-            form.reset({
-                memberId: '',
-                type: 'Don',
-                donationCategoryId: '',
-                totalAmount: 0,
-                payments: [{ amount: 0, date: new Date(), paymentMethod: 'Espèces' }],
-                memo: '',
-                cerfaEligible: true,
-            });
+        } else if (memberIdToFetch) {
+            const memberDocRef = doc(firestore, 'users', user.uid, 'membre', memberIdToFetch);
+            const memberSnap = await getDoc(memberDocRef);
+             if(memberSnap.exists()) {
+              const memberData = {id: memberSnap.id, ...memberSnap.data()} as Member;
+              setMember(memberData);
+              form.reset({
+                  memberId: memberData.id,
+                  type: 'Don',
+                  donationCategoryId: '',
+                  totalAmount: 0,
+                  payments: [{ amount: 0, date: new Date(), paymentMethod: 'Espèces' }],
+                  memo: '',
+                  cerfaEligible: true,
+              });
+            } else {
+                 toast({ variant: "destructive", title: "Erreur", description: "Membre non trouvé." });
+            }
         }
       } catch (error) {
         console.error("Failed to fetch data:", error);
@@ -147,7 +160,7 @@ export function DonationForm({ donationId }: DonationFormProps) {
       }
     }
     fetchData();
-  }, [donationId, isEditMode, user, firestore, form, toast]);
+  }, [donationId, memberIdParam, isEditMode, user, firestore, form, toast]);
 
 
   const watchPayments = useWatch({ control: form.control, name: 'payments' });
@@ -205,7 +218,6 @@ export function DonationForm({ donationId }: DonationFormProps) {
         await setDocumentNonBlocking(donationDocRef, { ...donationData, createdAt: existingDonation?.createdAt }, { merge: true });
         toast({ title: 'Don mis à jour' });
       } else {
-        // Create
         const collectionRef = collection(firestore, 'users', user.uid, 'donations');
         const newDocRef = await addDocumentNonBlocking(collectionRef, { ...donationData, createdAt: new Date().toISOString() });
         
@@ -259,67 +271,16 @@ export function DonationForm({ donationId }: DonationFormProps) {
             <CardTitle>{isEditMode ? 'Modifier le don' : 'Ajouter un don/cotisation'}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            <FormField
-              control={form.control}
-              name="memberId"
-              render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel>Membre</FormLabel>
-                  <Popover open={openMemberPopover} onOpenChange={setOpenMemberPopover}>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant="outline"
-                          role="combobox"
-                          className={cn(
-                            "w-full justify-between",
-                            !field.value && "text-muted-foreground"
-                          )}
-                        >
-                          {field.value
-                            ? members?.find(
-                                (member) => member.id === field.value
-                              )?.nom
-                            : "Sélectionner un membre"}
-                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                      <Command>
-                        <CommandInput placeholder="Rechercher un membre..." />
-                        <CommandList>
-                          <CommandEmpty>Aucun membre trouvé.</CommandEmpty>
-                          <CommandGroup>
-                            {members?.map((member) => (
-                              <CommandItem
-                                value={member.nom}
-                                key={member.id}
-                                onSelect={() => {
-                                  form.setValue("memberId", member.id);
-                                  setOpenMemberPopover(false);
-                                }}
-                              >
-                                <Check
-                                  className={cn(
-                                    "mr-2 h-4 w-4",
-                                    member.id === field.value
-                                      ? "opacity-100"
-                                      : "opacity-0"
-                                  )}
-                                />
-                                {member.nom}
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <FormItem>
+              <FormLabel>Membre</FormLabel>
+              <FormControl>
+                <div className="flex h-10 w-full items-center rounded-md border border-input bg-muted px-3 py-2 text-sm">
+                  {member ? member.nom : "Chargement..."}
+                </div>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+            
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
