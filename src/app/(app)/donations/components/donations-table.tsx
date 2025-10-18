@@ -224,7 +224,7 @@ export function DonationsTable() {
       </AlertDialog>
 
        <Dialog open={isTestDialogOpen} onOpenChange={setIsTestDialogOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-4xl">
           <DialogHeader>
             <DialogTitle>Test Combobox Membre</DialogTitle>
             <DialogDescription>
@@ -281,5 +281,3 @@ export function DonationsTable() {
     </>
   );
 }
-
-    
