@@ -66,7 +66,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 
 
 const paymentSchema = z.object({
-  amount: z.coerce.number().min(0.01, "Le montant doit être positif."),
+  amount: z.coerce.number().min(0.01, "Le montant doit être positif.").default(0),
   date: z.date({ required_error: "La date est requise." }),
   paymentMethod: z.enum(['Carte de crédit', 'Virement bancaire', 'Espèces', 'Chèque']),
 });
@@ -117,7 +117,7 @@ export function DonationsTable() {
     },
   });
   
-  const { fields, append, remove, replace } = useFieldArray({
+  const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: "payments"
   });
@@ -127,16 +127,18 @@ export function DonationsTable() {
   const donationType = useWatch({ control: form.control, name: 'type' });
   
   const paidAmount = useMemo(() => {
-    return (watchPayments || []).reduce((acc, p) => acc + (p.amount || 0), 0);
+    return watchPayments.reduce((acc, p) => acc + (p.amount || 0), 0);
   }, [watchPayments]);
 
   const remainingAmount = useMemo(() => {
-    return (watchTotalAmount || 0) - paidAmount;
+    const total = watchTotalAmount || 0;
+    return total - paidAmount;
   }, [watchTotalAmount, paidAmount]);
 
   const paymentStatus = useMemo(() => {
-    if (paidAmount === 0) return 'EN ATTENTE';
-    if (paidAmount < (watchTotalAmount || 0)) return 'Partiel';
+    const total = watchTotalAmount || 0;
+    if (paidAmount <= 0) return 'EN ATTENTE';
+    if (paidAmount < total) return 'Partiel';
     return 'Payé';
   }, [paidAmount, watchTotalAmount]);
 
@@ -151,6 +153,7 @@ export function DonationsTable() {
   }, [donations, members]);
   
   const getPaidAmount = (payments: Payment[]) => {
+      if(!payments) return 0;
       return payments.reduce((acc, p) => acc + p.amount, 0);
   }
 
@@ -197,15 +200,15 @@ export function DonationsTable() {
       return;
     }
     
-    const paidAmount = data.payments.reduce((acc, p) => acc + p.amount, 0);
-    let paymentStatus: 'EN ATTENTE' | 'Partiel' | 'Payé';
+    const paidSum = data.payments.reduce((acc, p) => acc + p.amount, 0);
+    let finalPaymentStatus: 'EN ATTENTE' | 'Partiel' | 'Payé';
 
-    if (paidAmount === 0) {
-        paymentStatus = 'EN ATTENTE';
-    } else if (paidAmount < data.totalAmount) {
-        paymentStatus = 'Partiel';
+    if (paidSum <= 0) {
+        finalPaymentStatus = 'EN ATTENTE';
+    } else if (paidSum < data.totalAmount) {
+        finalPaymentStatus = 'Partiel';
     } else {
-        paymentStatus = 'Payé';
+        finalPaymentStatus = 'Payé';
     }
     
     const donationData: Omit<Donation, 'id' | 'createdAt'> = {
@@ -213,7 +216,7 @@ export function DonationsTable() {
         totalAmount: Number(data.totalAmount),
         donationCategoryId: data.type === 'Don' ? data.donationCategoryId : '',
         payments: data.payments.map(p => ({...p, date: p.date.toISOString()})),
-        paymentStatus,
+        paymentStatus: finalPaymentStatus,
     };
 
     try {
@@ -280,6 +283,8 @@ export function DonationsTable() {
         return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">Partiel</Badge>;
       case 'EN ATTENTE':
         return <Badge variant="outline">En attente</Badge>;
+      default:
+        return <Badge variant="secondary">Inconnu</Badge>;
     }
   };
 
@@ -360,7 +365,7 @@ export function DonationsTable() {
         </CardContent>
       </Card>
       
-      <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+      <Dialog open={isFormOpen} onOpenChange={handleCloseForm}>
         <DialogContent className="sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>{selectedDonation ? 'Modifier le don' : 'Ajouter un don/cotisation'}</DialogTitle>
@@ -476,7 +481,7 @@ export function DonationsTable() {
                       <FormItem>
                         <FormLabel>Montant Total du Don (€)</FormLabel>
                         <FormControl>
-                          <Input type="number" step="0.01" {...field} />
+                          <Input type="number" step="0.01" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || 0)} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -508,7 +513,7 @@ export function DonationsTable() {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Montant (€)</FormLabel>
-                            <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
+                            <FormControl><Input type="number" step="0.01" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || 0)} /></FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
