@@ -17,7 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartStyle } from '@/components/ui/chart';
-import { PieChart, Pie, Cell, Tooltip } from 'recharts';
+import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { CalendarIcon, TrendingUp, Users, DollarSign, PenLine } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Transaction, Donation, Member, DonationCategory } from '@/lib/types';
@@ -35,6 +35,26 @@ const CHART_COLORS = {
 };
 
 type PaymentMethod = keyof typeof CHART_COLORS;
+
+const CustomLegend = (props: any) => {
+  const { payload } = props;
+  return (
+    <ul className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+      {payload.map((entry: any, index: any) => (
+        <li key={`item-${index}`} className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: entry.color }} />
+            <span>{entry.value}</span>
+          </div>
+          <span className="font-medium">
+            {entry.payload.value.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+};
+
 
 export function BilanView() {
   const { transactions, donations, members, categories, isLoading } = useData();
@@ -104,12 +124,6 @@ export function BilanView() {
 
   }, [filteredTransactions]);
   
-  const totalInWords = useMemo(() => {
-    const words = numberToWords(stats.total);
-    return words.charAt(0).toUpperCase() + words.slice(1);
-  }, [stats.total]);
-
-
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -206,19 +220,20 @@ export function BilanView() {
                 <CardTitle>Répartition par moyen de paiement</CardTitle>
             </CardHeader>
             <CardContent>
-                <ChartContainer config={{}} className="mx-auto aspect-square max-h-64">
+                <ResponsiveContainer width="100%" height={250}>
                     <PieChart>
                         <Tooltip
                             cursor={false}
                             content={<ChartTooltipContent hideLabel indicator="dot" />}
                         />
-                        <Pie data={chartData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
-                            {chartData.map((entry, index) => (
+                        <Pie data={chartData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={80} labelLine={false} label>
+                             {chartData.map((entry, index) => (
                                 <Cell key={`cell-${index}`} fill={entry.fill} />
                             ))}
                         </Pie>
+                        <Legend content={<CustomLegend />} verticalAlign="bottom" align="center" />
                     </PieChart>
-                </ChartContainer>
+                </ResponsiveContainer>
             </CardContent>
         </Card>
         <Card className="lg:col-span-4">
@@ -273,43 +288,8 @@ export function BilanView() {
           </CardContent>
         </Card>
       </div>
-      <Card>
-        <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-                <PenLine className="h-5 w-5 text-muted-foreground" />
-                Arrêté en lettres
-            </CardTitle>
-            <CardDescription>
-                Total des revenus de la période sélectionnée, en toutes lettres.
-            </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-             {chartData.length > 0 ? (
-              <ul className="space-y-2 text-sm">
-                {chartData.map(item => (
-                  <li key={item.name} className="flex justify-between items-baseline">
-                    <span className="font-medium">{item.name}:</span>
-                    <span className="italic text-muted-foreground">{numberToWords(item.value)} euros</span>
-                  </li>
-                ))}
-                <Separator className="my-2" />
-                <li className="flex justify-between items-baseline pt-2">
-                    <span className="font-semibold text-base text-primary">Total:</span>
-                     <p className="text-base font-semibold italic text-primary">
-                        {totalInWords} euros.
-                    </p>
-                </li>
-              </ul>
-            ) : (
-                <p className="text-lg font-semibold italic text-primary">
-                    {totalInWords} euros.
-                </p>
-            )}
-        </CardContent>
-      </Card>
     </div>
   );
-
-    
+}
 
     
