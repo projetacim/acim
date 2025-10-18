@@ -1,88 +1,143 @@
+/**
+ * @file Firestore Security Rules
+ * @description This ruleset enforces a strict user-ownership model for most data, with admin overrides for specific collections.
+ *
+ * Data Structure:
+ * - /users/{userId}/...: All data is nested under a user's ID, ensuring only the user and admins can access it.
+ * - /roles_admin/{adminId}:  Documents in this collection grant admin privileges to the corresponding user ID.
+ *
+ * Key Security Decisions:
+ * - User data is strictly private; users can only access their own data.
+ * - Listing of user subcollections is allowed only for the owner.
+ * - Admin role is granted by the presence of a document in the `roles_admin` collection.
+ *
+ * Denormalization for Authorization:
+ *  - The rules rely on the `request.auth.uid` to determine the current user and match it against document IDs or fields.
+ *
+ * Structural Segregation:
+ * - Private user data is stored under `/users/{userId}`, while potential public data would be at the top level (though none is defined in this schema).
+ */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Defines whether the current user is signed in
+     * @description Checks if the request is authenticated.
      */
     function isSignedIn() {
       return request.auth != null;
     }
 
     /**
-     * @description Defines whether the current user is the owner of the resource.
+     * @description Checks if the requested user ID matches the authenticated user's ID.
      */
     function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
-
-    /**
-     * @description Defines whether the current user is an existing owner of the resource.
-     */
-    function isExistingOwner(userId) {
-      return isOwner(userId) && resource.data != null;
+      return isSignedIn() && request.auth.uid == userId;
     }
 
      /**
-      * @description Checks if the requesting user is an admin.
+      * @description Checks if the request is made by an existing owner of the resource.
       */
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
+    }
+
+    /**
+     * @description Checks if the user is an admin by verifying the existence of their ID in the roles_admin collection.
+     */
     function isAdmin() {
       return exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
     }
 
     /**
-     * @description Rules for documents in the /users/{userId}/membre/{memberId} collection.
+     * @description Rules for the roles_admin collection. Only admins can create, update, or delete admin roles.
+     * @path /roles_admin/{adminId}
+     * @allow (create) If the user is an admin.
+     * @deny (create) If the user is not an admin.
+     * @principle Only admins can manage other admins.
      */
-    match /users/{userId}/membre/{memberId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
-    }
-
-    /**
-     * @description Rules for documents in the /users/{userId}/donations/{donationId} collection.
-     */
-    match /users/{userId}/donations/{donationId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
-    }
-
-    /**
-     * @description Rules for documents in the /users/{userId}/transactions/{transactionId} collection.
-     */
-    match /users/{userId}/transactions/{transactionId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
-    }
-
-    /**
-     * @description Rules for documents in the /donationCategories/{categoryId} collection.
-     */
-    match /donationCategories/{categoryId} {
-      allow get: if true;
-      allow list: if true;
+    match /roles_admin/{adminId} {
+      allow get: if isSignedIn();
+      allow list: if false; // Prevent listing of all admins for security reasons
       allow create: if isAdmin();
-      allow update: if isAdmin();
+      allow update: if false; // Admin roles are immutable for now
       allow delete: if isAdmin();
     }
 
     /**
-     * @description Rules for documents in the /roles_admin/{adminId} collection.
+     * @description Rules for member documents under a specific user.
+     * @path /users/{userId}/membre/{memberId}
+     * @allow (create) If the user is the owner of the userId.
+     * @allow (get) If the user is the owner of the userId.
+     * @allow (update) If the user is the owner of the userId and the memberId is immutable.
+     * @allow (delete) If the user is the owner of the userId.
+     * @deny (create) If the user is not the owner of the userId.
+     * @deny (update) If the user is not the owner of the userId or tries to change the memberId.
+     * @principle Enforces document ownership for writes.
      */
-    match /roles_admin/{adminId} {
-        allow get: if isAdmin();
-        allow list: if false;
-        allow create: if request.auth.uid == adminId;
-        allow update: if false;
-        allow delete: if false;
+    match /users/{userId}/membre/{memberId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.id == memberId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Rules for donation documents under a specific user.
+     * @path /users/{userId}/donations/{donationId}
+     * @allow (create) If the user is the owner of the userId.
+     * @allow (get) If the user is the owner of the userId.
+     * @allow (update) If the user is the owner of the userId and the donationId is immutable.
+     * @allow (delete) If the user is the owner of the userId.
+     * @deny (create) If the user is not the owner of the userId.
+     * @deny (update) If the user is not the owner of the userId or tries to change the donationId.
+     * @principle Enforces document ownership for writes.
+     */
+    match /users/{userId}/donations/{donationId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.id == donationId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
+    }
+
+     /**
+     * @description Rules for transaction documents under a specific user.
+     * @path /users/{userId}/transactions/{transactionId}
+     * @allow (create) If the user is the owner of the userId.
+     * @allow (get) If the user is the owner of the userId.
+     * @allow (update) If the user is the owner of the userId and the transactionId is immutable.
+     * @allow (delete) If the user is the owner of the userId.
+     * @deny (create) If the user is not the owner of the userId.
+     * @deny (update) If the user is not the owner of the userId or tries to change the transactionId.
+     * @principle Enforces document ownership for writes.
+     */
+    match /users/{userId}/transactions/{transactionId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.id == transactionId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Rules for donation category documents under a specific user.
+     * @path /users/{userId}/donationCategories/{categoryId}
+     * @allow (create) If the user is the owner of the userId.
+     * @allow (get) If the user is the owner of the userId.
+     * @allow (update) If the user is the owner of the userId and the categoryId is immutable.
+     * @allow (delete) If the user is the owner of the userId.
+     * @deny (create) If the user is not the owner of the userId.
+     * @deny (update) If the user is not the owner of the userId or tries to change the categoryId.
+     * @principle Enforces document ownership for writes.
+     */
+    match /users/{userId}/donationCategories/{categoryId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.id == categoryId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
     }
   }
 }
