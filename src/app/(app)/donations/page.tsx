@@ -3,10 +3,9 @@
 import { useState } from 'react';
 import { MembersTable } from '../members/components/members-table';
 import { DonationsTable } from './components/donations-table';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { PendingDonationsTable } from './components/pending-donations-table';
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import type { Member } from '@/lib/types';
-import { Button } from '@/components/ui/button';
-import { PlusCircle } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -45,6 +44,16 @@ export default function MembersPage() {
         </CardHeader>
         <CardContent>
            <MembersTable onMemberSelect={setSelectedMember} selectedMember={selectedMember} onAddDonation={handleAddDonationClick} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Dons en attente et partiels</CardTitle>
+          <CardDescription>Vue d'ensemble de tous les dons non soldés.</CardDescription>
+        </CardHeader>
+        <CardContent>
+            <PendingDonationsTable />
         </CardContent>
       </Card>
       
