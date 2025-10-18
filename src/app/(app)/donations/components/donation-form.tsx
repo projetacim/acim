@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useFirestore, addDocumentNonBlocking, setDocumentNonBlocking, useUser } from '@/firebase';
 import { collection, doc, getDocs, getDoc } from 'firebase/firestore';
@@ -28,6 +29,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Calendar } from '@/components/ui/calendar';
 import { CalendarIcon, PlusCircle, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -49,7 +51,7 @@ const donationSchema = z.object({
   type: z.enum(['Don', 'Cotisation']),
   donationCategoryId: z.string().optional(),
   totalAmount: z.coerce.number().min(0.01, 'Le montant total doit être supérieur à 0.'),
-  payments: z.array(paymentSchema).min(1, "Veuillez ajouter au moins un paiement.").max(3, "Vous ne pouvez pas ajouter plus de 3 paiements."),
+  payments: z.array(paymentSchema).max(3, "Vous ne pouvez pas ajouter plus de 3 paiements.").optional(),
   memo: z.string().min(1, 'Le mémo est obligatoire.'),
   cerfaEligible: z.boolean().default(true),
 });
@@ -59,13 +61,13 @@ type DonationFormValues = z.infer<typeof donationSchema>;
 interface DonationFormProps {
   donationId?: string;
   memberIdParam?: string;
-  onFormSubmit?: () => void;
 }
 
-export function DonationForm({ donationId, memberIdParam, onFormSubmit }: DonationFormProps) {
+export function DonationForm({ donationId, memberIdParam }: DonationFormProps) {
   const firestore = useFirestore();
   const { user } = useUser();
   const { toast } = useToast();
+  const router = useRouter();
 
   const [member, setMember] = useState<Member | null>(null);
   const [categories, setCategories] = useState<DonationCategory[]>([]);
@@ -138,7 +140,7 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
                   type: 'Don',
                   donationCategoryId: '',
                   totalAmount: 0,
-                  payments: [{ amount: 0, date: new Date(), paymentMethod: 'Espèces' }],
+                  payments: [],
                   memo: '',
                   cerfaEligible: true,
               });
@@ -189,7 +191,7 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
       return;
     }
     
-    const paidSum = data.payments.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
+    const paidSum = (data.payments || []).reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
     let finalPaymentStatus: 'EN ATTENTE' | 'Partiel' | 'Payé';
 
     if (paidSum <= 0) {
@@ -204,7 +206,7 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
         ...data,
         totalAmount: Number(data.totalAmount),
         donationCategoryId: data.type === 'Don' ? data.donationCategoryId : '',
-        payments: data.payments.map(p => ({...p, amount: Number(p.amount), date: p.date.toISOString()})),
+        payments: (data.payments || []).map(p => ({...p, amount: Number(p.amount), date: p.date.toISOString()})),
         paymentStatus: finalPaymentStatus,
     };
 
@@ -219,8 +221,8 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
         const collectionRef = collection(firestore, 'users', user.uid, 'donations');
         const newDocRef = await addDocumentNonBlocking(collectionRef, { ...donationData, createdAt: new Date().toISOString() });
         
-        if (newDocRef) {
-            const transactionData: Omit<Transaction, 'id' | 'createdAt'>[] = data.payments.map(p => ({
+        if (newDocRef && donationData.payments.length > 0) {
+            const transactionData: Omit<Transaction, 'id' | 'createdAt'>[] = (data.payments || []).map(p => ({
               type: donationData.type,
               relatedId: newDocRef.id,
               amount: Number(p.amount),
@@ -237,7 +239,7 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
         
         toast({ title: 'Don ajouté', description: `Un nouveau don/cotisation a été enregistré.` });
       }
-      onFormSubmit?.();
+      router.push('/donations');
     } catch (e: any) {
         console.error("Error saving donation", e);
         toast({ variant: "destructive", title: "Erreur de sauvegarde", description: e.message });
@@ -262,9 +264,13 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
   }
 
   return (
+    <Card>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
-          <div className="space-y-6 p-4">
+          <CardHeader>
+            <CardTitle>{isEditMode ? 'Modifier le don' : 'Ajouter un don/cotisation'}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
             <FormItem>
               <FormLabel>Membre</FormLabel>
               <FormControl>
@@ -434,18 +440,19 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
                 </FormItem>
               )}
             />
-          </div>
-          <div className="flex justify-end gap-2 p-4 pt-0">
-            <Button type="button" variant="ghost" onClick={onFormSubmit}>
-                Annuler
+          </CardContent>
+          <CardFooter className="flex justify-end gap-2">
+            <Button type="button" variant="ghost" asChild>
+              <Link href="/donations">Annuler</Link>
             </Button>
             <Button type="submit" disabled={form.formState.isSubmitting}>
               {form.formState.isSubmitting ? (
                 <><Loader2 className="mr-2 h-4 w-4 animate-spin"/>Enregistrement...</>
               ) : 'Enregistrer'}
             </Button>
-          </div>
+          </CardFooter>
         </form>
       </Form>
+    </Card>
   );
 }
