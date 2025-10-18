@@ -76,8 +76,8 @@ const donationSchema = z.object({
   type: z.enum(['Don', 'Cotisation']),
   donationCategoryId: z.string().optional(),
   totalAmount: z.coerce.number().min(0.01, 'Le montant total doit être supérieur à 0.'),
-  payments: z.array(paymentSchema).max(3, "Vous ne pouvez pas ajouter plus de 3 paiements."),
-  memo: z.string().optional(),
+  payments: z.array(paymentSchema).min(1, "Veuillez ajouter au moins un paiement.").max(3, "Vous ne pouvez pas ajouter plus de 3 paiements."),
+  memo: z.string().min(1, 'Le mémo est obligatoire.'),
   cerfaEligible: z.boolean().default(true),
 });
 
@@ -117,7 +117,7 @@ export function DonationsTable() {
     },
   });
   
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove, replace } = useFieldArray({
     control: form.control,
     name: "payments"
   });
@@ -138,28 +138,30 @@ export function DonationsTable() {
   }
 
   useEffect(() => {
-    if (selectedDonation) {
-      form.reset({
-        memberId: selectedDonation.memberId,
-        type: selectedDonation.type,
-        donationCategoryId: selectedDonation.donationCategoryId || '',
-        totalAmount: selectedDonation.totalAmount,
-        payments: selectedDonation.payments.map(p => ({...p, date: new Date(p.date)})),
-        memo: selectedDonation.memo || '',
-        cerfaEligible: selectedDonation.cerfaEligible,
-      });
-    } else {
-      form.reset({
-        memberId: '',
-        type: 'Don',
-        donationCategoryId: '',
-        totalAmount: 0,
-        payments: [],
-        memo: '',
-        cerfaEligible: true,
-      });
+    if (isFormOpen) {
+      if (selectedDonation) {
+        form.reset({
+          memberId: selectedDonation.memberId,
+          type: selectedDonation.type,
+          donationCategoryId: selectedDonation.donationCategoryId || '',
+          totalAmount: selectedDonation.totalAmount,
+          payments: selectedDonation.payments.map(p => ({...p, date: new Date(p.date)})),
+          memo: selectedDonation.memo || '',
+          cerfaEligible: selectedDonation.cerfaEligible,
+        });
+      } else {
+        form.reset({
+          memberId: '',
+          type: 'Don',
+          donationCategoryId: '',
+          totalAmount: 0,
+          payments: [{ amount: 0, date: new Date(), paymentMethod: 'Espèces' }],
+          memo: '',
+          cerfaEligible: true,
+        });
+      }
     }
-  }, [selectedDonation, form]);
+  }, [selectedDonation, isFormOpen, form]);
 
   const handleOpenForm = (donation?: DonationWithMemberName) => {
     setSelectedDonation(donation || null);
@@ -382,7 +384,7 @@ export function DonationsTable() {
                                 <CommandGroup>
                                     {members?.map((member) => (
                                     <CommandItem
-                                        value={`${member.nom} ${member.email} ${member.adresse}`}
+                                        value={`${member.nom} ${member.email} ${member.adresse} ${member.memo}`}
                                         key={member.id}
                                         onSelect={() => {
                                             form.setValue("memberId", member.id);
@@ -537,7 +539,7 @@ export function DonationsTable() {
                 name="memo"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Mémo (facultatif)</FormLabel>
+                    <FormLabel>Mémo</FormLabel>
                     <FormControl><Textarea placeholder="Informations complémentaires..." {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
