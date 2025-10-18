@@ -182,14 +182,19 @@ function AppLayoutContent({
                         <Link href="/settings/general">Général</Link>
                       </SidebarMenuSubButton>
                     </li>
-                    <li>
-                      <SidebarMenuSubButton asChild>
-                        <Link href="/settings/donations">Don</Link>
-                      </SidebarMenuSubButton>
-                    </li>
                      <li>
                       <SidebarMenuSubButton asChild>
-                        <Link href="/settings/members-import">Membre</Link>
+                        <Link href="/settings/members-import">Import Membres</Link>
+                      </SidebarMenuSubButton>
+                    </li>
+                    <li>
+                      <SidebarMenuSubButton asChild>
+                        <Link href="/settings/donations-import">Import Dons</Link>
+                      </SidebarMenuSubButton>
+                    </li>
+                    <li>
+                      <SidebarMenuSubButton asChild>
+                        <Link href="/settings/donations">Catégories Dons</Link>
                       </SidebarMenuSubButton>
                     </li>
                   </SidebarMenuSub>
