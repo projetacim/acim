@@ -12,6 +12,7 @@ import {
   User as UserIcon,
   ChevronDown,
   Settings,
+  BarChart,
 } from 'lucide-react';
 import { useUser, useAuth, useFirestore, useMemoFirebase } from '@/firebase';
 import { signOut } from 'firebase/auth';
@@ -127,6 +128,14 @@ function AppLayoutContent({
                     <Link href="/">
                         <Users />
                         <span>Membres</span>
+                    </Link>
+                </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+                <SidebarMenuButton asChild tooltip="Bilan">
+                    <Link href="/bilan">
+                        <BarChart />
+                        <span>Bilan</span>
                     </Link>
                 </SidebarMenuButton>
             </SidebarMenuItem>
