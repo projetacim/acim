@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useMemo, useEffect } from 'react';
 import { useFirestore, useCollection, useMemoFirebase, useUser, updateDocumentNonBlocking } from '@/firebase';
@@ -131,9 +132,9 @@ export function CerfaTable() {
             <TableRow>
                 <TableHead>N° CERFA</TableHead>
                 <TableHead>Membre</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Catégorie</TableHead>
-                <TableHead>Mémo</TableHead>
+                <TableHead className="hidden sm:table-cell">Type</TableHead>
+                <TableHead className="hidden md:table-cell">Catégorie</TableHead>
+                <TableHead className="hidden lg:table-cell">Mémo</TableHead>
                 <TableHead className="text-right">Montant</TableHead>
             </TableRow>
             </TableHeader>
@@ -142,9 +143,9 @@ export function CerfaTable() {
                 <TableRow key={i}>
                     <TableCell><Skeleton className="h-6 w-24" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                    <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-28" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-40" /></TableCell>
+                    <TableCell className="hidden sm:table-cell"><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                    <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-28" /></TableCell>
+                    <TableCell className="hidden lg:table-cell"><Skeleton className="h-4 w-40" /></TableCell>
                     <TableCell className="text-right"><Skeleton className="h-4 w-16" /></TableCell>
                 </TableRow>
             ))}
@@ -160,11 +161,11 @@ export function CerfaTable() {
                         </Button>
                     </TableCell>
                     <TableCell className="font-medium">{donation.memberName}</TableCell>
-                    <TableCell>
+                    <TableCell className="hidden sm:table-cell">
                         <Badge variant={donation.type === 'Don' ? 'secondary' : 'outline'}>{donation.type}</Badge>
                     </TableCell>
-                    <TableCell>{donation.categoryName}</TableCell>
-                    <TableCell className="text-muted-foreground truncate max-w-xs">{donation.memo}</TableCell>
+                    <TableCell className="hidden md:table-cell">{donation.categoryName}</TableCell>
+                    <TableCell className="text-muted-foreground truncate max-w-xs hidden lg:table-cell">{donation.memo}</TableCell>
                     <TableCell className="text-right font-medium">{donation.totalAmount.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})}</TableCell>
                 </TableRow>
             ))}
@@ -181,3 +182,5 @@ export function CerfaTable() {
     </>
   );
 }
+
+    

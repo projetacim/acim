@@ -237,7 +237,7 @@ export function MembersTable({ onMemberSelect, selectedMember, onAddDonation }: 
   };
 
   const exportToExcel = () => {
-    const dataToExport = filteredMembers.map(({ id, avatarUrl, joinDate, ...rest }) => rest);
+    const dataToExport = filteredMembers.map(({ id, ...rest }) => rest);
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Membres');
@@ -253,8 +253,8 @@ export function MembersTable({ onMemberSelect, selectedMember, onAddDonation }: 
   return (
     <>
       <div className="space-y-4">
-          <div className="flex items-center justify-between gap-4">
-             <div className="relative w-full max-w-sm">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+             <div className="relative w-full md:max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Rechercher par nom, email ou mémo..."
@@ -263,12 +263,12 @@ export function MembersTable({ onMemberSelect, selectedMember, onAddDonation }: 
                 className="pl-9 border-black bg-slate-100 dark:bg-slate-800"
               />
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 w-full md:w-auto">
                <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className="gap-2">
+                  <Button variant="outline" className="gap-2 w-full md:w-auto">
                     <ListFilter className="h-4 w-4" />
-                    Filtres
+                    <span>Filtres</span>
                     {docFilters.length > 0 && <span className="ml-1 h-5 w-5 flex items-center justify-center rounded-full bg-primary text-primary-foreground text-xs">{docFilters.length}</span>}
                   </Button>
                 </PopoverTrigger>
@@ -290,13 +290,13 @@ export function MembersTable({ onMemberSelect, selectedMember, onAddDonation }: 
                 </PopoverContent>
               </Popover>
 
-              <Button onClick={exportToExcel} variant="outline">
+              <Button onClick={exportToExcel} variant="outline" className="w-full md:w-auto">
                 <FileDown className="mr-2 h-4 w-4" />
-                Exporter
+                <span>Exporter</span>
               </Button>
-              <Button onClick={() => handleOpenForm()}>
+              <Button onClick={() => handleOpenForm()} className="w-full md:w-auto">
                 <PlusCircle className="mr-2 h-4 w-4" />
-                Ajouter
+                <span>Ajouter</span>
               </Button>
             </div>
           </div>
@@ -305,10 +305,10 @@ export function MembersTable({ onMemberSelect, selectedMember, onAddDonation }: 
                 <TableHeader>
                 <TableRow>
                     <TableHead>Membre</TableHead>
-                    <TableHead>Téléphone</TableHead>
-                    <TableHead>Adresse</TableHead>
-                    <TableHead>Doc</TableHead>
-                    <TableHead>Mémo</TableHead>
+                    <TableHead className="hidden md:table-cell">Téléphone</TableHead>
+                    <TableHead className="hidden lg:table-cell">Adresse</TableHead>
+                    <TableHead className="hidden sm:table-cell">Doc</TableHead>
+                    <TableHead className="hidden lg:table-cell">Mémo</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
                 </TableHeader>
@@ -323,10 +323,10 @@ export function MembersTable({ onMemberSelect, selectedMember, onAddDonation }: 
                             <Skeleton className="h-3 w-40" />
                         </div>
                         </TableCell>
-                        <TableCell><Skeleton className="h-4 w-28" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-48" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                        <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-28" /></TableCell>
+                        <TableCell className="hidden lg:table-cell"><Skeleton className="h-4 w-48" /></TableCell>
+                        <TableCell className="hidden sm:table-cell"><Skeleton className="h-4 w-16" /></TableCell>
+                        <TableCell className="hidden lg:table-cell"><Skeleton className="h-4 w-32" /></TableCell>
                         <TableCell className="text-right"><Skeleton className="h-8 w-20" /></TableCell>
                     </TableRow>
                     ))
@@ -348,12 +348,12 @@ export function MembersTable({ onMemberSelect, selectedMember, onAddDonation }: 
                         </div>
                         </div>
                     </TableCell>
-                    <TableCell>{member.telephone}</TableCell>
-                    <TableCell>{member.adresse}</TableCell>
-                    <TableCell>{member.doc}</TableCell>
-                    <TableCell>{member.memo}</TableCell>
+                    <TableCell className="hidden md:table-cell">{member.telephone}</TableCell>
+                    <TableCell className="hidden lg:table-cell truncate max-w-[150px]">{member.adresse}</TableCell>
+                    <TableCell className="hidden sm:table-cell">{member.doc}</TableCell>
+                    <TableCell className="hidden lg:table-cell truncate max-w-[150px]">{member.memo}</TableCell>
                     <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex items-center justify-end gap-0 md:gap-2">
                         <Button variant="ghost" size="icon" onClick={(e) => handleAddDonationClick(e, member)}>
                             <DollarSign className="h-4 w-4 text-green-600" />
                             <span className="sr-only">Ajouter un don</span>
@@ -383,7 +383,7 @@ export function MembersTable({ onMemberSelect, selectedMember, onAddDonation }: 
       </div>
       
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{memberToEdit ? 'Modifier le membre' : 'Ajouter un membre'}</DialogTitle>
             <DialogDescription>
@@ -391,12 +391,12 @@ export function MembersTable({ onMemberSelect, selectedMember, onAddDonation }: 
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="grid grid-cols-2 gap-x-6 gap-y-4 py-4">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 py-4">
               <FormField
                 control={form.control}
                 name="nom"
                 render={({ field }) => (
-                  <FormItem className="col-span-2">
+                  <FormItem className="md:col-span-2">
                     <FormLabel>Nom complet</FormLabel>
                     <FormControl>
                       <Input placeholder="John Doe" {...field} />
@@ -409,7 +409,7 @@ export function MembersTable({ onMemberSelect, selectedMember, onAddDonation }: 
                 control={form.control}
                 name="email"
                 render={({ field }) => (
-                  <FormItem className="col-span-2">
+                  <FormItem className="md:col-span-2">
                     <FormLabel>Email</FormLabel>
                     <FormControl>
                       <Input type="email" placeholder="john.doe@example.com" {...field} />
@@ -457,7 +457,7 @@ export function MembersTable({ onMemberSelect, selectedMember, onAddDonation }: 
                 control={form.control}
                 name="adresse"
                 render={({ field }) => (
-                  <FormItem className="col-span-2">
+                  <FormItem className="md:col-span-2">
                     <FormLabel>Adresse (facultatif)</FormLabel>
                     <FormControl>
                       <Textarea placeholder="123 Rue de la République, 75001 Paris" {...field} />
@@ -470,7 +470,7 @@ export function MembersTable({ onMemberSelect, selectedMember, onAddDonation }: 
                 control={form.control}
                 name="memo"
                 render={({ field }) => (
-                  <FormItem className="col-span-2">
+                  <FormItem className="md:col-span-2">
                     <FormLabel>Mémo (facultatif)</FormLabel>
                     <FormControl>
                       <Textarea placeholder="Note rapide..." {...field} className="min-h-[100px]" />
@@ -479,7 +479,7 @@ export function MembersTable({ onMemberSelect, selectedMember, onAddDonation }: 
                   </FormItem>
                 )}
               />
-              <DialogFooter className="col-span-2">
+              <DialogFooter className="md:col-span-2">
                 <Button type="button" variant="ghost" onClick={handleCloseForm}>
                   Annuler
                 </Button>

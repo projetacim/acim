@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -19,8 +20,9 @@ export default function DashboardPage() {
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [isDonationFormOpen, setIsDonationFormOpen] = useState(false);
 
-  const handleAddDonationClick = () => {
-    if (selectedMember) {
+  const handleAddDonationClick = (member: Member) => {
+    if (member) {
+      setSelectedMember(member);
       setIsDonationFormOpen(true);
     }
   };
@@ -33,7 +35,7 @@ export default function DashboardPage() {
     <div className="flex flex-col gap-6">
       <Card>
         <CardHeader>
-          
+          <CardTitle>Gestion des Membres</CardTitle>
           <CardDescription>Sélectionnez un membre pour voir et gérer ses dons.</CardDescription>
         </CardHeader>
         <CardContent>
@@ -42,7 +44,7 @@ export default function DashboardPage() {
       </Card>
 
       {selectedMember && (
-        <>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>
             <CardHeader>
               <CardTitle>Dons en attente et partiels</CardTitle>
@@ -53,7 +55,7 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
           
-          <Card>
+          <Card className="lg:col-span-2">
             <CardHeader className="flex flex-row items-center justify-between">
               <div className="space-y-1">
                 <CardTitle>Historique des dons</CardTitle>
@@ -64,7 +66,7 @@ export default function DashboardPage() {
                 <DonationsTable selectedMemberId={selectedMember?.id ?? null} />
             </CardContent>
           </Card>
-        </>
+        </div>
       )}
 
       <Dialog open={isDonationFormOpen} onOpenChange={setIsDonationFormOpen}>
@@ -79,3 +81,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    

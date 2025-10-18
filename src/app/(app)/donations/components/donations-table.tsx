@@ -251,10 +251,10 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
             <TableRow>
                 {!selectedMemberId && <TableHead>Membre</TableHead>}
                 <TableHead>Type</TableHead>
-                <TableHead className="text-right">Montant Total</TableHead>
+                <TableHead className="text-right hidden sm:table-cell">Montant Total</TableHead>
                 <TableHead className="text-right">Montant Payé</TableHead>
-                <TableHead>Statut Paiement</TableHead>
-                <TableHead>Date</TableHead>
+                <TableHead className="hidden md:table-cell">Statut</TableHead>
+                <TableHead className="hidden lg:table-cell">Date</TableHead>
                 <TableHead>N° CERFA</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -264,10 +264,10 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
                 <TableRow key={i}>
                 {!selectedMemberId && <TableCell><Skeleton className="h-4 w-32" /></TableCell>}
                 <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                <TableCell className="text-right hidden sm:table-cell"><Skeleton className="h-4 w-16" /></TableCell>
                 <TableCell className="text-right"><Skeleton className="h-4 w-16" /></TableCell>
-                <TableCell className="text-right"><Skeleton className="h-4 w-16" /></TableCell>
-                <TableCell><Skeleton className="h-6 w-24 rounded-full" /></TableCell>
-                <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                <TableCell className="hidden md:table-cell"><Skeleton className="h-6 w-24 rounded-full" /></TableCell>
+                <TableCell className="hidden lg:table-cell"><Skeleton className="h-4 w-24" /></TableCell>
                 <TableCell><Skeleton className="h-6 w-24" /></TableCell>
                 <TableCell className="text-right"><Skeleton className="h-8 w-20" /></TableCell>
                 </TableRow>
@@ -278,10 +278,10 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
                 <TableCell>
                     <Badge variant={donation.type === 'Don' ? 'secondary' : 'outline'}>{donation.type}</Badge>
                 </TableCell>
-                <TableCell className="text-right">{donation.totalAmount.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})}</TableCell>
+                <TableCell className="text-right hidden sm:table-cell">{donation.totalAmount.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})}</TableCell>
                 <TableCell className="text-right">{getPaidAmount(donation.payments).toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})}</TableCell>
-                <TableCell>{getStatusBadge(donation.paymentStatus)}</TableCell>
-                <TableCell>{new Date(donation.createdAt).toLocaleDateString('fr-FR')}</TableCell>
+                <TableCell className="hidden md:table-cell">{getStatusBadge(donation.paymentStatus)}</TableCell>
+                <TableCell className="hidden lg:table-cell">{new Date(donation.createdAt).toLocaleDateString('fr-FR')}</TableCell>
                 <TableCell>
                     {donation.cerfaEligible ? (
                         <Button 
@@ -297,7 +297,7 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
                     )}
                 </TableCell>
                 <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-2">
+                    <div className="flex items-center justify-end gap-0 md:gap-2">
                         <Button variant="ghost" size="icon" onClick={() => router.push(`/donations/${donation.id}/edit`)}>
                         <Pencil className="h-4 w-4" />
                         <span className="sr-only">Modifier</span>
@@ -342,6 +342,3 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
 }
 
     
-
-    
-

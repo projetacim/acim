@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -309,7 +310,7 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
               <FormMessage />
             </FormItem>
             
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
                 name="type"
@@ -348,7 +349,7 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
                 />
               )}
             </div>
-            <div className="grid grid-cols-2 gap-4 items-end">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
               <FormField
                   control={form.control}
                   name="totalAmount"
@@ -381,12 +382,12 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
               <FormLabel>Paiements</FormLabel>
               <div className="space-y-4 rounded-md border p-4 mt-2">
                 {fields.map((field, index) => (
-                  <div key={field.id} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start relative">
+                  <div key={field.id} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 items-start relative">
                     <FormField
                       control={form.control}
                       name={`payments.${index}.amount`}
                       render={({ field }) => (
-                        <FormItem>
+                        <FormItem className="md:col-span-1 sm:col-span-2">
                           <FormLabel>Montant (€)</FormLabel>
                           <FormControl><Input type="number" step="0.01" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || 0)} /></FormControl>
                           <FormMessage />
@@ -484,3 +485,5 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
     </Card>
   );
 }
+
+    
