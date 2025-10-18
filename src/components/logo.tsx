@@ -14,8 +14,24 @@ export function Logo(props: SVGProps<SVGSVGElement>) {
           fill="currentColor"
         />
       </defs>
-      <g transform="translate(100, 100)">
-        {/* Star of David - Removed */}
+      <g transform="translate(100, 100) scale(0.9)">
+        {/* Star of David */}
+        <g transform="translate(0, -20)">
+          <polygon
+            points="0,-60 52,-30 0,0 -52,-30"
+            stroke="currentColor"
+            strokeWidth="5"
+            fill="none"
+            strokeLinejoin="round"
+          />
+          <polygon
+            points="0,0 52,30 0,60 -52,30"
+            stroke="currentColor"
+            strokeWidth="5"
+            fill="none"
+            strokeLinejoin="round"
+          />
+        </g>
         
         {/* Laurel Wreath */}
         <g transform="scale(1.2) translate(0, 30)">
