@@ -303,6 +303,7 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
                 <TableHead className="text-right">Montant</TableHead>
                 <TableHead>Statut</TableHead>
                 <TableHead>N° CERFA</TableHead>
+                <TableHead>Date CERFA</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
             </TableRow>
             </TableHeader>
@@ -316,6 +317,7 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
                     <TableCell className="text-right"><Skeleton className="h-4 w-16" /></TableCell>
                     <TableCell><Skeleton className="h-6 w-24 rounded-full" /></TableCell>
                     <TableCell><Skeleton className="h-6 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                     <TableCell className="text-right"><Skeleton className="h-8 w-20" /></TableCell>
                 </TableRow>
             ))}
@@ -346,18 +348,18 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
                     {donation.cerfaEligible ? (
                         <Button 
                             variant="link" 
-                            className={cn("p-0 h-auto flex flex-col items-start", donation.paymentStatus === 'Annulé' && 'text-red-500')}
+                            className={cn("p-0 h-auto", donation.paymentStatus === 'Annulé' && 'text-red-500')}
                             onClick={() => handleCerfaClick(donation)}
                             disabled={donation.paymentStatus !== 'Payé' && !donation.cerfaNumber && donation.paymentStatus !== 'Annulé'}
                         >
-                            <span>{donation.cerfaNumber || (donation.paymentStatus === 'Payé' ? 'Générer' : 'N/A')}</span>
-                            {donation.cerfaDate && (
-                                <span className="text-xs text-muted-foreground">{format(new Date(donation.cerfaDate), 'dd/MM/yyyy')}</span>
-                            )}
+                            {donation.cerfaNumber || (donation.paymentStatus === 'Payé' ? 'Générer' : 'N/A')}
                         </Button>
                     ) : (
                         <span className="text-muted-foreground">Non éligible</span>
                     )}
+                </TableCell>
+                 <TableCell>
+                    {donation.cerfaDate ? format(new Date(donation.cerfaDate), 'dd/MM/yyyy') : '-'}
                 </TableCell>
                 <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-0 md:gap-2">
@@ -382,7 +384,7 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
             ))}
             {!isLoading && processedDonations.length === 0 && (
                 <TableRow>
-                <TableCell colSpan={selectedMemberId ? 7 : 8} className="p-6 text-center text-muted-foreground">
+                <TableCell colSpan={selectedMemberId ? 8 : 9} className="p-6 text-center text-muted-foreground">
                     {selectedMemberId ? 'Aucun don trouvé pour ce membre.' : 'Aucun don trouvé.'}
                 </TableCell>
                 </TableRow>
@@ -427,3 +429,5 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
     </>
   );
 }
+
+    
