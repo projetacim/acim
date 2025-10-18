@@ -79,14 +79,18 @@ export function CerfaTable() {
         categoryName: d.donationCategoryId ? categoryMap.get(d.donationCategoryId) : ''
       }))
       .filter(d => {
-        // Date range filter
-        if (dateRange?.from && dateRange?.to) {
-          const donationDate = new Date(d.createdAt);
-          return donationDate >= dateRange.from && donationDate <= dateRange.to;
-        }
-        if (dateRange?.from) {
-          const donationDate = new Date(d.createdAt);
-          return donationDate >= dateRange.from;
+        // Date range filter for cerfaDate
+        if (d.cerfaDate) {
+            if (dateRange?.from && dateRange?.to) {
+                const cerfaDate = new Date(d.cerfaDate);
+                return cerfaDate >= dateRange.from && cerfaDate <= dateRange.to;
+            }
+            if (dateRange?.from) {
+                const cerfaDate = new Date(d.cerfaDate);
+                return cerfaDate >= dateRange.from;
+            }
+        } else if (dateRange) { // If filtering by date but cerfaDate is missing, exclude it
+            return false;
         }
         return true;
       })
@@ -153,7 +157,10 @@ export function CerfaTable() {
 
         const lastPayment = donation.payments.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
         const paymentDate = new Date(lastPayment.date);
-        const formattedDate = `${paymentDate.getDate().toString().padStart(2, '0')}/${(paymentDate.getMonth() + 1).toString().padStart(2, '0')}/${paymentDate.getFullYear()}`;
+        const formattedDate = format(paymentDate, 'dd/MM/yyyy');
+        
+        const cerfaDate = donation.cerfaDate ? new Date(donation.cerfaDate) : new Date();
+        const formattedCerfaDate = format(cerfaDate, 'dd/MM/yyyy');
 
         const paymentMethods = [...new Set(donation.payments.map(p => {
             if (p.paymentMethod === 'Carte de crédit') return 'CB';
@@ -168,8 +175,8 @@ export function CerfaTable() {
         page.drawText(numberToWords(donation.totalAmount) + ' euros', { ...cerfaCoordinates.amountInWords, font, size: 8, color: textColor });
         
         page.drawText(formattedDate, { ...cerfaCoordinates.paymentDate, font, size: 10, color: textColor });
-        page.drawText(formattedDate, { ...cerfaCoordinates.signatureDate, font, size: 10, color: textColor });
-        page.drawText(formattedDate, { ...cerfaCoordinates.signatureDate2, font, size: 10, color: textColor });
+        page.drawText(formattedCerfaDate, { ...cerfaCoordinates.signatureDate, font, size: 10, color: textColor });
+        page.drawText(formattedCerfaDate, { ...cerfaCoordinates.signatureDate2, font, size: 10, color: textColor });
 
         page.drawText(paymentMethods, { ...cerfaCoordinates.paymentMethod, font, size: 10, color: textColor });
 
@@ -219,7 +226,7 @@ export function CerfaTable() {
                     format(dateRange.from, "d LLL, y", {locale:fr})
                   )
                 ) : (
-                  <span>Choisir une période</span>
+                  <span>Filtrer par date CERFA</span>
                 )}
               </Button>
             </PopoverTrigger>
@@ -242,6 +249,7 @@ export function CerfaTable() {
             <TableHeader>
             <TableRow>
                 <TableHead>N° CERFA</TableHead>
+                <TableHead>Date CERFA</TableHead>
                 <TableHead>Membre</TableHead>
                 <TableHead className="hidden sm:table-cell">Type</TableHead>
                 <TableHead className="hidden lg:table-cell">Catégorie</TableHead>
@@ -254,6 +262,7 @@ export function CerfaTable() {
             {isLoading && Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={i}>
                     <TableCell><Skeleton className="h-6 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                     <TableCell className="hidden sm:table-cell"><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
                     <TableCell className="hidden lg:table-cell"><Skeleton className="h-4 w-24" /></TableCell>
@@ -272,6 +281,9 @@ export function CerfaTable() {
                         >
                             {donation.cerfaNumber}
                         </Button>
+                    </TableCell>
+                    <TableCell>
+                        {donation.cerfaDate ? format(new Date(donation.cerfaDate), 'dd/MM/yyyy') : '-'}
                     </TableCell>
                     <TableCell className="font-medium">{donation.memberName}</TableCell>
                     <TableCell className="hidden sm:table-cell">
@@ -298,7 +310,7 @@ export function CerfaTable() {
             ))}
             {!isLoading && cerfaDonations.length === 0 && (
                 <TableRow>
-                <TableCell colSpan={7} className="p-6 text-center text-muted-foreground">
+                <TableCell colSpan={8} className="p-6 text-center text-muted-foreground">
                     {searchQuery || dateRange ? "Aucun CERFA ne correspond à vos critères." : "Aucun CERFA généré pour le moment."}
                 </TableCell>
                 </TableRow>

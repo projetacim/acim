@@ -33,6 +33,8 @@ import { numberToWords } from '@/lib/number-to-words';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
+import { fr } from 'date-fns/locale';
 
 
 type DonationWithDetails = Donation & { memberName: string; categoryName?: string; };
@@ -116,7 +118,10 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
         const cerfaNumber = `${year}-${nextId.toString().padStart(4, '0')}`;
         const donationDocRef = doc(firestore, 'users', user.uid, 'donations', donationId);
         
-        await updateDocumentNonBlocking(donationDocRef, { cerfaNumber: cerfaNumber });
+        await updateDocumentNonBlocking(donationDocRef, { 
+            cerfaNumber: cerfaNumber,
+            cerfaDate: new Date().toISOString()
+        });
         
         toast({ title: 'N° CERFA généré', description: `Le numéro ${cerfaNumber} a été assigné.` });
         return cerfaNumber;
@@ -171,7 +176,10 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
 
             const lastPayment = donation.payments.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
             const paymentDate = new Date(lastPayment.date);
-            const formattedDate = `${paymentDate.getDate().toString().padStart(2, '0')}/${(paymentDate.getMonth() + 1).toString().padStart(2, '0')}/${paymentDate.getFullYear()}`;
+            const formattedDate = format(paymentDate, 'dd/MM/yyyy');
+            
+            const cerfaDate = donation.cerfaDate ? new Date(donation.cerfaDate) : new Date();
+            const formattedCerfaDate = format(cerfaDate, 'dd/MM/yyyy');
 
             const paymentMethods = [...new Set(donation.payments.map(p => {
                 if (p.paymentMethod === 'Carte de crédit') return 'CB';
@@ -186,8 +194,8 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
             page.drawText(numberToWords(donation.totalAmount) + ' euros', { ...cerfaCoordinates.amountInWords, font, size: 8, color: textColor });
             
             page.drawText(formattedDate, { ...cerfaCoordinates.paymentDate, font, size: 10, color: textColor });
-            page.drawText(formattedDate, { ...cerfaCoordinates.signatureDate, font, size: 10, color: textColor });
-            page.drawText(formattedDate, { ...cerfaCoordinates.signatureDate2, font, size: 10, color: textColor });
+            page.drawText(formattedCerfaDate, { ...cerfaCoordinates.signatureDate, font, size: 10, color: textColor });
+            page.drawText(formattedCerfaDate, { ...cerfaCoordinates.signatureDate2, font, size: 10, color: textColor });
 
             page.drawText(paymentMethods, { ...cerfaCoordinates.paymentMethod, font, size: 10, color: textColor });
 
@@ -223,7 +231,7 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
       toast({
         variant: 'destructive',
         title: 'Don supprimé',
-        description: `Le don de ${selectedDonation.memberName} et les transactions associées ont été supprimés.`,
+        description: `Le don de ${selectedDonation.totalAmount.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})} par ${selectedDonation.memberName} a été supprimé, ainsi que toutes les transactions associées.`,
       });
     } catch (error) {
        console.error("Error deleting donation and/or transactions:", error);
@@ -338,11 +346,14 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
                     {donation.cerfaEligible ? (
                         <Button 
                             variant="link" 
-                            className={cn("p-0 h-auto", donation.paymentStatus === 'Annulé' && 'text-red-500')}
+                            className={cn("p-0 h-auto flex flex-col items-start", donation.paymentStatus === 'Annulé' && 'text-red-500')}
                             onClick={() => handleCerfaClick(donation)}
                             disabled={donation.paymentStatus !== 'Payé' && !donation.cerfaNumber && donation.paymentStatus !== 'Annulé'}
                         >
-                            {donation.cerfaNumber || (donation.paymentStatus === 'Payé' ? 'Générer' : 'N/A')}
+                            <span>{donation.cerfaNumber || (donation.paymentStatus === 'Payé' ? 'Générer' : 'N/A')}</span>
+                            {donation.cerfaDate && (
+                                <span className="text-xs text-muted-foreground">{format(new Date(donation.cerfaDate), 'dd/MM/yyyy')}</span>
+                            )}
                         </Button>
                     ) : (
                         <span className="text-muted-foreground">Non éligible</span>
@@ -416,7 +427,3 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
     </>
   );
 }
-
-    
-
-    

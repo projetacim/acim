@@ -1,4 +1,5 @@
 
+
 export type Member = {
   id: string;
   nom: string;
@@ -28,6 +29,7 @@ export type Donation = {
   memo: string;
   cerfaEligible: boolean;
   cerfaNumber?: string;
+  cerfaDate?: string; // ISO string
   createdAt: string;
 };
 
