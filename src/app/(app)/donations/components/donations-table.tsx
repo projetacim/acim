@@ -101,8 +101,7 @@ export function DonationsTable() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [selectedDonation, setSelectedDonation] = useState<DonationWithMemberName | null>(null);
-  const [isMemberPopoverOpen, setMemberPopoverOpen] = useState(false);
-
+  
   const form = useForm<DonationFormValues>({
     resolver: zodResolver(donationSchema),
     defaultValues: {
@@ -376,60 +375,40 @@ export function DonationsTable() {
                 control={form.control}
                 name="memberId"
                 render={({ field }) => (
-                  <FormItem className="flex flex-col">
+                  <FormItem>
                     <FormLabel>Membre</FormLabel>
-                    <Popover open={isMemberPopoverOpen} onOpenChange={setMemberPopoverOpen}>
-                        <PopoverTrigger asChild>
-                            <FormControl>
-                                <Button
-                                variant="outline"
-                                role="combobox"
-                                className={cn(
-                                    "w-full justify-between",
-                                    !field.value && "text-muted-foreground"
-                                )}
+                     <FormControl>
+                        <Command>
+                            <CommandInput placeholder="Rechercher par nom, email, mémo..." className="border-black"/>
+                            <CommandList>
+                            <CommandEmpty>Aucun membre trouvé.</CommandEmpty>
+                            <CommandGroup>
+                                {members?.map((member) => (
+                                <CommandItem
+                                    value={`${member.nom} ${member.email} ${member.memo}`}
+                                    key={member.id}
+                                    onSelect={() => {
+                                        form.setValue("memberId", member.id);
+                                    }}
                                 >
-                                {field.value
-                                    ? members?.find(
-                                        (member) => member.id === field.value
-                                    )?.nom
-                                    : "Sélectionner un membre"}
-                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                </Button>
-                            </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                            <Command>
-                                <CommandInput placeholder="Rechercher par nom, email, mémo..." className="border-black"/>
-                                <CommandList>
-                                <CommandEmpty>Aucun membre trouvé.</CommandEmpty>
-                                <CommandGroup>
-                                    {members?.map((member) => (
-                                    <CommandItem
-                                        value={`${member.nom} ${member.email} ${member.memo}`}
-                                        key={member.id}
-                                        onSelect={() => {
-                                            form.setValue("memberId", member.id);
-                                            setMemberPopoverOpen(false);
-                                        }}
-                                    >
-                                        <Check
-                                        className={cn(
-                                            "mr-2 h-4 w-4",
-                                            member.id === field.value ? "opacity-100" : "opacity-0"
-                                        )}
-                                        />
-                                        <div>
-                                            <p>{member.nom}</p>
-                                            <p className="text-xs text-muted-foreground">{member.email} - {member.adresse}</p>
-                                        </div>
-                                    </CommandItem>
-                                    ))}
-                                </CommandGroup>
-                                </CommandList>
-                            </Command>
-                        </PopoverContent>
-                    </Popover>
+                                    <Check
+                                    className={cn(
+                                        "mr-2 h-4 w-4",
+                                        member.id === field.value ? "opacity-100" : "opacity-0"
+                                    )}
+                                    />
+                                    <div>
+                                        <p>{member.nom}
+                                         <span className="ml-2 text-xs text-muted-foreground">({field.value === member.id ? 'Sélectionné' : 'Sélectionner'})</span>
+                                        </p>
+                                        <p className="text-xs text-muted-foreground">{member.email} - {member.adresse}</p>
+                                    </div>
+                                </CommandItem>
+                                ))}
+                            </CommandGroup>
+                            </CommandList>
+                        </Command>
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
