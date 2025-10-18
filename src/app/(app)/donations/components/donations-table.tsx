@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { PlusCircle, Pencil, Trash2, CheckCircle, XCircle, MoreVertical, X, ChevronsUpDown, Check } from 'lucide-react';
+import { PlusCircle, Pencil, Trash2, CheckCircle, XCircle, X, ChevronsUpDown, Check } from 'lucide-react';
 import type { Donation, Member, DonationCategory, Transaction, Payment } from '@/lib/types';
 import { useForm, useFieldArray, type SubmitHandler, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -102,7 +102,6 @@ export function DonationsTable() {
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [selectedDonation, setSelectedDonation] = useState<DonationWithMemberName | null>(null);
   const [isMemberPopoverOpen, setMemberPopoverOpen] = useState(false);
-
 
   const form = useForm<DonationFormValues>({
     resolver: zodResolver(donationSchema),
@@ -401,7 +400,7 @@ export function DonationsTable() {
                         </PopoverTrigger>
                         <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                             <Command>
-                                <CommandInput placeholder="Rechercher par nom, email, mémo..." className="border-black" />
+                                <CommandInput placeholder="Rechercher par nom, email, mémo..." className="border-black"/>
                                 <CommandList>
                                 <CommandEmpty>Aucun membre trouvé.</CommandEmpty>
                                 <CommandGroup>
