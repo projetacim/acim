@@ -42,9 +42,10 @@ type DonationWithDetails = Donation & { memberName: string; categoryName?: strin
 
 interface DonationsTableProps {
     selectedMemberId: string | null;
+    onEditDonation: (donationId: string) => void;
 }
 
-export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
+export function DonationsTable({ selectedMemberId, onEditDonation }: DonationsTableProps) {
   const firestore = useFirestore();
   const { user } = useUser();
   const { toast } = useToast();
@@ -75,6 +76,7 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
           ...d,
           memberName: member?.nom || 'Membre inconnu',
           memberAddress: member?.adresse || '',
+          categoryName: d.donationCategoryId ? categoryMap.get(d.donationCategoryId) : ''
         } as DonationWithDetails
       })
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -294,7 +296,7 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
                 </TableCell>
                 <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-0 md:gap-2">
-                        <Button variant="ghost" size="icon" onClick={() => router.push(`/donations/${donation.id}/edit`)} disabled={donation.paymentStatus === 'Payé' || donation.paymentStatus === 'Annulé'}>
+                        <Button variant="ghost" size="icon" onClick={() => onEditDonation(donation.id)} disabled={donation.paymentStatus === 'Payé' || donation.paymentStatus === 'Annulé'}>
                           <Pencil className="h-4 w-4" />
                           <span className="sr-only">Modifier</span>
                         </Button>

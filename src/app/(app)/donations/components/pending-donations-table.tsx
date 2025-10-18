@@ -1,6 +1,6 @@
 
 'use client';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Table,
   TableBody,
@@ -10,33 +10,72 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import type { Donation, Member, Payment, DonationCategory } from '@/lib/types';
+import type { Donation, Member, Payment, Transaction } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRouter } from 'next/navigation';
 import { useData } from '@/app/(app)/data-provider';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import { CalendarIcon, Loader2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
+import { fr } from 'date-fns/locale';
+import { useFirestore, useUser, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
+import { collection, query, where, getDocs, doc } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
+import { sendCerfaEmail } from '@/lib/email';
 
 
 type DonationWithMemberName = Donation & { memberName: string; categoryName?: string };
 
 interface PendingDonationsTableProps {
   selectedMemberId: string | null;
+  onEditDonation: (donationId: string) => void;
 }
 
-export function PendingDonationsTable({ selectedMemberId }: PendingDonationsTableProps) {
+export function PendingDonationsTable({ selectedMemberId, onEditDonation }: PendingDonationsTableProps) {
   const router = useRouter();
   const { members, donations, categories, isLoading } = useData();
+  const [selectedDonations, setSelectedDonations] = useState<string[]>([]);
+  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<'Carte de crédit' | 'Virement bancaire' | 'Espèces' | 'Chèque'>('Carte de crédit');
+  const [paymentDate, setPaymentDate] = useState<Date | undefined>(new Date());
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+
+  const firestore = useFirestore();
+  const { user } = useUser();
+  const { toast } = useToast();
   
   const pendingDonations = useMemo(() => {
     if (!donations || !members || !selectedMemberId || !categories) return [];
     
-    const memberMap = new Map(members.map(m => [m.id, m.nom]));
+    const memberMap = new Map(members.map(m => [m.id, m]));
     const categoryMap = new Map(categories.map(c => [c.id, c.name]));
     
     return donations
       .filter(d => d.memberId === selectedMemberId && (d.paymentStatus === 'EN ATTENTE' || d.paymentStatus === 'Partiel'))
       .map(d => ({
         ...d,
-        memberName: memberMap.get(d.memberId) || 'Membre inconnu',
+        memberName: memberMap.get(d.memberId)?.nom || 'Membre inconnu',
+        member: memberMap.get(d.memberId),
         categoryName: d.donationCategoryId ? categoryMap.get(d.donationCategoryId) : ''
       }))
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -61,6 +100,114 @@ export function PendingDonationsTable({ selectedMemberId }: PendingDonationsTabl
     }
   };
 
+  const handleSelectDonation = (donationId: string) => {
+    setSelectedDonations(prev => 
+      prev.includes(donationId) 
+        ? prev.filter(id => id !== donationId) 
+        : [...prev, donationId]
+    );
+  };
+
+  const generateCerfaNumber = async () => {
+    if (!firestore || !user) return null;
+
+    const year = new Date().getFullYear();
+    const donationsRef = collection(firestore, 'users', user.uid, 'donations');
+    const q = query(donationsRef, where("cerfaNumber", ">=", `${year}-0000`), where("cerfaNumber", "<", `${year+1}-0000`));
+
+    try {
+        const querySnapshot = await getDocs(q);
+        const existingNumbers = querySnapshot.docs.map(doc => doc.data().cerfaNumber);
+        let nextId = 1;
+        while (existingNumbers.includes(`${year}-${nextId.toString().padStart(4, '0')}`)) {
+            nextId++;
+        }
+        return `${year}-${nextId.toString().padStart(4, '0')}`;
+    } catch(err) {
+        console.error("Error generating CERFA number: ", err);
+        return null;
+    }
+  };
+
+
+  const handleProcessPayment = async () => {
+    if (!firestore || !user || !paymentDate || selectedDonations.length === 0) return;
+    setIsProcessingPayment(true);
+    let successCount = 0;
+
+    for (const donationId of selectedDonations) {
+      const donation = pendingDonations.find(d => d.id === donationId);
+      if (!donation) continue;
+
+      const paidAmount = getPaidAmount(donation.payments);
+      const remainingAmount = donation.totalAmount - paidAmount;
+
+      if (remainingAmount <= 0) {
+        successCount++;
+        continue;
+      }
+      
+      const newPayment: Payment = {
+        amount: remainingAmount,
+        date: paymentDate.toISOString(),
+        paymentMethod: paymentMethod,
+      };
+
+      const updatedPayments = [...donation.payments, newPayment];
+      const donationUpdate: Partial<Donation> = {
+        payments: updatedPayments,
+        paymentStatus: 'Payé',
+      };
+
+      let emailSent = false;
+      try {
+        if(donation.cerfaEligible && !donation.cerfaNumber) {
+            const newCerfaNumber = await generateCerfaNumber();
+            if(newCerfaNumber) {
+                donationUpdate.cerfaNumber = newCerfaNumber;
+                donationUpdate.cerfaDate = (donation.cerfaDate ? new Date(donation.cerfaDate) : new Date()).toISOString();
+            }
+        }
+        
+        const donationDocRef = doc(firestore, 'users', user.uid, 'donations', donationId);
+        await updateDocumentNonBlocking(donationDocRef, donationUpdate);
+
+        const updatedDonation = { ...donation, ...donationUpdate } as Donation;
+
+        // Send email if applicable
+        if (updatedDonation.paymentStatus === 'Payé' && updatedDonation.cerfaEligible && updatedDonation.cerfaNumber && donation.member) {
+             const result = await sendCerfaEmail(updatedDonation, donation.member);
+             emailSent = result.success;
+        }
+
+        // Create transaction
+        const transactionData: Omit<Transaction, 'id' | 'createdAt'> = {
+            type: donation.type,
+            relatedId: donation.id,
+            amount: newPayment.amount,
+            date: newPayment.date,
+            paymentMethod: newPayment.paymentMethod,
+            memo: `Règlement solde don: ${donation.memo || ''}`
+        };
+        const transactionRef = collection(firestore, 'users', user.uid, 'transactions');
+        await addDocumentNonBlocking(transactionRef, {...transactionData, createdAt: new Date().toISOString()});
+
+        successCount++;
+        let toastMessage = `Don de ${donation.totalAmount}€ soldé.`;
+        if (emailSent) toastMessage += ' Email CERFA envoyé.';
+        toast({ title: 'Paiement enregistré', description: toastMessage });
+
+      } catch (error) {
+          console.error(`Erreur lors du traitement du don ${donation.id}:`, error);
+          toast({ variant: 'destructive', title: 'Erreur de paiement', description: `Le paiement pour le don de ${donation.totalAmount}€ a échoué.` });
+      }
+    }
+
+    setIsProcessingPayment(false);
+    setIsPaymentDialogOpen(false);
+    setSelectedDonations([]);
+  };
+
   if (!selectedMemberId) {
     return (
        <div className="rounded-md border p-6 text-center text-muted-foreground">
@@ -70,54 +217,131 @@ export function PendingDonationsTable({ selectedMemberId }: PendingDonationsTabl
   }
 
   return (
-    <div className="w-full rounded-md border">
-        <Table>
-            <TableHeader>
-            <TableRow>
-                <TableHead>Type</TableHead>
-                <TableHead>Catégorie</TableHead>
-                <TableHead className="hidden sm:table-cell">Mémo</TableHead>
-                <TableHead className="text-right">Montant Total</TableHead>
-                <TableHead className="text-right">Reste à payer</TableHead>
-                <TableHead>Statut</TableHead>
-                <TableHead className="hidden md:table-cell">Date de création</TableHead>
-            </TableRow>
-            </TableHeader>
-            <TableBody>
-            {isLoading && Array.from({ length: 1 }).map((_, i) => (
-                <TableRow key={i}>
-                    <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                    <TableCell className="hidden sm:table-cell"><Skeleton className="h-4 w-32" /></TableCell>
-                    <TableCell className="text-right"><Skeleton className="h-4 w-16" /></TableCell>
-                    <TableCell className="text-right"><Skeleton className="h-4 w-16" /></TableCell>
-                    <TableCell><Skeleton className="h-6 w-24 rounded-full" /></TableCell>
-                    <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-24" /></TableCell>
-                </TableRow>
-            ))}
-            {!isLoading && pendingDonations.map((donation) => (
-                <TableRow key={donation.id} onClick={() => router.push(`/donations/${donation.id}/edit`)} className="cursor-pointer">
-                    <TableCell>
-                        <Badge variant={donation.type === 'Don' ? 'secondary' : 'outline'}>{donation.type}</Badge>
-                    </TableCell>
-                     <TableCell>{donation.categoryName}</TableCell>
-                    <TableCell className="text-muted-foreground truncate max-w-xs hidden sm:table-cell">{donation.memo}</TableCell>
-                    <TableCell className="text-right">{donation.totalAmount.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})}</TableCell>
-                    <TableCell className="text-right text-destructive font-medium">{(donation.totalAmount - getPaidAmount(donation.payments)).toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})}</TableCell>
-                    <TableCell>{getStatusBadge(donation.paymentStatus)}</TableCell>
-                    <TableCell className="hidden md:table-cell">{new Date(donation.createdAt).toLocaleDateString('fr-FR')}</TableCell>
-                </TableRow>
-            ))}
-            {!isLoading && pendingDonations.length === 0 && (
-                <TableRow>
-                <TableCell colSpan={7} className="p-6 text-center text-muted-foreground">
-                    Aucun don en attente ou partiel pour ce membre.
-                </TableCell>
-                </TableRow>
-            )}
-            </TableBody>
-        </Table>
+    <>
+      <div className="w-full rounded-md border">
+          <Table>
+              <TableHeader>
+              <TableRow>
+                  <TableHead className="w-[50px]">
+                    <Checkbox
+                      checked={selectedDonations.length > 0 && selectedDonations.length === pendingDonations.length}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedDonations(pendingDonations.map(d => d.id));
+                        } else {
+                          setSelectedDonations([]);
+                        }
+                      }}
+                    />
+                  </TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Catégorie</TableHead>
+                  <TableHead className="hidden sm:table-cell">Mémo</TableHead>
+                  <TableHead className="text-right">Montant Total</TableHead>
+                  <TableHead className="text-right">Reste à payer</TableHead>
+                  <TableHead>Statut</TableHead>
+                  <TableHead className="hidden md:table-cell">Date de création</TableHead>
+              </TableRow>
+              </TableHeader>
+              <TableBody>
+              {isLoading && Array.from({ length: 1 }).map((_, i) => (
+                  <TableRow key={i}>
+                      <TableCell><Skeleton className="h-4 w-4" /></TableCell>
+                      <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                      <TableCell className="hidden sm:table-cell"><Skeleton className="h-4 w-32" /></TableCell>
+                      <TableCell className="text-right"><Skeleton className="h-4 w-16" /></TableCell>
+                      <TableCell className="text-right"><Skeleton className="h-4 w-16" /></TableCell>
+                      <TableCell><Skeleton className="h-6 w-24 rounded-full" /></TableCell>
+                      <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-24" /></TableCell>
+                  </TableRow>
+              ))}
+              {!isLoading && pendingDonations.map((donation) => (
+                  <TableRow 
+                    key={donation.id} 
+                    data-state={selectedDonations.includes(donation.id) ? 'selected' : ''}
+                  >
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedDonations.includes(donation.id)}
+                          onCheckedChange={() => handleSelectDonation(donation.id)}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </TableCell>
+                      <TableCell onClick={() => onEditDonation(donation.id)} className="cursor-pointer">
+                          <Badge variant={donation.type === 'Don' ? 'secondary' : 'outline'}>{donation.type}</Badge>
+                      </TableCell>
+                      <TableCell onClick={() => onEditDonation(donation.id)} className="cursor-pointer">{donation.categoryName}</TableCell>
+                      <TableCell onClick={() => onEditDonation(donation.id)} className="cursor-pointer text-muted-foreground truncate max-w-xs hidden sm:table-cell">{donation.memo}</TableCell>
+                      <TableCell onClick={() => onEditDonation(donation.id)} className="cursor-pointer text-right">{donation.totalAmount.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})}</TableCell>
+                      <TableCell onClick={() => onEditDonation(donation.id)} className="cursor-pointer text-right text-destructive font-medium">{(donation.totalAmount - getPaidAmount(donation.payments)).toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})}</TableCell>
+                      <TableCell onClick={() => onEditDonation(donation.id)} className="cursor-pointer">{getStatusBadge(donation.paymentStatus)}</TableCell>
+                      <TableCell onClick={() => onEditDonation(donation.id)} className="cursor-pointer hidden md:table-cell">{new Date(donation.createdAt).toLocaleDateString('fr-FR')}</TableCell>
+                  </TableRow>
+              ))}
+              {!isLoading && pendingDonations.length === 0 && (
+                  <TableRow>
+                  <TableCell colSpan={8} className="p-6 text-center text-muted-foreground">
+                      Aucun don en attente ou partiel pour ce membre.
+                  </TableCell>
+                  </TableRow>
+              )}
+              </TableBody>
+          </Table>
       </div>
+      {selectedDonations.length > 0 && (
+        <div className="flex justify-end mt-4">
+            <Button onClick={() => setIsPaymentDialogOpen(true)}>
+                Encaisser la sélection ({selectedDonations.length})
+            </Button>
+        </div>
+      )}
+
+      <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
+          <DialogContent>
+              <DialogHeader>
+                  <DialogTitle>Confirmer l'encaissement</DialogTitle>
+                  <DialogDescription>
+                    Vous êtes sur le point de solder {selectedDonations.length} don(s). Choisissez la méthode et la date de paiement.
+                  </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="paymentMethod" className="text-right">Moyen</Label>
+                       <Select onValueChange={(value: 'Carte de crédit' | 'Virement bancaire' | 'Espèces' | 'Chèque') => setPaymentMethod(value)} defaultValue={paymentMethod}>
+                          <SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Carte de crédit">Carte de crédit</SelectItem>
+                            <SelectItem value="Virement bancaire">Virement bancaire</SelectItem>
+                            <SelectItem value="Espèces">Espèces</SelectItem>
+                            <SelectItem value="Chèque">Chèque</SelectItem>
+                          </SelectContent>
+                        </Select>
+                  </div>
+                   <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="paymentDate" className="text-right">Date</Label>
+                       <Popover>
+                        <PopoverTrigger asChild>
+                            <Button variant={"outline"} className={cn("col-span-3 justify-start text-left font-normal",!paymentDate && "text-muted-foreground")}>
+                              {paymentDate ? format(paymentDate, "d MMMM yyyy", { locale: fr }) : <span>Choisir une date</span>}
+                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar mode="single" selected={paymentDate} onSelect={setPaymentDate} initialFocus locale={fr} />
+                        </PopoverContent>
+                      </Popover>
+                  </div>
+              </div>
+              <DialogFooter>
+                  <Button variant="ghost" onClick={() => setIsPaymentDialogOpen(false)}>Annuler</Button>
+                  <Button onClick={handleProcessPayment} disabled={isProcessingPayment}>
+                      {isProcessingPayment ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
+                      Confirmer et Payer
+                  </Button>
+              </DialogFooter>
+          </DialogContent>
+      </Dialog>
+    </>
   );
 }
-

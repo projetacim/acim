@@ -22,21 +22,32 @@ import { Loader2 } from 'lucide-react';
 function DashboardContent() {
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [isDonationFormOpen, setIsDonationFormOpen] = useState(false);
+  const [memberForNewDonation, setMemberForNewDonation] = useState<Member | null>(null);
   const [editingDonationId, setEditingDonationId] = useState<string | null>(null);
   
   const { isLoading: isLoadingData } = useData();
 
   const handleAddDonationClick = (member: Member) => {
     if (member) {
-      setSelectedMember(member);
+      setMemberForNewDonation(member);
       setEditingDonationId(null);
+      setIsDonationFormOpen(true);
+    }
+  };
+  
+  const handleEditDonationClick = (donationId: string) => {
+    const donation = (useData.getState().donations || []).find(d => d.id === donationId);
+    if(donation) {
+      const member = (useData.getState().members || []).find(m => m.id === donation.memberId);
+      setMemberForNewDonation(member || null);
+      setEditingDonationId(donationId);
       setIsDonationFormOpen(true);
     }
   };
   
   const onDonationFormClose = () => {
     setIsDonationFormOpen(false);
-    // Keep member selected
+    setMemberForNewDonation(null);
     setEditingDonationId(null);
   }
 
@@ -68,10 +79,13 @@ function DashboardContent() {
           <Card>
             <CardHeader>
               <CardTitle>Dons en attente et partiels</CardTitle>
-              <CardDescription>Vue d'ensemble des dons non soldés pour {selectedMember.nom}. Cliquez sur une ligne pour la modifier.</CardDescription>
+              <CardDescription>Vue d'ensemble des dons non soldés pour {selectedMember.nom}.</CardDescription>
             </CardHeader>
             <CardContent>
-                <PendingDonationsTable selectedMemberId={selectedMember?.id ?? null} />
+                <PendingDonationsTable 
+                  selectedMemberId={selectedMember?.id ?? null} 
+                  onEditDonation={handleEditDonationClick} 
+                />
             </CardContent>
           </Card>
       )}
@@ -88,7 +102,7 @@ function DashboardContent() {
           </div>
         </CardHeader>
         <CardContent>
-            <DonationsTable selectedMemberId={selectedMember?.id ?? null} />
+            <DonationsTable selectedMemberId={selectedMember?.id ?? null} onEditDonation={handleEditDonationClick} />
         </CardContent>
       </Card>
 
@@ -96,10 +110,10 @@ function DashboardContent() {
         <DialogContent className="sm:max-w-4xl">
           <DialogHeader>
             <DialogTitle>
-                {editingDonationId ? 'Modifier un don' : 'Ajouter un don'} pour {selectedMember?.nom}
+                {editingDonationId ? 'Modifier un don' : 'Ajouter un don'} pour {memberForNewDonation?.nom}
             </DialogTitle>
           </DialogHeader>
-          {selectedMember && <DonationForm memberIdParam={selectedMember.id} donationId={editingDonationId ?? undefined} onFormSubmit={onDonationFormClose} />}
+          {memberForNewDonation && <DonationForm memberIdParam={memberForNewDonation.id} donationId={editingDonationId ?? undefined} onFormSubmit={onDonationFormClose} />}
         </DialogContent>
       </Dialog>
     </div>
