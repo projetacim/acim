@@ -2,7 +2,7 @@
 'use client';
 import { useState, useMemo, useEffect } from 'react';
 import { useFirestore, useCollection, useMemoFirebase, deleteDocumentNonBlocking, useUser } from '@/firebase';
-import { collection, doc, getDocs, query, where, updateDoc } from 'firebase/firestore';
+import { collection, doc, getDocs, query, where, updateDoc, getDoc } from 'firebase/firestore';
 import {
   Table,
   TableBody,
@@ -28,13 +28,31 @@ import type { Donation, Member, Payment } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRouter } from 'next/navigation';
-import jsPDF from 'jspdf';
+import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import { numberToWords } from '@/lib/number-to-words';
 
 type DonationWithMemberName = Donation & { memberName: string };
 
 interface DonationsTableProps {
     selectedMemberId: string | null;
 }
+
+// PDF generation constants and helpers
+const A4_HEIGHT_POINTS = 841.89;
+const mmToPoints = (mm: number) => mm * 2.83465;
+
+const cerfaCoordinates = {
+    cerfaId:          { x: mmToPoints(174),  y: A4_HEIGHT_POINTS - mmToPoints(24) },
+    donorName:        { x: mmToPoints(35),   y: A4_HEIGHT_POINTS - mmToPoints(51) },
+    donorAddress:     { x: mmToPoints(35),   y: A4_HEIGHT_POINTS - mmToPoints(60) },
+    paymentDate:      { x: mmToPoints(163),  y: A4_HEIGHT_POINTS - mmToPoints(256) },
+    amountInDigits:   { x: mmToPoints(41),   y: A4_HEIGHT_POINTS - mmToPoints(207) },
+    amountInWords:    { x: mmToPoints(115),  y: A4_HEIGHT_POINTS - mmToPoints(207) },
+    signatureDate:    { x: mmToPoints(163),  y: A4_HEIGHT_POINTS - mmToPoints(256) },
+    signatureDate2:   { x: mmToPoints(55),   y: A4_HEIGHT_POINTS - mmToPoints(240) },
+    paymentMethod:    { x: mmToPoints(55),   y: A4_HEIGHT_POINTS - mmToPoints(247.5)}
+};
+
 
 export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
   const firestore = useFirestore();
@@ -92,20 +110,72 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
   
   const handleCerfaClick = async (donation: DonationWithMemberName) => {
     if (!donation.cerfaEligible) return;
+     if (!firestore || !user) return;
 
     let cerfaNumber = donation.cerfaNumber;
     if (!cerfaNumber && donation.paymentStatus === 'Payé') {
         cerfaNumber = await generateCerfaNumber(donation.id);
+        if (!cerfaNumber) return; // Stop if number generation failed
     }
     
     if (cerfaNumber) {
-        // Placeholder for PDF generation
-        console.log(`Generating PDF for CERFA ${cerfaNumber}`);
-        const doc = new jsPDF();
-        doc.text(`Reçu fiscal CERFA N°: ${cerfaNumber}`, 10, 10);
-        doc.text(`Donateur: ${donation.memberName}`, 10, 20);
-        doc.text(`Montant: ${donation.totalAmount.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})}`, 10, 30);
-        doc.save(`cerfa-${cerfaNumber}.pdf`);
+        try {
+            const memberDocRef = doc(firestore, 'users', user.uid, 'membre', donation.memberId);
+            const memberSnap = await getDoc(memberDocRef);
+            if (!memberSnap.exists()) {
+                toast({ variant: 'destructive', title: 'Erreur', description: 'Membre introuvable.' });
+                return;
+            }
+            const member = memberSnap.data() as Member;
+
+            // Fetch the PDF template
+            const templateBytes = await fetch('/cerfa_template.pdf').then(res => res.arrayBuffer());
+            const pdfDoc = await PDFDocument.load(templateBytes);
+            const page = pdfDoc.getPages()[0];
+
+            // Set font and color
+            const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+            const textColor = rgb(0, 0, 0);
+
+            // Get payment details
+            const lastPayment = donation.payments.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+            const paymentDate = new Date(lastPayment.date);
+            const formattedDate = `${paymentDate.getDate().toString().padStart(2, '0')}/${(paymentDate.getMonth() + 1).toString().padStart(2, '0')}/${paymentDate.getFullYear()}`;
+
+            // Fill the PDF
+            page.drawText(cerfaNumber, { ...cerfaCoordinates.cerfaId, font, size: 10, color: textColor });
+            page.drawText(member.nom, { ...cerfaCoordinates.donorName, font, size: 10, color: textColor });
+            page.drawText(member.adresse || '', { ...cerfaCoordinates.donorAddress, font, size: 10, color: textColor });
+            
+            page.drawText(donation.totalAmount.toFixed(2), { ...cerfaCoordinates.amountInDigits, font, size: 10, color: textColor });
+            page.drawText(numberToWords(donation.totalAmount) + ' euros', { ...cerfaCoordinates.amountInWords, font, size: 8, color: textColor });
+            
+            page.drawText(formattedDate, { ...cerfaCoordinates.paymentDate, font, size: 10, color: textColor });
+            page.drawText(formattedDate, { ...cerfaCoordinates.signatureDate, font, size: 10, color: textColor });
+            page.drawText(formattedDate, { ...cerfaCoordinates.signatureDate2, font, size: 10, color: textColor });
+
+            // Check the correct payment method box
+            const cross = 'X';
+            const paymentMethodCoord = { ...cerfaCoordinates.paymentMethod, font, size: 12, color: textColor };
+            if (lastPayment.paymentMethod === 'Chèque' || lastPayment.paymentMethod === 'Virement bancaire' || lastPayment.paymentMethod === 'Carte de crédit') {
+                 page.drawText(cross, { ...paymentMethodCoord });
+            } else { // Espèces
+                 page.drawText(cross, { x: paymentMethodCoord.x + mmToPoints(42), y: paymentMethodCoord.y, font, size: 12, color: textColor });
+            }
+
+            // Save and download
+            const pdfBytes = await pdfDoc.save();
+            const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `cerfa-${cerfaNumber}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } catch (error) {
+            console.error("Failed to generate PDF:", error);
+            toast({ variant: 'destructive', title: 'Erreur PDF', description: 'La génération du fichier CERFA a échoué.' });
+        }
     } else {
         toast({ variant: 'destructive', title: 'Action impossible', description: 'Le don doit être entièrement payé pour générer un CERFA.' });
     }
