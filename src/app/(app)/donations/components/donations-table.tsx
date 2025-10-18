@@ -365,7 +365,7 @@ export function DonationsTable() {
         </CardContent>
       </Card>
       
-      <Dialog open={isFormOpen} onOpenChange={handleCloseForm}>
+      <Dialog open={isFormOpen} onOpenChange={handleCloseForm} modal={false}>
         <DialogContent className="sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>{selectedDonation ? 'Modifier le don' : 'Ajouter un don/cotisation'}</DialogTitle>
