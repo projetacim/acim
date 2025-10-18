@@ -27,6 +27,8 @@ import { DateRange } from 'react-day-picker';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+
 
 type DonationWithMemberAndCategory = Donation & { memberName: string; categoryName?: string };
 
@@ -242,9 +244,10 @@ export function CerfaTable() {
                 <TableHead>N° CERFA</TableHead>
                 <TableHead>Membre</TableHead>
                 <TableHead className="hidden sm:table-cell">Type</TableHead>
+                <TableHead className="hidden lg:table-cell">Catégorie</TableHead>
+                <TableHead className="hidden lg:table-cell">Mémo</TableHead>
                 <TableHead className="text-right">Montant</TableHead>
                 <TableHead>Statut</TableHead>
-                <TableHead className="hidden lg:table-cell">Mémo</TableHead>
             </TableRow>
             </TableHeader>
             <TableBody>
@@ -253,9 +256,10 @@ export function CerfaTable() {
                     <TableCell><Skeleton className="h-6 w-24" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                     <TableCell className="hidden sm:table-cell"><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                    <TableCell className="hidden lg:table-cell"><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell className="hidden lg:table-cell"><Skeleton className="h-4 w-40" /></TableCell>
                     <TableCell className="text-right"><Skeleton className="h-4 w-16" /></TableCell>
                     <TableCell><Skeleton className="h-6 w-24 rounded-full" /></TableCell>
-                    <TableCell className="hidden lg:table-cell"><Skeleton className="h-4 w-40" /></TableCell>
                 </TableRow>
             ))}
             {!isLoading && cerfaDonations.map((donation) => (
@@ -273,14 +277,28 @@ export function CerfaTable() {
                     <TableCell className="hidden sm:table-cell">
                         <Badge variant={donation.type === 'Don' ? 'secondary' : 'outline'}>{donation.type}</Badge>
                     </TableCell>
+                    <TableCell className="hidden lg:table-cell">{donation.categoryName}</TableCell>
+                    <TableCell className="text-muted-foreground truncate max-w-xs hidden lg:table-cell">
+                      {donation.memo && donation.memo.length > 40 ? (
+                        <Tooltip>
+                            <TooltipTrigger>
+                            <span className="cursor-help">{donation.memo.substring(0, 40)}...</span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                            <p className="max-w-xs">{donation.memo}</p>
+                            </TooltipContent>
+                        </Tooltip>
+                        ) : (
+                        donation.memo
+                        )}
+                    </TableCell>
                     <TableCell className="text-right font-medium">{donation.totalAmount.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})}</TableCell>
                     <TableCell>{getStatusBadge(donation.paymentStatus)}</TableCell>
-                    <TableCell className="text-muted-foreground truncate max-w-xs hidden lg:table-cell">{donation.memo}</TableCell>
                 </TableRow>
             ))}
             {!isLoading && cerfaDonations.length === 0 && (
                 <TableRow>
-                <TableCell colSpan={6} className="p-6 text-center text-muted-foreground">
+                <TableCell colSpan={7} className="p-6 text-center text-muted-foreground">
                     {searchQuery || dateRange ? "Aucun CERFA ne correspond à vos critères." : "Aucun CERFA généré pour le moment."}
                 </TableCell>
                 </TableRow>
@@ -291,3 +309,5 @@ export function CerfaTable() {
     </>
   );
 }
+
+    
