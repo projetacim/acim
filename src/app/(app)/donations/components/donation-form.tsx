@@ -405,125 +405,113 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
   }
 
   return (
-    <Card>
+    <Card className="border-0 shadow-none">
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
-          <CardHeader>
-            <CardTitle>{isEditMode ? 'Modifier le don' : 'Ajouter un don/cotisation'}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-              {/* COLONNE GAUCHE */}
-              <div className="space-y-6">
-                <FormItem>
-                  <FormLabel>Membre</FormLabel>
-                  <FormControl>
-                    <div className="flex h-10 w-full items-center rounded-md border border-input bg-muted px-3 py-2 text-sm">
-                      {member ? member.nom : "Chargement..."}
+          <CardContent className="space-y-6 p-0">
+            {/* Section Don */}
+            <div className="space-y-2">
+                <h3 className="font-medium">Don</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 rounded-md border p-4">
+                    {/* Colonne Gauche */}
+                    <div className="space-y-6">
+                        <FormField
+                            control={form.control}
+                            name="type"
+                            render={({ field }) => (
+                                <FormItem>
+                                <FormLabel>Type</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                                    <SelectContent>
+                                    <SelectItem value="Don">Don</SelectItem>
+                                    <SelectItem value="Cotisation">Cotisation</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        {donationType === 'Don' && (
+                            <FormField
+                                control={form.control}
+                                name="donationCategoryId"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Sous-catégorie de don</FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value}>
+                                    <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner une catégorie" /></SelectTrigger></FormControl>
+                                    <SelectContent>
+                                        {isLoading ? <SelectItem value="loading" disabled>Chargement...</SelectItem> : categories?.map(cat => (
+                                        <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                        )}
+                        <FormField
+                            control={form.control}
+                            name="totalAmount"
+                            render={({ field }) => (
+                                <FormItem>
+                                <FormLabel>Montant Total du Don (€)</FormLabel>
+                                <FormControl>
+                                    <Input type="number" step="0.01" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || 0)} className="border-black" />
+                                </FormControl>
+                                <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="cerfaEligible"
+                            render={({ field }) => (
+                                <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-4">
+                                <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange}/></FormControl>
+                                <div className="space-y-1 leading-none"><FormLabel>Éligible pour un reçu fiscal (CERFA)</FormLabel></div>
+                                </FormItem>
+                            )}
+                        />
                     </div>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-
-                <FormField
-                  control={form.control}
-                  name="type"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Type</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                        <SelectContent>
-                          <SelectItem value="Don">Don</SelectItem>
-                          <SelectItem value="Cotisation">Cotisation</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {donationType === 'Don' && (
-                  <FormField
-                    control={form.control}
-                    name="donationCategoryId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Sous-catégorie de don</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner une catégorie" /></SelectTrigger></FormControl>
-                          <SelectContent>
-                            {isLoading ? <SelectItem value="loading" disabled>Chargement...</SelectItem> : categories?.map(cat => (
-                              <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                )}
-
-                <FormField
-                  control={form.control}
-                  name="totalAmount"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Montant Total du Don (€)</FormLabel>
-                      <FormControl>
-                        <Input type="number" step="0.01" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || 0)} className="border-black" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              {/* COLONNE DROITE */}
-              <div className="flex flex-col gap-6">
-                 <div className="space-y-2 rounded-md bg-muted p-3 text-sm">
-                    <h3 className="font-medium mb-3">Résumé</h3>
-                    <div className="flex justify-between">
-                        <span className="text-muted-foreground">Payé</span>
-                        <span>{paidAmount.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})}</span>
+                    {/* Colonne Droite */}
+                    <div className="flex flex-col gap-6">
+                        <div className="space-y-2 rounded-md bg-muted p-3 text-sm">
+                            <h3 className="font-medium mb-3">Résumé</h3>
+                            <div className="flex justify-between">
+                                <span className="text-muted-foreground">Payé</span>
+                                <span>{paidAmount.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})}</span>
+                            </div>
+                            <div className="flex justify-between font-medium">
+                                <span className="text-muted-foreground">Reste à régler</span>
+                                <span>{remainingAmount.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})}</span>
+                            </div>
+                            <div className="flex justify-between items-center pt-1">
+                                <span className="text-muted-foreground">Statut</span>
+                                {getStatusBadge(paymentStatus)}
+                            </div>
+                        </div>
+                        <FormField
+                            control={form.control}
+                            name="memo"
+                            render={({ field }) => (
+                                <FormItem>
+                                <FormLabel>Mémo</FormLabel>
+                                <FormControl><Textarea placeholder="Informations complémentaires..." {...field} className="border-black min-h-[158px]" /></FormControl>
+                                <FormMessage />
+                                </FormItem>
+                            )}
+                        />
                     </div>
-                    <div className="flex justify-between font-medium">
-                        <span className="text-muted-foreground">Reste à régler</span>
-                        <span>{remainingAmount.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})}</span>
-                    </div>
-                    <div className="flex justify-between items-center pt-1">
-                        <span className="text-muted-foreground">Statut</span>
-                        {getStatusBadge(paymentStatus)}
-                    </div>
-                 </div>
-                 <FormField
-                    control={form.control}
-                    name="memo"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>Mémo</FormLabel>
-                        <FormControl><Textarea placeholder="Informations complémentaires..." {...field} className="border-black" /></FormControl>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <FormField
-                    control={form.control}
-                    name="cerfaEligible"
-                    render={({ field }) => (
-                        <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-4">
-                        <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange}/></FormControl>
-                        <div className="space-y-1 leading-none"><FormLabel>Éligible pour un reçu fiscal (CERFA)</FormLabel></div>
-                        </FormItem>
-                    )}
-                />
-              </div>
+                </div>
             </div>
-            
-            {/* PAIEMENTS - pleine largeur */}
-            <div className="pt-4">
-              <FormLabel>Paiements</FormLabel>
-              <div className="space-y-4 rounded-md border p-4 mt-2">
+
+            {/* Section Paiements */}
+            <div className="space-y-2">
+              <h3 className="font-medium">Paiements</h3>
+              <div className="space-y-4 rounded-md border p-4">
                 {fields.map((field, index) => (
                   <div key={field.id} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start relative">
                     <FormField
@@ -592,10 +580,11 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
               </div>
             </div>
 
-            {/* INFORMATIONS CERFA - pleine largeur */}
+            {/* Section Informations CERFA */}
             {watchCerfaEligible && (
-              <div className="space-y-4 rounded-md border border-dashed border-primary/50 bg-primary/5 p-4 mt-4">
-                <h3 className="font-semibold text-primary">Informations pour le CERFA</h3>
+              <div className="space-y-2">
+                <h3 className="font-medium text-primary">Informations pour le CERFA</h3>
+                <div className="space-y-4 rounded-md border border-dashed border-primary/50 bg-primary/5 p-4">
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
@@ -660,10 +649,11 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
                         Générer le PDF CERFA
                     </Button>
                   )}
+                </div>
               </div>
             )}
           </CardContent>
-          <CardFooter className="flex justify-end gap-2">
+          <CardFooter className="flex justify-end gap-2 p-0 pt-6">
             <Button type="button" variant="ghost" onClick={onFormSubmit}>
               Annuler
             </Button>
@@ -678,5 +668,3 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
     </Card>
   );
 }
-
-    

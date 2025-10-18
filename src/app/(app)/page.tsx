@@ -95,8 +95,9 @@ function DashboardContent() {
       <Dialog open={isDonationFormOpen} onOpenChange={onDonationFormClose}>
         <DialogContent className="sm:max-w-4xl">
           <DialogHeader>
-            <DialogTitle>{editingDonationId ? 'Modifier le don' : 'Ajouter un don'}</DialogTitle>
-             {selectedMember && <DialogDescription>Enregistrement pour {selectedMember.nom}.</DialogDescription>}
+            <DialogTitle>
+                {editingDonationId ? 'Modifier un don' : 'Ajouter un don'} pour {selectedMember?.nom}
+            </DialogTitle>
           </DialogHeader>
           {selectedMember && <DonationForm memberIdParam={selectedMember.id} donationId={editingDonationId ?? undefined} onFormSubmit={onDonationFormClose} />}
         </DialogContent>
