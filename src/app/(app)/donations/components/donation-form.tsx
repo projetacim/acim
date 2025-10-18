@@ -1,8 +1,11 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useFirestore, addDocumentNonBlocking, setDocumentNonBlocking, useUser } from '@/firebase';
-import { collection, doc, getDocs } from 'firebase/firestore';
+import { collection, doc, getDocs, getDoc } from 'firebase/firestore';
 import type { Donation, Member, DonationCategory, Transaction, Payment } from '@/lib/types';
 import { useForm, useFieldArray, type SubmitHandler, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -26,6 +29,8 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Calendar } from '@/components/ui/calendar';
 import { CalendarIcon, PlusCircle, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -34,7 +39,6 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 
 
 const paymentSchema = z.object({
@@ -44,51 +48,44 @@ const paymentSchema = z.object({
 });
 
 const donationSchema = z.object({
-  memberId: z.string(), // Is now hidden, but required for submission
+  memberId: z.string().min(1, 'Veuillez sélectionner un membre.'),
   type: z.enum(['Don', 'Cotisation']),
   donationCategoryId: z.string().optional(),
   totalAmount: z.coerce.number().min(0.01, 'Le montant total doit être supérieur à 0.'),
-  payments: z.array(paymentSchema).min(1, "Veuillez ajouter au moins un paiement.").max(12, "Vous ne pouvez pas ajouter plus de 12 paiements."),
-  memo: z.string().optional(),
-  cerfaEligible: z.boolean().default(false),
+  payments: z.array(paymentSchema).min(1, "Veuillez ajouter au moins un paiement.").max(3, "Vous ne pouvez pas ajouter plus de 3 paiements."),
+  memo: z.string().min(1, 'Le mémo est obligatoire.'),
+  cerfaEligible: z.boolean().default(true),
 });
 
 type DonationFormValues = z.infer<typeof donationSchema>;
 
 interface DonationFormProps {
-  member: Member;
-  donation?: Donation | null;
-  onFinished: () => void;
+  donationId?: string;
+  memberIdParam?: string;
 }
 
-export function DonationForm({ member, donation, onFinished }: DonationFormProps) {
+export function DonationForm({ donationId, memberIdParam }: DonationFormProps) {
   const firestore = useFirestore();
   const { user } = useUser();
   const { toast } = useToast();
+  const router = useRouter();
 
+  const [member, setMember] = useState<Member | null>(null);
   const [categories, setCategories] = useState<DonationCategory[]>([]);
-  const [isLoadingCategories, setIsLoadingCategories] = useState(true);
-
-  const isEditMode = !!donation;
+  const [isLoading, setIsLoading] = useState(true);
+  
+  const isEditMode = !!donationId;
 
   const form = useForm<DonationFormValues>({
     resolver: zodResolver(donationSchema),
-    defaultValues: isEditMode && donation ? {
-        memberId: donation.memberId,
-        type: donation.type,
-        donationCategoryId: donation.donationCategoryId || '',
-        totalAmount: donation.totalAmount,
-        payments: donation.payments.map(p => ({...p, date: new Date(p.date)})),
-        memo: donation.memo || '',
-        cerfaEligible: donation.cerfaEligible,
-    } : {
-        memberId: member.id,
-        type: 'Don',
-        donationCategoryId: '',
-        totalAmount: 0,
-        payments: [{ amount: 0, date: new Date(), paymentMethod: 'Espèces' }],
-        memo: '',
-        cerfaEligible: false,
+    defaultValues: {
+      memberId: '',
+      type: 'Don',
+      donationCategoryId: '',
+      totalAmount: 0,
+      payments: [],
+      memo: '',
+      cerfaEligible: true,
     },
   });
   
@@ -97,50 +94,74 @@ export function DonationForm({ member, donation, onFinished }: DonationFormProps
     name: "payments"
   });
 
-  // Fetch categories
   useEffect(() => {
-    async function fetchCategories() {
-        if (!firestore) return;
-        setIsLoadingCategories(true);
-        try {
-            const catRef = collection(firestore, 'donationCategories');
-            const snapshot = await getDocs(catRef);
-            const cats = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as DonationCategory[];
-            setCategories(cats);
-        } catch (error) {
-            console.error("Failed to fetch donation categories:", error);
-            toast({ variant: "destructive", title: "Erreur", description: "Impossible de charger les catégories de dons." });
-        } finally {
-            setIsLoadingCategories(false);
-        }
-    }
-    fetchCategories();
-  }, [firestore, toast]);
+    async function fetchData() {
+      if (!user || !firestore) return;
+      setIsLoading(true);
+      
+      const memberIdToFetch = isEditMode ? null : memberIdParam;
 
-  // Populate form for editing
-  useEffect(() => {
-    if (isEditMode && donation) {
-      form.reset({
-        memberId: donation.memberId,
-        type: donation.type,
-        donationCategoryId: donation.donationCategoryId || '',
-        totalAmount: donation.totalAmount,
-        payments: donation.payments.map(p => ({...p, date: new Date(p.date)})),
-        memo: donation.memo || '',
-        cerfaEligible: donation.cerfaEligible,
-      });
-    } else if (!isEditMode) {
-         form.reset({
-            memberId: member.id,
-            type: 'Don',
-            donationCategoryId: '',
-            totalAmount: 0,
-            payments: [{ amount: 0, date: new Date(), paymentMethod: 'Espèces' }],
-            memo: '',
-            cerfaEligible: false,
+      try {
+        const categoriesCollectionRef = collection(firestore, 'donationCategories');
+        const categoriesSnapshot = await getDocs(categoriesCollectionRef);
+        const categoriesList = categoriesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as DonationCategory[];
+        setCategories(categoriesList);
+
+        if (isEditMode && donationId) {
+          const donationDocRef = doc(firestore, 'users', user.uid, 'donations', donationId);
+          const donationSnap = await getDoc(donationDocRef);
+          if (donationSnap.exists()) {
+            const existingDonation = donationSnap.data() as Donation;
+            form.setValue('memberId', existingDonation.memberId);
+            
+            const memberDocRef = doc(firestore, 'users', user.uid, 'membre', existingDonation.memberId);
+            const memberSnap = await getDoc(memberDocRef);
+            if(memberSnap.exists()) {
+              setMember({id: memberSnap.id, ...memberSnap.data()} as Member);
+            }
+
+            form.reset({
+              memberId: existingDonation.memberId,
+              type: existingDonation.type,
+              donationCategoryId: existingDonation.donationCategoryId || '',
+              totalAmount: existingDonation.totalAmount,
+              payments: existingDonation.payments.map(p => ({...p, date: new Date(p.date)})),
+              memo: existingDonation.memo || '',
+              cerfaEligible: existingDonation.cerfaEligible,
+            });
+          }
+        } else if (memberIdToFetch) {
+            const memberDocRef = doc(firestore, 'users', user.uid, 'membre', memberIdToFetch);
+            const memberSnap = await getDoc(memberDocRef);
+             if(memberSnap.exists()) {
+              const memberData = {id: memberSnap.id, ...memberSnap.data()} as Member;
+              setMember(memberData);
+              form.reset({
+                  memberId: memberData.id,
+                  type: 'Don',
+                  donationCategoryId: '',
+                  totalAmount: 0,
+                  payments: [{ amount: 0, date: new Date(), paymentMethod: 'Espèces' }],
+                  memo: '',
+                  cerfaEligible: true,
+              });
+            } else {
+                 toast({ variant: "destructive", title: "Erreur", description: "Membre non trouvé." });
+            }
+        }
+      } catch (error) {
+        console.error("Failed to fetch data:", error);
+        toast({
+          variant: "destructive",
+          title: "Erreur de chargement",
+          description: "Impossible de charger les données nécessaires.",
         });
+      } finally {
+        setIsLoading(false);
+      }
     }
-  }, [isEditMode, donation, member, form]);
+    fetchData();
+  }, [donationId, memberIdParam, isEditMode, user, firestore, form, toast]);
 
 
   const watchPayments = useWatch({ control: form.control, name: 'payments' });
@@ -184,8 +205,6 @@ export function DonationForm({ member, donation, onFinished }: DonationFormProps
     
     const donationData: Omit<Donation, 'id' | 'createdAt'> = {
         ...data,
-        memberId: member.id,
-        memo: data.memo || '',
         totalAmount: Number(data.totalAmount),
         donationCategoryId: data.type === 'Don' ? data.donationCategoryId : '',
         payments: data.payments.map(p => ({...p, amount: Number(p.amount), date: p.date.toISOString()})),
@@ -193,13 +212,13 @@ export function DonationForm({ member, donation, onFinished }: DonationFormProps
     };
 
     try {
-      if (isEditMode && donation) {
-        const donationRef = doc(firestore, 'users', user.uid, 'donations', donation.id);
-        await setDocumentNonBlocking(donationRef, { ...donationData, createdAt: donation.createdAt }, { merge: true });
+      if (isEditMode) {
+        const donationDocRef = doc(firestore, 'users', user.uid, 'donations', donationId);
+        const donationSnap = await getDoc(donationDocRef);
+        const existingDonation = donationSnap.data();
+        await setDocumentNonBlocking(donationDocRef, { ...donationData, createdAt: existingDonation?.createdAt }, { merge: true });
         toast({ title: 'Don mis à jour' });
-        // TODO: Handle transaction updates if necessary
       } else {
-        // Create
         const collectionRef = collection(firestore, 'users', user.uid, 'donations');
         const newDocRef = await addDocumentNonBlocking(collectionRef, { ...donationData, createdAt: new Date().toISOString() });
         
@@ -221,7 +240,7 @@ export function DonationForm({ member, donation, onFinished }: DonationFormProps
         
         toast({ title: 'Don ajouté', description: `Un nouveau don/cotisation a été enregistré.` });
       }
-      onFinished();
+      router.push('/donations');
     } catch (e: any) {
         console.error("Error saving donation", e);
         toast({ variant: "destructive", title: "Erreur de sauvegarde", description: e.message });
@@ -240,10 +259,29 @@ export function DonationForm({ member, donation, onFinished }: DonationFormProps
         return <Badge variant="secondary">Inconnu</Badge>;
     }
   };
-  
+
+  if (isLoading) {
+    return <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin"/></div>
+  }
+
   return (
+    <Card>
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 py-4">
+        <form onSubmit={form.handleSubmit(onSubmit)}>
+          <CardHeader>
+            <CardTitle>{isEditMode ? 'Modifier le don' : 'Ajouter un don/cotisation'}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <FormItem>
+              <FormLabel>Membre</FormLabel>
+              <FormControl>
+                <div className="flex h-10 w-full items-center rounded-md border border-input bg-muted px-3 py-2 text-sm">
+                  {member ? member.nom : "Chargement..."}
+                </div>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+            
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -251,7 +289,7 @@ export function DonationForm({ member, donation, onFinished }: DonationFormProps
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Type</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                       <SelectContent>
                         <SelectItem value="Don">Don</SelectItem>
@@ -269,10 +307,10 @@ export function DonationForm({ member, donation, onFinished }: DonationFormProps
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Sous-catégorie de don</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner une catégorie" /></SelectTrigger></FormControl>
                         <SelectContent>
-                          {isLoadingCategories ? <SelectItem value="loading" disabled>Chargement...</SelectItem> : categories?.map(cat => (
+                          {isLoading ? <SelectItem value="loading" disabled>Chargement...</SelectItem> : categories?.map(cat => (
                             <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
                           ))}
                         </SelectContent>
@@ -375,7 +413,7 @@ export function DonationForm({ member, donation, onFinished }: DonationFormProps
                     </Button>
                   </div>
                 ))}
-                {fields.length < 12 && (
+                {fields.length < 3 && (
                   <Button type="button" variant="outline" size="sm" onClick={() => append({ amount: 0, date: new Date(), paymentMethod: 'Espèces' })}>
                     <PlusCircle className="mr-2 h-4 w-4" /> Ajouter un paiement
                   </Button>
@@ -403,17 +441,19 @@ export function DonationForm({ member, donation, onFinished }: DonationFormProps
                 </FormItem>
               )}
             />
-          <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="ghost" onClick={onFinished}>
-              Annuler
+          </CardContent>
+          <CardFooter className="flex justify-end gap-2">
+            <Button type="button" variant="ghost" asChild>
+              <Link href="/donations">Annuler</Link>
             </Button>
             <Button type="submit" disabled={form.formState.isSubmitting}>
               {form.formState.isSubmitting ? (
                 <><Loader2 className="mr-2 h-4 w-4 animate-spin"/>Enregistrement...</>
               ) : 'Enregistrer'}
             </Button>
-          </div>
+          </CardFooter>
         </form>
       </Form>
+    </Card>
   );
 }
