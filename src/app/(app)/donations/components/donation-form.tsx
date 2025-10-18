@@ -1,8 +1,6 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useFirestore, addDocumentNonBlocking, setDocumentNonBlocking, useUser } from '@/firebase';
 import { collection, doc, getDocs, getDoc } from 'firebase/firestore';
@@ -30,7 +28,6 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Calendar } from '@/components/ui/calendar';
 import { CalendarIcon, PlusCircle, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -62,13 +59,13 @@ type DonationFormValues = z.infer<typeof donationSchema>;
 interface DonationFormProps {
   donationId?: string;
   memberIdParam?: string;
+  onFormSubmit?: () => void;
 }
 
-export function DonationForm({ donationId, memberIdParam }: DonationFormProps) {
+export function DonationForm({ donationId, memberIdParam, onFormSubmit }: DonationFormProps) {
   const firestore = useFirestore();
   const { user } = useUser();
   const { toast } = useToast();
-  const router = useRouter();
 
   const [member, setMember] = useState<Member | null>(null);
   const [categories, setCategories] = useState<DonationCategory[]>([]);
@@ -240,7 +237,7 @@ export function DonationForm({ donationId, memberIdParam }: DonationFormProps) {
         
         toast({ title: 'Don ajouté', description: `Un nouveau don/cotisation a été enregistré.` });
       }
-      router.push('/donations');
+      onFormSubmit?.();
     } catch (e: any) {
         console.error("Error saving donation", e);
         toast({ variant: "destructive", title: "Erreur de sauvegarde", description: e.message });
@@ -265,13 +262,9 @@ export function DonationForm({ donationId, memberIdParam }: DonationFormProps) {
   }
 
   return (
-    <Card>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
-          <CardHeader>
-            <CardTitle>{isEditMode ? 'Modifier le don' : 'Ajouter un don/cotisation'}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
+          <div className="space-y-6 p-4">
             <FormItem>
               <FormLabel>Membre</FormLabel>
               <FormControl>
@@ -441,19 +434,18 @@ export function DonationForm({ donationId, memberIdParam }: DonationFormProps) {
                 </FormItem>
               )}
             />
-          </CardContent>
-          <CardFooter className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" asChild>
-              <Link href="/donations">Annuler</Link>
+          </div>
+          <div className="flex justify-end gap-2 p-4 pt-0">
+            <Button type="button" variant="ghost" onClick={onFormSubmit}>
+                Annuler
             </Button>
             <Button type="submit" disabled={form.formState.isSubmitting}>
               {form.formState.isSubmitting ? (
                 <><Loader2 className="mr-2 h-4 w-4 animate-spin"/>Enregistrement...</>
               ) : 'Enregistrer'}
             </Button>
-          </CardFooter>
+          </div>
         </form>
       </Form>
-    </Card>
   );
 }
