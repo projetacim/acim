@@ -122,7 +122,24 @@ export function DonationsTable() {
     name: "payments"
   });
 
+  const watchPayments = useWatch({ control: form.control, name: 'payments' });
+  const watchTotalAmount = useWatch({ control: form.control, name: 'totalAmount' });
   const donationType = useWatch({ control: form.control, name: 'type' });
+  
+  const paidAmount = useMemo(() => {
+    return (watchPayments || []).reduce((acc, p) => acc + (p.amount || 0), 0);
+  }, [watchPayments]);
+
+  const remainingAmount = useMemo(() => {
+    return (watchTotalAmount || 0) - paidAmount;
+  }, [watchTotalAmount, paidAmount]);
+
+  const paymentStatus = useMemo(() => {
+    if (paidAmount === 0) return 'EN ATTENTE';
+    if (paidAmount < (watchTotalAmount || 0)) return 'Partiel';
+    return 'Payé';
+  }, [paidAmount, watchTotalAmount]);
+
 
   const donationsWithMemberNames = useMemo(() => {
     if (!donations || !members) return [];
@@ -451,19 +468,35 @@ export function DonationsTable() {
                   />
                 )}
               </div>
-              <FormField
-                  control={form.control}
-                  name="totalAmount"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Montant Total du Don (€)</FormLabel>
-                      <FormControl>
-                        <Input type="number" step="0.01" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              <div className="grid grid-cols-2 gap-4 items-end">
+                <FormField
+                    control={form.control}
+                    name="totalAmount"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Montant Total du Don (€)</FormLabel>
+                        <FormControl>
+                          <Input type="number" step="0.01" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className="space-y-2 rounded-md bg-muted p-3 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Payé</span>
+                      <span>{paidAmount.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})}</span>
+                    </div>
+                    <div className="flex justify-between font-medium">
+                      <span className="text-muted-foreground">Reste à régler</span>
+                      <span>{remainingAmount.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})}</span>
+                    </div>
+                    <div className="flex justify-between items-center pt-1">
+                      <span className="text-muted-foreground">Statut</span>
+                      {getStatusBadge(paymentStatus)}
+                    </div>
+                  </div>
+              </div>
               <div>
                 <FormLabel>Paiements</FormLabel>
                 <div className="space-y-4 rounded-md border p-4 mt-2">
