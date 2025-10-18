@@ -93,20 +93,34 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
   }
 
   const generateCerfaNumber = async (donationId: string) => {
-    if (!firestore || !user || !donations) return;
+    if (!firestore || !user) return;
 
     const year = new Date().getFullYear();
-    const yearDonations = donations.filter(d => d.cerfaNumber && d.cerfaNumber.startsWith(year.toString()));
-    const nextId = yearDonations.length + 1;
-    const cerfaNumber = `${year}-${nextId.toString().padStart(4, '0')}`;
+    const donationsRef = collection(firestore, 'users', user.uid, 'donations');
+    
+    const q = query(donationsRef, where("cerfaNumber", ">=", `${year}-0000`), where("cerfaNumber", "<", `${year+1}-0000`));
 
-    const donationDocRef = doc(firestore, 'users', user.uid, 'donations', donationId);
-    
-    // Use non-blocking update to trigger contextual error handling
-    updateDocumentNonBlocking(donationDocRef, { cerfaNumber: cerfaNumber });
-    
-    toast({ title: 'N° CERFA généré', description: `Le numéro ${cerfaNumber} a été assigné.` });
-    return cerfaNumber;
+    try {
+        const querySnapshot = await getDocs(q);
+        const nextId = querySnapshot.docs.length + 1;
+        const cerfaNumber = `${year}-${nextId.toString().padStart(4, '0')}`;
+        const donationDocRef = doc(firestore, 'users', user.uid, 'donations', donationId);
+        
+        await updateDoc(donationDocRef, { cerfaNumber: cerfaNumber });
+        
+        toast({ title: 'N° CERFA généré', description: `Le numéro ${cerfaNumber} a été assigné.` });
+        return cerfaNumber;
+    } catch(err) {
+        console.error("Error generating CERFA number: ", err);
+        const contextualError = new FirestorePermissionError({
+          operation: 'update',
+          path: `users/${user.uid}/donations/${donationId}`,
+          requestResourceData: { cerfaNumber: 'GENERATED_NUMBER' }
+        });
+        errorEmitter.emit('permission-error', contextualError);
+        toast({ variant: 'destructive', title: 'Erreur Permission CERFA', description: 'Impossible de sauvegarder le numéro CERFA.' });
+        return null;
+    }
   };
   
   const handleCerfaClick = async (donation: DonationWithMemberName) => {
@@ -115,8 +129,9 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
 
     let cerfaNumber = donation.cerfaNumber;
     if (!cerfaNumber && donation.paymentStatus === 'Payé') {
-        cerfaNumber = await generateCerfaNumber(donation.id);
-        if (!cerfaNumber) return; // Stop if number generation failed
+        const generatedNumber = await generateCerfaNumber(donation.id);
+        if (!generatedNumber) return; // Stop if number generation failed
+        cerfaNumber = generatedNumber;
     }
     
     if (cerfaNumber) {
@@ -143,6 +158,13 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
             const paymentDate = new Date(lastPayment.date);
             const formattedDate = `${paymentDate.getDate().toString().padStart(2, '0')}/${(paymentDate.getMonth() + 1).toString().padStart(2, '0')}/${paymentDate.getFullYear()}`;
 
+            // Create payment methods string
+            const paymentMethods = [...new Set(donation.payments.map(p => {
+                if (p.paymentMethod === 'Carte de crédit') return 'CB';
+                return p.paymentMethod;
+            }))].join(', ');
+
+
             // Fill the PDF
             page.drawText(cerfaNumber, { ...cerfaCoordinates.cerfaId, font, size: 10, color: textColor });
             page.drawText(member.nom, { ...cerfaCoordinates.donorName, font, size: 10, color: textColor });
@@ -155,14 +177,8 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
             page.drawText(formattedDate, { ...cerfaCoordinates.signatureDate, font, size: 10, color: textColor });
             page.drawText(formattedDate, { ...cerfaCoordinates.signatureDate2, font, size: 10, color: textColor });
 
-            // Check the correct payment method box
-            const cross = 'X';
-            const paymentMethodCoord = { ...cerfaCoordinates.paymentMethod, font, size: 12, color: textColor };
-            if (lastPayment.paymentMethod === 'Chèque' || lastPayment.paymentMethod === 'Virement bancaire' || lastPayment.paymentMethod === 'Carte de crédit') {
-                 page.drawText(cross, { ...paymentMethodCoord });
-            } else { // Espèces
-                 page.drawText(cross, { x: paymentMethodCoord.x + mmToPoints(42), y: paymentMethodCoord.y, font, size: 12, color: textColor });
-            }
+            // Write the payment method string
+            page.drawText(paymentMethods, { ...cerfaCoordinates.paymentMethod, font, size: 10, color: textColor });
 
             // Save and download
             const pdfBytes = await pdfDoc.save();
@@ -332,5 +348,7 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
     </>
   );
 }
+
+    
 
     
