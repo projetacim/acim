@@ -24,15 +24,17 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Pencil, Trash2 } from 'lucide-react';
-import type { Donation, Member, Payment } from '@/lib/types';
+import type { Donation, Member, Payment, DonationCategory } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRouter } from 'next/navigation';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { numberToWords } from '@/lib/number-to-words';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
-type DonationWithMemberName = Donation & { memberName: string };
+
+type DonationWithDetails = Donation & { memberName: string; categoryName?: string; };
 
 interface DonationsTableProps {
     selectedMemberId: string | null;
@@ -63,16 +65,20 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
 
   const membersCollection = useMemoFirebase(() => user ? collection(firestore, 'users', user.uid, 'membre') : null, [firestore, user]);
   const donationsCollection = useMemoFirebase(() => user ? collection(firestore, 'users', user.uid, 'donations') : null, [firestore, user]);
+  const categoriesCollection = useMemoFirebase(() => user ? collection(firestore, 'donationCategories') : null, [firestore, user]);
 
   const { data: members, isLoading: isLoadingMembers } = useCollection<Member>(membersCollection);
   const { data: donations, isLoading: isLoadingDonations } = useCollection<Donation>(donationsCollection);
+  const { data: categories, isLoading: isLoadingCategories } = useCollection<DonationCategory>(categoriesCollection);
   
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
-  const [selectedDonation, setSelectedDonation] = useState<DonationWithMemberName | null>(null);
+  const [selectedDonation, setSelectedDonation] = useState<DonationWithDetails | null>(null);
 
-  const donationsWithMemberNames = useMemo(() => {
-    if (!donations || !members) return [];
+  const processedDonations = useMemo(() => {
+    if (!donations || !members || !categories) return [];
+    
     const memberMap = new Map(members.map(m => [m.id, m.nom]));
+    const categoryMap = new Map(categories.map(c => [c.id, c.name]));
     
     let filteredDonations = donations;
     if(selectedMemberId) {
@@ -82,11 +88,12 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
     return filteredDonations
       .map(d => ({
         ...d,
-        memberName: memberMap.get(d.memberId) || 'Membre inconnu'
+        memberName: memberMap.get(d.memberId) || 'Membre inconnu',
+        categoryName: d.donationCategoryId ? categoryMap.get(d.donationCategoryId) : ''
       }))
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-  }, [donations, members, selectedMemberId]);
+  }, [donations, members, categories, selectedMemberId]);
   
   const getPaidAmount = (payments: Payment[] | undefined) => {
       if(!payments) return 0;
@@ -118,7 +125,7 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
     }
   };
   
-  const handleCerfaClick = async (donation: DonationWithMemberName) => {
+  const handleCerfaClick = async (donation: DonationWithDetails) => {
     if (!donation.cerfaEligible) return;
      if (!firestore || !user) return;
 
@@ -223,7 +230,7 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
     setSelectedDonation(null);
   };
   
-  const openDeleteAlert = (donation: DonationWithMemberName) => {
+  const openDeleteAlert = (donation: DonationWithDetails) => {
     setSelectedDonation(donation);
     setIsDeleteAlertOpen(true);
   }
@@ -241,7 +248,7 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
     }
   };
 
-  const isLoading = isLoadingMembers || isLoadingDonations;
+  const isLoading = isLoadingMembers || isLoadingDonations || isLoadingCategories;
 
   return (
     <>
@@ -251,10 +258,10 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
             <TableRow>
                 {!selectedMemberId && <TableHead>Membre</TableHead>}
                 <TableHead>Type</TableHead>
-                <TableHead className="text-right hidden sm:table-cell">Montant Total</TableHead>
-                <TableHead className="text-right">Montant Payé</TableHead>
-                <TableHead className="hidden md:table-cell">Statut</TableHead>
-                <TableHead className="hidden lg:table-cell">Date</TableHead>
+                <TableHead>Catégorie</TableHead>
+                <TableHead className="hidden sm:table-cell">Mémo</TableHead>
+                <TableHead className="text-right">Montant</TableHead>
+                <TableHead>Statut</TableHead>
                 <TableHead>N° CERFA</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -262,26 +269,39 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
             <TableBody>
             {isLoading && Array.from({ length: 3 }).map((_, i) => (
                 <TableRow key={i}>
-                {!selectedMemberId && <TableCell><Skeleton className="h-4 w-32" /></TableCell>}
-                <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
-                <TableCell className="text-right hidden sm:table-cell"><Skeleton className="h-4 w-16" /></TableCell>
-                <TableCell className="text-right"><Skeleton className="h-4 w-16" /></TableCell>
-                <TableCell className="hidden md:table-cell"><Skeleton className="h-6 w-24 rounded-full" /></TableCell>
-                <TableCell className="hidden lg:table-cell"><Skeleton className="h-4 w-24" /></TableCell>
-                <TableCell><Skeleton className="h-6 w-24" /></TableCell>
-                <TableCell className="text-right"><Skeleton className="h-8 w-20" /></TableCell>
+                    {!selectedMemberId && <TableCell><Skeleton className="h-4 w-32" /></TableCell>}
+                    <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell className="hidden sm:table-cell"><Skeleton className="h-4 w-28" /></TableCell>
+                    <TableCell className="text-right"><Skeleton className="h-4 w-16" /></TableCell>
+                    <TableCell><Skeleton className="h-6 w-24 rounded-full" /></TableCell>
+                    <TableCell><Skeleton className="h-6 w-24" /></TableCell>
+                    <TableCell className="text-right"><Skeleton className="h-8 w-20" /></TableCell>
                 </TableRow>
             ))}
-            {!isLoading && donationsWithMemberNames.map((donation) => (
+            {!isLoading && processedDonations.map((donation) => (
                 <TableRow key={donation.id}>
                 {!selectedMemberId && <TableCell className="font-medium">{donation.memberName}</TableCell>}
                 <TableCell>
                     <Badge variant={donation.type === 'Don' ? 'secondary' : 'outline'}>{donation.type}</Badge>
                 </TableCell>
-                <TableCell className="text-right hidden sm:table-cell">{donation.totalAmount.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})}</TableCell>
-                <TableCell className="text-right">{getPaidAmount(donation.payments).toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})}</TableCell>
-                <TableCell className="hidden md:table-cell">{getStatusBadge(donation.paymentStatus)}</TableCell>
-                <TableCell className="hidden lg:table-cell">{new Date(donation.createdAt).toLocaleDateString('fr-FR')}</TableCell>
+                <TableCell>{donation.categoryName}</TableCell>
+                <TableCell className="hidden sm:table-cell">
+                    {donation.memo && donation.memo.length > 30 ? (
+                    <Tooltip>
+                        <TooltipTrigger>
+                        <span className="cursor-help">{donation.memo.substring(0, 30)}...</span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                        <p className="max-w-xs">{donation.memo}</p>
+                        </TooltipContent>
+                    </Tooltip>
+                    ) : (
+                    donation.memo
+                    )}
+                </TableCell>
+                <TableCell className="text-right font-medium">{donation.totalAmount.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})}</TableCell>
+                <TableCell>{getStatusBadge(donation.paymentStatus)}</TableCell>
                 <TableCell>
                     {donation.cerfaEligible ? (
                         <Button 
@@ -310,7 +330,7 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
                 </TableCell>
                 </TableRow>
             ))}
-            {!isLoading && donationsWithMemberNames.length === 0 && (
+            {!isLoading && processedDonations.length === 0 && (
                 <TableRow>
                 <TableCell colSpan={selectedMemberId ? 7 : 8} className="p-6 text-center text-muted-foreground">
                     {selectedMemberId ? 'Aucun don trouvé pour ce membre.' : 'Aucun don trouvé.'}
