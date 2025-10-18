@@ -4,7 +4,7 @@ import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { DonationForm } from '../components/donation-form';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 
@@ -17,7 +17,7 @@ function NewDonationContent() {
        <Alert variant="destructive">
         <AlertCircle className="h-4 w-4" />
         <AlertDescription>
-          Aucun membre sélectionné. Veuillez retourner à la page des dons et sélectionner un membre avant de continuer.
+          Aucun membre sélectionné. Veuillez retourner à la page des membres et cliquer sur l'icône de don pour un membre spécifique.
         </AlertDescription>
       </Alert>
     )
