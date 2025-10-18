@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, setDocumentNonBlocking, deleteDocumentNonBlocking, useUser } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import * as XLSX from 'xlsx';
@@ -24,7 +25,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { PlusCircle, Pencil, Trash2, FileDown, ListFilter, Search } from 'lucide-react';
+import { PlusCircle, Pencil, Trash2, FileDown, ListFilter, Search, DollarSign } from 'lucide-react';
 import type { Member } from '@/lib/types';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -76,6 +77,7 @@ type MemberFormValues = z.infer<typeof memberSchema>;
 export function MembersTable() {
   const firestore = useFirestore();
   const { user } = useUser();
+  const router = useRouter();
 
   const membersCollection = useMemoFirebase(() => {
     if (!firestore || !user) return null;
@@ -326,6 +328,10 @@ export function MembersTable() {
                   <TableCell>{member.memo}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
+                       <Button variant="ghost" size="icon" onClick={() => router.push(`/donations/new?memberId=${member.id}`)}>
+                        <DollarSign className="h-4 w-4 text-green-600" />
+                        <span className="sr-only">Ajouter un don</span>
+                      </Button>
                       <Button variant="ghost" size="icon" onClick={() => handleOpenForm(member)}>
                         <Pencil className="h-4 w-4" />
                         <span className="sr-only">Modifier</span>
