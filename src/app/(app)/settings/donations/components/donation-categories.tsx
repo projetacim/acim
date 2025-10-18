@@ -2,7 +2,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useFirestore, addDocumentNonBlocking, setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
+import { useFirestore, addDocumentNonBlocking, setDocumentNonBlocking, deleteDocumentNonBlocking, useUser } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -68,6 +68,7 @@ type CategoryFormValues = z.infer<typeof categorySchema>;
 
 export function DonationCategories() {
   const firestore = useFirestore();
+  const { user } = useUser();
   const { toast } = useToast();
   const { categories, isLoading } = useData();
 
@@ -103,16 +104,17 @@ export function DonationCategories() {
   };
 
   const onSubmit: SubmitHandler<CategoryFormValues> = async (data) => {
-    if (!firestore) return;
+    if (!firestore || !user) return;
+
+    const collectionRef = collection(firestore, 'users', user.uid, 'donationCategories');
 
     if (selectedCategory) {
       // Edit category
-      const docRef = doc(firestore, 'donationCategories', selectedCategory.id);
+      const docRef = doc(collectionRef, selectedCategory.id);
       await setDocumentNonBlocking(docRef, data, { merge: true });
       toast({ title: 'Catégorie mise à jour' });
     } else {
       // Add new category
-      const collectionRef = collection(firestore, 'donationCategories');
       await addDocumentNonBlocking(collectionRef, data);
       toast({ title: 'Catégorie ajoutée' });
     }
@@ -120,9 +122,9 @@ export function DonationCategories() {
   };
 
   const handleDelete = async () => {
-    if (!firestore || !selectedCategory) return;
+    if (!firestore || !user || !selectedCategory) return;
     
-    const docRef = doc(firestore, 'donationCategories', selectedCategory.id);
+    const docRef = doc(firestore, 'users', user.uid, 'donationCategories', selectedCategory.id);
     await deleteDocumentNonBlocking(docRef);
     toast({
       title: 'Catégorie supprimée',

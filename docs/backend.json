@@ -221,13 +221,13 @@
         }
       },
       {
-        "path": "/donationCategories/{categoryId}",
+        "path": "/users/{userId}/donationCategories/{categoryId}",
         "definition": {
           "entityName": "DonationCategory",
           "schema": {
             "$ref": "#/backend/entities/DonationCategory"
           },
-          "description": "Global categories for donations."
+          "description": "User-specific categories for donations."
         }
       },
       {

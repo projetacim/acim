@@ -23,7 +23,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     const membersCollection = useMemoFirebase(() => user ? collection(firestore, 'users', user.uid, 'membre') : null, [firestore, user]);
     const donationsCollection = useMemoFirebase(() => user ? collection(firestore, 'users', user.uid, 'donations') : null, [firestore, user]);
-    const categoriesCollection = useMemoFirebase(() => user ? collection(firestore, 'donationCategories') : null, [firestore, user]);
+    const categoriesCollection = useMemoFirebase(() => user ? collection(firestore, 'users', user.uid, 'donationCategories') : null, [firestore, user]);
 
     const { data: members, isLoading: isLoadingMembers, error: membersError } = useCollection<Member>(membersCollection);
     const { data: donations, isLoading: isLoadingDonations, error: donationsError } = useCollection<Donation>(donationsCollection);
