@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, setDocumentNonBlocking, deleteDocumentNonBlocking, useUser } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
@@ -62,6 +62,8 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { cn } from '@/lib/utils';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 
 const memberSchema = z.object({
@@ -75,7 +77,12 @@ const memberSchema = z.object({
 
 type MemberFormValues = z.infer<typeof memberSchema>;
 
-export function MembersTable() {
+interface MembersTableProps {
+    onMemberSelect: (member: Member | null) => void;
+    selectedMember: Member | null;
+}
+
+export function MembersTable({ onMemberSelect, selectedMember }: MembersTableProps) {
   const firestore = useFirestore();
   const { user } = useUser();
   const router = useRouter();
@@ -89,7 +96,9 @@ export function MembersTable() {
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
-  const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+  const [memberToDelete, setMemberToDelete] = useState<Member | null>(null);
+  const [memberToEdit, setMemberToEdit] = useState<Member | null>(null);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [docFilters, setDocFilters] = useState<string[]>([]);
   const { toast } = useToast();
@@ -116,11 +125,9 @@ export function MembersTable() {
     if (!members) return [];
     return members
       .filter(member => {
-        // Filter by doc
         return docFilters.length === 0 || docFilters.includes(member.doc || '');
       })
       .filter(member => {
-        // Filter by search query
         const searchLower = searchQuery.toLowerCase();
         return (
           member.nom.toLowerCase().includes(searchLower) ||
@@ -130,36 +137,41 @@ export function MembersTable() {
       });
   }, [members, searchQuery, docFilters]);
 
-  useEffect(() => {
-    if (selectedMember) {
-      form.reset({
-        nom: selectedMember.nom,
-        email: selectedMember.email,
-        telephone: selectedMember.telephone || '',
-        adresse: selectedMember.adresse || '',
-        doc: (selectedMember.doc as 'M' | 'C' | 'Non' | '') || '',
-        memo: selectedMember.memo || '',
-      });
+  const handleRowClick = (member: Member) => {
+    if (selectedMember?.id === member.id) {
+        onMemberSelect(null); // Deselect if clicking the same member
     } else {
-      form.reset({
-        nom: '',
-        email: '',
-        telephone: '',
-        adresse: '',
-        doc: '',
-        memo: '',
-      });
+        onMemberSelect(member);
     }
-  }, [selectedMember, form]);
+  };
 
   const handleOpenForm = (member?: Member) => {
-    setSelectedMember(member || null);
+    setMemberToEdit(member || null);
+    if (member) {
+         form.reset({
+            nom: member.nom,
+            email: member.email,
+            telephone: member.telephone || '',
+            adresse: member.adresse || '',
+            doc: (member.doc as 'M' | 'C' | 'Non' | '') || '',
+            memo: member.memo || '',
+        });
+    } else {
+        form.reset({
+            nom: '',
+            email: '',
+            telephone: '',
+            adresse: '',
+            doc: '',
+            memo: '',
+        });
+    }
     setIsFormOpen(true);
   };
 
   const handleCloseForm = () => {
     setIsFormOpen(false);
-    setSelectedMember(null);
+    setMemberToEdit(null);
     form.reset();
   };
 
@@ -175,11 +187,11 @@ export function MembersTable() {
       adresse: data.adresse || '',
       doc: data.doc || '',
       memo: data.memo || '',
-      membershipStatus: selectedMember?.membershipStatus || 'Pending'
+      membershipStatus: memberToEdit?.membershipStatus || 'Pending'
     };
 
-    if (selectedMember) {
-      const docRef = doc(firestore, 'users', user.uid, 'membre', selectedMember.id);
+    if (memberToEdit) {
+      const docRef = doc(firestore, 'users', user.uid, 'membre', memberToEdit.id);
       await setDocumentNonBlocking(docRef, memberData, { merge: true });
       toast({ title: 'Membre mis à jour', description: `Les informations de ${data.nom} ont été mises à jour.` });
     } else {
@@ -191,21 +203,24 @@ export function MembersTable() {
   };
   
   const handleDelete = async () => {
-    if (!firestore || !selectedMember || !user) return;
+    if (!firestore || !memberToDelete || !user) return;
 
-    const docRef = doc(firestore, 'users', user.uid, 'membre', selectedMember.id);
+    const docRef = doc(firestore, 'users', user.uid, 'membre', memberToDelete.id);
     await deleteDocumentNonBlocking(docRef);
     toast({
       variant: 'destructive',
       title: 'Membre supprimé',
-      description: `Le profil de ${selectedMember.nom} a été définitivement supprimé.`,
+      description: `Le profil de ${memberToDelete.nom} a été définitivement supprimé.`,
     });
+    if (selectedMember?.id === memberToDelete.id) {
+        onMemberSelect(null);
+    }
     setIsDeleteAlertOpen(false);
-    setSelectedMember(null);
+    setMemberToDelete(null);
   };
   
   const openDeleteAlert = (member: Member) => {
-    setSelectedMember(member);
+    setMemberToDelete(member);
     setIsDeleteAlertOpen(true);
   }
 
@@ -231,16 +246,15 @@ export function MembersTable() {
 
   return (
     <>
-      <Card>
-        <CardContent className="p-0">
-          <div className="flex items-center justify-between gap-4 p-4">
+      <div className="space-y-4">
+          <div className="flex items-center justify-between gap-4">
              <div className="relative w-full max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Rechercher par nom, email ou mémo..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 border-black"
+                className="pl-9"
               />
             </div>
             <div className="flex items-center gap-2">
@@ -280,89 +294,94 @@ export function MembersTable() {
               </Button>
             </div>
           </div>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Membre</TableHead>
-                <TableHead>Téléphone</TableHead>
-                <TableHead>Adresse</TableHead>
-                <TableHead>Doc</TableHead>
-                <TableHead>Mémo</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading && (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell className="flex items-center gap-3">
-                      <Skeleton className="h-10 w-10 rounded-full" />
-                      <div className="space-y-1">
-                        <Skeleton className="h-4 w-32" />
-                        <Skeleton className="h-3 w-40" />
-                      </div>
-                    </TableCell>
-                    <TableCell><Skeleton className="h-4 w-28" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-48" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                    <TableCell className="text-right"><Skeleton className="h-8 w-20" /></TableCell>
-                  </TableRow>
-                ))
-              )}
-              {!isLoading && filteredMembers.map((member) => (
-                <TableRow key={member.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <Avatar>
-                        <AvatarFallback>{getAvatarFallback(member.nom)}</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <div className="font-medium">{member.nom}</div>
-                        <div className="text-sm text-muted-foreground">{member.email}</div>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>{member.telephone}</TableCell>
-                  <TableCell>{member.adresse}</TableCell>
-                  <TableCell>{member.doc}</TableCell>
-                  <TableCell>{member.memo}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-2">
-                       <Button variant="ghost" size="icon" onClick={() => router.push(`/donations/new?memberId=${member.id}`)}>
-                        <DollarSign className="h-4 w-4 text-green-600" />
-                        <span className="sr-only">Ajouter un don</span>
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleOpenForm(member)}>
-                        <Pencil className="h-4 w-4" />
-                        <span className="sr-only">Modifier</span>
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => openDeleteAlert(member)} className="text-destructive hover:text-destructive">
-                        <Trash2 className="h-4 w-4" />
-                        <span className="sr-only">Supprimer</span>
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {!isLoading && filteredMembers.length === 0 && (
+          <ScrollArea className="h-72 w-full rounded-md border">
+            <Table>
+                <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={6} className="p-6 text-center text-muted-foreground">
-                    {members && members.length > 0 ? 'Aucun membre ne correspond à votre recherche.' : 'Aucun membre trouvé. Cliquez sur "Ajouter" pour commencer.'}
-                  </TableCell>
+                    <TableHead>Membre</TableHead>
+                    <TableHead>Téléphone</TableHead>
+                    <TableHead>Adresse</TableHead>
+                    <TableHead>Doc</TableHead>
+                    <TableHead>Mémo</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                </TableHeader>
+                <TableBody>
+                {isLoading && (
+                    Array.from({ length: 5 }).map((_, i) => (
+                    <TableRow key={i}>
+                        <TableCell className="flex items-center gap-3">
+                        <Skeleton className="h-10 w-10 rounded-full" />
+                        <div className="space-y-1">
+                            <Skeleton className="h-4 w-32" />
+                            <Skeleton className="h-3 w-40" />
+                        </div>
+                        </TableCell>
+                        <TableCell><Skeleton className="h-4 w-28" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-48" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                        <TableCell className="text-right"><Skeleton className="h-8 w-20" /></TableCell>
+                    </TableRow>
+                    ))
+                )}
+                {!isLoading && filteredMembers.map((member) => (
+                    <TableRow 
+                        key={member.id}
+                        onClick={() => handleRowClick(member)}
+                        className={cn("cursor-pointer", selectedMember?.id === member.id && "bg-muted/50")}
+                    >
+                    <TableCell>
+                        <div className="flex items-center gap-3">
+                        <Avatar>
+                            <AvatarFallback>{getAvatarFallback(member.nom)}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                            <div className="font-medium">{member.nom}</div>
+                            <div className="text-sm text-muted-foreground">{member.email}</div>
+                        </div>
+                        </div>
+                    </TableCell>
+                    <TableCell>{member.telephone}</TableCell>
+                    <TableCell>{member.adresse}</TableCell>
+                    <TableCell>{member.doc}</TableCell>
+                    <TableCell>{member.memo}</TableCell>
+                    <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                        <Button variant="ghost" size="icon" onClick={() => router.push(`/donations/new?memberId=${member.id}`)}>
+                            <DollarSign className="h-4 w-4 text-green-600" />
+                            <span className="sr-only">Ajouter un don</span>
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleOpenForm(member)}>
+                            <Pencil className="h-4 w-4" />
+                            <span className="sr-only">Modifier</span>
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => openDeleteAlert(member)} className="text-destructive hover:text-destructive">
+                            <Trash2 className="h-4 w-4" />
+                            <span className="sr-only">Supprimer</span>
+                        </Button>
+                        </div>
+                    </TableCell>
+                    </TableRow>
+                ))}
+                {!isLoading && filteredMembers.length === 0 && (
+                    <TableRow>
+                    <TableCell colSpan={6} className="p-6 text-center text-muted-foreground">
+                        {members && members.length > 0 ? 'Aucun membre ne correspond à votre recherche.' : 'Aucun membre trouvé. Cliquez sur "Ajouter" pour commencer.'}
+                    </TableCell>
+                    </TableRow>
+                )}
+                </TableBody>
+            </Table>
+          </ScrollArea>
+      </div>
       
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>{selectedMember ? 'Modifier le membre' : 'Ajouter un membre'}</DialogTitle>
+            <DialogTitle>{memberToEdit ? 'Modifier le membre' : 'Ajouter un membre'}</DialogTitle>
             <DialogDescription>
-              {selectedMember ? 'Mettez à jour les détails de ce membre.' : 'Remplissez les détails du nouveau membre.'}
+              {memberToEdit ? 'Mettez à jour les détails de ce membre.' : 'Remplissez les détails du nouveau membre.'}
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
@@ -470,7 +489,7 @@ export function MembersTable() {
           <AlertDialogHeader>
             <AlertDialogTitle>Êtes-vous sûr de vouloir supprimer ?</AlertDialogTitle>
             <AlertDialogDescription>
-              Cette action est irréversible. Le profil de {selectedMember?.nom} sera définitivement supprimé.
+              Cette action est irréversible. Le profil de {memberToDelete?.nom} sera définitivement supprimé.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

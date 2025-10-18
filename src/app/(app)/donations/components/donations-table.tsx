@@ -1,5 +1,6 @@
+
 'use client';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { useFirestore, useCollection, useMemoFirebase, deleteDocumentNonBlocking, useUser } from '@/firebase';
 import { collection, doc, getDocs, query, where } from 'firebase/firestore';
@@ -21,34 +22,26 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Pencil, Trash2, CheckCircle, XCircle, Search, ListFilter, PlusCircle, ChevronsUpDown, Check } from 'lucide-react';
-import type { Donation, Member, Payment, Transaction } from '@/lib/types';
+import { Pencil, Trash2, CheckCircle, XCircle } from 'lucide-react';
+import type { Donation, Member, Payment } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { cn } from '@/lib/utils';
-import { DonationForm } from './donation-form';
-
+import { useRouter } from 'next/navigation';
 
 type DonationWithMemberName = Donation & { memberName: string };
 
-export function DonationsTable() {
+interface DonationsTableProps {
+    selectedMemberId: string | null;
+}
+
+export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
   const firestore = useFirestore();
   const { user } = useUser();
   const { toast } = useToast();
+  const router = useRouter();
 
-  // Data fetching
   const membersCollection = useMemoFirebase(() => user ? collection(firestore, 'users', user.uid, 'membre') : null, [firestore, user]);
   const donationsCollection = useMemoFirebase(() => user ? collection(firestore, 'users', user.uid, 'donations') : null, [firestore, user]);
 
@@ -57,37 +50,21 @@ export function DonationsTable() {
   
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [selectedDonation, setSelectedDonation] = useState<DonationWithMemberName | null>(null);
-  
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingDonation, setEditingDonation] = useState<Donation | null>(null);
-
-  // --- Filtering State ---
-  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
-  const [openMemberPopover, setOpenMemberPopover] = useState(false);
-
-  // Derived state: the currently selected member object
-  const selectedMember = useMemo(() => {
-    if (!selectedMemberId || !members) return null;
-    return members.find(m => m.id === selectedMemberId) || null;
-  }, [selectedMemberId, members]);
 
   const donationsWithMemberNames = useMemo(() => {
     if (!donations || !members) return [];
     const memberMap = new Map(members.map(m => [m.id, m.nom]));
     
-    return donations
+    let filteredDonations = donations;
+    if(selectedMemberId) {
+        filteredDonations = donations.filter(d => d.memberId === selectedMemberId);
+    }
+    
+    return filteredDonations
       .map(d => ({
         ...d,
         memberName: memberMap.get(d.memberId) || 'Membre inconnu'
       }))
-      .filter(donation => {
-          // If a member is selected, only show their donations
-          if (selectedMemberId) {
-            return donation.memberId === selectedMemberId;
-          }
-          // Otherwise, show all donations
-          return true;
-      })
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   }, [donations, members, selectedMemberId]);
@@ -96,17 +73,11 @@ export function DonationsTable() {
       if(!payments) return 0;
       return payments.reduce((acc, p) => acc + p.amount, 0);
   }
-
-  const handleOpenForm = (donation?: Donation) => {
-    setEditingDonation(donation || null);
-    setIsFormOpen(true);
-  };
   
   const handleDelete = async () => {
     if (!firestore || !selectedDonation || !user) return;
     const donationDocRef = doc(firestore, 'users', user.uid, 'donations', selectedDonation.id);
     
-    // Also delete associated transactions
     const transactionCollectionRef = collection(firestore, 'users', user.uid, 'transactions');
     const q = query(transactionCollectionRef, where("relatedId", "==", selectedDonation.id));
     
@@ -130,7 +101,6 @@ export function DonationsTable() {
         description: "Une erreur est survenue.",
       });
     }
-
 
     setIsDeleteAlertOpen(false);
     setSelectedDonation(null);
@@ -158,78 +128,11 @@ export function DonationsTable() {
 
   return (
     <>
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-               <CardTitle>Historique des dons</CardTitle>
-            </div>
-            <div className="flex items-center gap-2">
-                 <Popover open={openMemberPopover} onOpenChange={setOpenMemberPopover}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        role="combobox"
-                        className="w-[300px] justify-between"
-                      >
-                        {selectedMember
-                          ? selectedMember.nom
-                          : "Sélectionner un membre pour filtrer..."}
-                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[300px] p-0">
-                      <Command>
-                        <CommandInput placeholder="Rechercher un membre..." />
-                        <CommandList>
-                          <CommandEmpty>Aucun membre trouvé.</CommandEmpty>
-                           <CommandGroup>
-                             <CommandItem onSelect={() => {
-                                 setSelectedMemberId(null);
-                                 setOpenMemberPopover(false);
-                                }}>
-                                <Check className={cn("mr-2 h-4 w-4", !selectedMemberId ? "opacity-100" : "opacity-0")} />
-                                Tous les membres
-                            </CommandItem>
-                            {members?.map((member) => (
-                              <CommandItem
-                                value={member.nom}
-                                key={member.id}
-                                onSelect={() => {
-                                  setSelectedMemberId(member.id);
-                                  setOpenMemberPopover(false);
-                                }}
-                              >
-                                <Check
-                                  className={cn(
-                                    "mr-2 h-4 w-4",
-                                    member.id === selectedMemberId
-                                      ? "opacity-100"
-                                      : "opacity-0"
-                                  )}
-                                />
-                                {member.nom}
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
-              {selectedMember && (
-                <Button onClick={() => handleOpenForm()}>
-                  <PlusCircle className="mr-2 h-4 w-4" />
-                  Ajouter un don
-                </Button>
-              )}
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          <Table>
+      <div className="rounded-md border">
+        <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead>Membre</TableHead>
+            <TableRow>
+                {!selectedMemberId && <TableHead>Membre</TableHead>}
                 <TableHead>Type</TableHead>
                 <TableHead className="text-right">Montant Total</TableHead>
                 <TableHead className="text-right">Montant Payé</TableHead>
@@ -237,61 +140,60 @@ export function DonationsTable() {
                 <TableHead>Date</TableHead>
                 <TableHead>Éligible CERFA</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
+            </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading && Array.from({ length: 5 }).map((_, i) => (
+            {isLoading && Array.from({ length: 3 }).map((_, i) => (
                 <TableRow key={i}>
-                  <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                  <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
-                  <TableCell className="text-right"><Skeleton className="h-4 w-16" /></TableCell>
-                  <TableCell className="text-right"><Skeleton className="h-4 w-16" /></TableCell>
-                  <TableCell><Skeleton className="h-6 w-24 rounded-full" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                  <TableCell><Skeleton className="h-6 w-6 rounded-full" /></TableCell>
-                  <TableCell className="text-right"><Skeleton className="h-8 w-20" /></TableCell>
+                {!selectedMemberId && <TableCell><Skeleton className="h-4 w-32" /></TableCell>}
+                <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                <TableCell className="text-right"><Skeleton className="h-4 w-16" /></TableCell>
+                <TableCell className="text-right"><Skeleton className="h-4 w-16" /></TableCell>
+                <TableCell><Skeleton className="h-6 w-24 rounded-full" /></TableCell>
+                <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                <TableCell><Skeleton className="h-6 w-6 rounded-full" /></TableCell>
+                <TableCell className="text-right"><Skeleton className="h-8 w-20" /></TableCell>
                 </TableRow>
-              ))}
-              {!isLoading && donationsWithMemberNames.map((donation) => (
+            ))}
+            {!isLoading && donationsWithMemberNames.map((donation) => (
                 <TableRow key={donation.id}>
-                  <TableCell className="font-medium">{donation.memberName}</TableCell>
-                  <TableCell>
+                {!selectedMemberId && <TableCell className="font-medium">{donation.memberName}</TableCell>}
+                <TableCell>
                     <Badge variant={donation.type === 'Don' ? 'secondary' : 'outline'}>{donation.type}</Badge>
-                  </TableCell>
-                  <TableCell className="text-right">{donation.totalAmount.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})}</TableCell>
-                  <TableCell className="text-right">{getPaidAmount(donation.payments).toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})}</TableCell>
-                  <TableCell>{getStatusBadge(donation.paymentStatus)}</TableCell>
-                  <TableCell>{new Date(donation.createdAt).toLocaleDateString('fr-FR')}</TableCell>
-                  <TableCell>
+                </TableCell>
+                <TableCell className="text-right">{donation.totalAmount.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})}</TableCell>
+                <TableCell className="text-right">{getPaidAmount(donation.payments).toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})}</TableCell>
+                <TableCell>{getStatusBadge(donation.paymentStatus)}</TableCell>
+                <TableCell>{new Date(donation.createdAt).toLocaleDateString('fr-FR')}</TableCell>
+                <TableCell>
                     {donation.cerfaEligible 
                         ? <CheckCircle className="h-5 w-5 text-green-500" /> 
                         : <XCircle className="h-5 w-5 text-muted-foreground" />}
-                  </TableCell>
-                  <TableCell className="text-right">
+                </TableCell>
+                <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
-                       <Button variant="ghost" size="icon" onClick={() => handleOpenForm(donation)}>
-                          <Pencil className="h-4 w-4" />
-                          <span className="sr-only">Modifier</span>
-                       </Button>
-                      <Button variant="ghost" size="icon" onClick={() => openDeleteAlert(donation)} className="text-destructive hover:text-destructive">
+                        <Button variant="ghost" size="icon" onClick={() => router.push(`/donations/${donation.id}/edit`)}>
+                        <Pencil className="h-4 w-4" />
+                        <span className="sr-only">Modifier</span>
+                        </Button>
+                    <Button variant="ghost" size="icon" onClick={() => openDeleteAlert(donation)} className="text-destructive hover:text-destructive">
                         <Trash2 className="h-4 w-4" />
-                         <span className="sr-only">Supprimer</span>
-                      </Button>
+                        <span className="sr-only">Supprimer</span>
+                    </Button>
                     </div>
-                  </TableCell>
+                </TableCell>
                 </TableRow>
-              ))}
-               {!isLoading && donationsWithMemberNames.length === 0 && (
+            ))}
+            {!isLoading && donationsWithMemberNames.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="p-6 text-center text-muted-foreground">
-                    {selectedMemberId ? 'Aucun don pour ce membre.' : 'Aucun don trouvé. Sélectionnez un membre pour commencer.'}
-                  </TableCell>
+                <TableCell colSpan={selectedMemberId ? 7 : 8} className="p-6 text-center text-muted-foreground">
+                    {selectedMemberId ? 'Aucun don trouvé pour ce membre.' : 'Aucun don trouvé.'}
+                </TableCell>
                 </TableRow>
-              )}
+            )}
             </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+        </Table>
+      </div>
       
       <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
         <AlertDialogContent>
@@ -309,24 +211,6 @@ export function DonationsTable() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className="sm:max-w-4xl">
-          <DialogHeader>
-            <DialogTitle>{editingDonation ? 'Modifier le don' : 'Ajouter un don'}</DialogTitle>
-             <DialogDescription>
-              {selectedMember && `Enregistrement d'un don pour ${selectedMember.nom}.`}
-            </DialogDescription>
-          </DialogHeader>
-          {selectedMember && (
-            <DonationForm 
-                member={selectedMember} 
-                donation={editingDonation}
-                onFinished={() => setIsFormOpen(false)}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
     </>
   );
 }

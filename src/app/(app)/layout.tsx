@@ -90,18 +90,10 @@ export default function AppLayout({
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild tooltip="Members">
+              <SidebarMenuButton asChild tooltip="Membres & Dons">
                 <Link href="/members">
                   <Users />
-                  <span>Members</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild tooltip="Donations">
-                <Link href="/donations">
-                  <DollarSign />
-                  <span>Donations</span>
+                  <span>Membres & Dons</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
