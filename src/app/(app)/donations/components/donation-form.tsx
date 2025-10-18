@@ -38,8 +38,9 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Checkbox } from '@/components/ui/checkbox';
-import { PDFDocument, rgb, StandardFonts, degrees } from 'pdf-lib';
-import { numberToWords } from '@/lib/number-to-words';
+import { openCerfaPdf } from '@/lib/pdf';
+import { sendCerfaEmail } from '@/lib/email';
+
 
 const paymentSchema = z.object({
   amount: z.coerce.number().min(0.01, "Le montant doit être positif.").default(0),
@@ -71,22 +72,6 @@ interface DonationFormProps {
   onFormSubmit?: () => void;
 }
 
-const A4_HEIGHT_POINTS = 841.89;
-const mmToPoints = (mm: number) => mm * 2.83465;
-
-const cerfaCoordinates = {
-    cerfaId:          { x: mmToPoints(174),  y: A4_HEIGHT_POINTS - mmToPoints(24) },
-    donorName:        { x: mmToPoints(35),   y: A4_HEIGHT_POINTS - mmToPoints(51) },
-    donorAddress:     { x: mmToPoints(35),   y: A4_HEIGHT_POINTS - mmToPoints(60) },
-    paymentDate:      { x: mmToPoints(163),  y: A4_HEIGHT_POINTS - mmToPoints(256) },
-    amountInDigits:   { x: mmToPoints(41),   y: A4_HEIGHT_POINTS - mmToPoints(207) },
-    amountInWords:    { x: mmToPoints(115),  y: A4_HEIGHT_POINTS - mmToPoints(207) },
-    signatureDate:    { x: mmToPoints(163),  y: A4_HEIGHT_POINTS - mmToPoints(256) },
-    signatureDate2:   { x: mmToPoints(55),   y: A4_HEIGHT_POINTS - mmToPoints(240) },
-    paymentMethod:    { x: mmToPoints(55),   y: A4_HEIGHT_POINTS - mmToPoints(247.5)}
-};
-
-
 export function DonationForm({ donationId, memberIdParam, onFormSubmit }: DonationFormProps) {
   const firestore = useFirestore();
   const { user } = useUser();
@@ -96,6 +81,7 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
   const [member, setMember] = useState<Member | null>(null);
   const [categories, setCategories] = useState<DonationCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [currentDonation, setCurrentDonation] = useState<Donation | null>(null);
   
   const isEditMode = !!donationId;
@@ -255,11 +241,12 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
 
 
   const onSubmit: SubmitHandler<DonationFormValues> = async (data) => {
-    if (!firestore || !user) {
-      toast({ variant: "destructive", title: "Erreur", description: "Utilisateur ou base de données non disponible." });
+    if (!firestore || !user || !member) {
+      toast({ variant: "destructive", title: "Erreur", description: "Utilisateur, membre ou base de données non disponible." });
       return;
     }
     
+    setIsSendingEmail(false);
     let finalPaymentStatus = paymentStatus;
     
     let donationData: Partial<Donation> = {
@@ -270,11 +257,12 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
         paymentStatus: finalPaymentStatus,
         cerfaDate: data.cerfaDate?.toISOString(),
     };
+    
+    let emailSent = false;
 
     try {
       if (isEditMode && currentDonation) {
         const donationDocRef = doc(firestore, 'users', user.uid, 'donations', donationId);
-        
         const wasPaid = currentDonation.paymentStatus === 'Payé';
         const isNowPaid = finalPaymentStatus === 'Payé';
 
@@ -283,13 +271,26 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
             if(newCerfaNumber){
                 donationData.cerfaNumber = newCerfaNumber;
                 donationData.cerfaDate = (data.cerfaDate || new Date()).toISOString();
-                 toast({ title: 'N° CERFA généré', description: `Le numéro ${newCerfaNumber} a été assigné.` });
+                toast({ title: 'N° CERFA généré', description: `Le numéro ${newCerfaNumber} a été assigné.` });
             }
         }
         
         await updateDocumentNonBlocking(donationDocRef, donationData);
-        toast({ title: 'Don mis à jour' });
-      } else {
+        const updatedDonation = { ...currentDonation, ...donationData } as Donation;
+        
+        // Check if we should send email after update
+        if(updatedDonation.paymentStatus === 'Payé' && updatedDonation.cerfaEligible && updatedDonation.cerfaNumber && updatedDonation.cerfaEmail) {
+            setIsSendingEmail(true);
+            const result = await sendCerfaEmail(updatedDonation, member);
+            emailSent = result.success;
+            setIsSendingEmail(false);
+        }
+
+        let toastMessage = 'Don mis à jour.';
+        if(emailSent) toastMessage += ' L\'email de confirmation a été envoyé.';
+        toast({ title: toastMessage });
+
+      } else { // Create mode
         const collectionRef = collection(firestore, 'users', user.uid, 'donations');
         const donationToSave: Partial<Donation> & { createdAt: string } = { ...donationData, createdAt: new Date().toISOString() };
 
@@ -305,6 +306,16 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
         const newDocRef = await addDocumentNonBlocking(collectionRef, donationToSave);
         
         if (newDocRef) {
+            // Fetch the full new donation to send email
+            const newDonation = { id: newDocRef.id, ...donationToSave } as Donation;
+
+            if(newDonation.paymentStatus === 'Payé' && newDonation.cerfaEligible && newDonation.cerfaNumber && newDonation.cerfaEmail) {
+              setIsSendingEmail(true);
+              const result = await sendCerfaEmail(newDonation, member);
+              emailSent = result.success;
+              setIsSendingEmail(false);
+            }
+
             const transactionData: Omit<Transaction, 'id' | 'createdAt'>[] = data.payments.map(p => ({
               type: donationToSave.type as 'Don' | 'Cotisation',
               relatedId: newDocRef.id,
@@ -320,8 +331,11 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
             }
         }
         
-        toast({ title: 'Don ajouté', description: `Un nouveau don/cotisation a été enregistré.` });
+        let toastMessage = 'Don ajouté. Un nouveau don/cotisation a été enregistré.';
+        if(emailSent) toastMessage += ' L\'email de confirmation a été envoyé.';
+        toast({ title: toastMessage });
       }
+
       if (onFormSubmit) {
         onFormSubmit();
       } else {
@@ -330,6 +344,7 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
     } catch (e: any) {
         console.error("Error saving donation", e);
         toast({ variant: "destructive", title: "Erreur de sauvegarde", description: e.message });
+        setIsSendingEmail(false);
     }
   };
   
@@ -349,56 +364,13 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
   };
 
   const handleGenerateCerfa = async () => {
-    if (!firestore || !user || !currentDonation || !member) {
-      toast({ variant: 'destructive', title: 'Erreur', description: 'Données manquantes pour générer le CERFA.' });
-      return;
+    if (!currentDonation || !member) {
+        toast({ variant: 'destructive', title: 'Erreur', description: 'Données manquantes pour générer le CERFA.' });
+        return;
     }
-
-    try {
-        const templateBytes = await fetch('/cerfa_template.pdf').then(res => res.arrayBuffer());
-        const pdfDoc = await PDFDocument.load(templateBytes);
-        const page = pdfDoc.getPages()[0];
-        
-        const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-        const textColor = rgb(0, 0, 0);
-        
-        const formValues = form.getValues();
-        
-        const lastPayment = formValues.payments.sort((a,b) => b.date.getTime() - a.date.getTime())[0];
-        const paymentDate = new Date(lastPayment.date);
-        const formattedDate = format(paymentDate, 'dd/MM/yyyy');
-        
-        const cerfaDate = formValues.cerfaDate || new Date();
-        const formattedCerfaDate = format(cerfaDate, 'dd/MM/yyyy');
-
-        const paymentMethods = [...new Set(formValues.payments.map(p => {
-            if (p.paymentMethod === 'Carte de crédit') return 'CB';
-            return p.paymentMethod;
-        }))].join(', ');
-        
-        page.drawText(currentDonation.cerfaNumber || 'N/A', { ...cerfaCoordinates.cerfaId, font, size: 10, color: textColor });
-        page.drawText(formValues.cerfaNom || '', { ...cerfaCoordinates.donorName, font, size: 10, color: textColor });
-        page.drawText(formValues.cerfaAdresse || '', { ...cerfaCoordinates.donorAddress, font, size: 10, color: textColor });
-        
-        page.drawText(formValues.totalAmount.toFixed(2), { ...cerfaCoordinates.amountInDigits, font, size: 10, color: textColor });
-        page.drawText(numberToWords(formValues.totalAmount) + ' euros', { ...cerfaCoordinates.amountInWords, font, size: 8, color: textColor });
-        
-        page.drawText(formattedDate, { ...cerfaCoordinates.paymentDate, font, size: 10, color: textColor });
-        page.drawText(formattedCerfaDate, { ...cerfaCoordinates.signatureDate, font, size: 10, color: textColor });
-        page.drawText(formattedCerfaDate, { ...cerfaCoordinates.signatureDate2, font, size: 10, color: textColor });
-        
-        page.drawText(paymentMethods, { ...cerfaCoordinates.paymentMethod, font, size: 10, color: textColor });
-
-        const pdfBytes = await pdfDoc.save();
-        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-        const url = URL.createObjectURL(blob);
-        window.open(url, '_blank');
-        
-    } catch (error) {
-        console.error("Failed to generate PDF:", error);
-        toast({ variant: 'destructive', title: 'Erreur PDF', description: 'La génération du fichier CERFA a échoué.' });
-    }
+    await openCerfaPdf(currentDonation, member);
   };
+
 
   if (isLoading) {
     return <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin"/></div>
@@ -657,8 +629,8 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
             <Button type="button" variant="ghost" onClick={onFormSubmit}>
               Annuler
             </Button>
-            <Button type="submit" disabled={form.formState.isSubmitting}>
-              {form.formState.isSubmitting ? (
+            <Button type="submit" disabled={form.formState.isSubmitting || isSendingEmail}>
+              {(form.formState.isSubmitting || isSendingEmail) ? (
                 <><Loader2 className="mr-2 h-4 w-4 animate-spin"/>Enregistrement...</>
               ) : 'Enregistrer'}
             </Button>
