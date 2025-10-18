@@ -180,12 +180,12 @@ export function DonationForm({ donationId }: DonationFormProps) {
       } else {
         // Create
         const collectionRef = collection(firestore, 'users', user.uid, 'donations');
-        const newDoc = await addDocumentNonBlocking(collectionRef, { ...donationData, createdAt: new Date().toISOString() });
+        const newDocRef = await addDocumentNonBlocking(collectionRef, { ...donationData, createdAt: new Date().toISOString() });
         
-        if (newDoc) {
+        if (newDocRef) {
             const transactionData: Omit<Transaction, 'id' | 'createdAt'>[] = data.payments.map(p => ({
               type: donationData.type,
-              relatedId: newDoc.id,
+              relatedId: newDocRef.id,
               amount: Number(p.amount),
               date: p.date.toISOString(),
               paymentMethod: p.paymentMethod,
