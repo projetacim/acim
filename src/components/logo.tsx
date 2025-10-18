@@ -40,20 +40,6 @@ export function Logo(props: SVGProps<SVGSVGElement>) {
               ))}
             </g>
         </g>
-
-        {/* ACIM Text */}
-        <text 
-            x="0" 
-            y="90" 
-            fontFamily="Arial, sans-serif"
-            fontWeight="bold"
-            fontSize="36" 
-            fill="currentColor"
-            textAnchor="middle"
-            letterSpacing="10"
-        >
-            ACIM
-        </text>
       </g>
     </svg>
   );

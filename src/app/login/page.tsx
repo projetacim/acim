@@ -73,7 +73,7 @@ export default function LoginPage() {
           <div className="mx-auto mb-4">
             <Logo className="h-12 w-12 text-primary" />
           </div>
-          <CardTitle className="text-2xl">Association Manager</CardTitle>
+          <CardTitle className="text-2xl">ACIM</CardTitle>
           <CardDescription>Connectez-vous à votre compte</CardDescription>
         </CardHeader>
         <CardContent>
