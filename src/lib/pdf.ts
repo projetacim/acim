@@ -1,8 +1,12 @@
 
+'use server';
+
 import { PDFDocument, rgb, StandardFonts, degrees } from 'pdf-lib';
 import { format } from 'date-fns';
 import type { Donation, Member } from '@/lib/types';
 import { numberToWords } from '@/lib/number-to-words';
+import fs from 'fs/promises';
+import path from 'path';
 
 
 // PDF generation constants and helpers
@@ -27,8 +31,10 @@ export async function generateCerfaPdf(donation: Donation, member: Member): Prom
         throw new Error('CERFA number is missing.');
     }
 
-    // We fetch the template from the public folder. It needs to be a relative path for fetch.
-    const templateBytes = await fetch(new URL('/cerfa_template.pdf', process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:9002')).then(res => res.arrayBuffer());
+    // Read the template file directly from the filesystem
+    const templatePath = path.join(process.cwd(), 'public', 'cerfa_template.pdf');
+    const templateBytes = await fs.readFile(templatePath);
+
     const pdfDoc = await PDFDocument.load(templateBytes);
     const page = pdfDoc.getPages()[0];
     const { width, height } = page.getSize();
@@ -82,6 +88,7 @@ export async function generateCerfaPdf(donation: Donation, member: Member): Prom
 }
 
 export async function openCerfaPdf(donation: Donation, member: Member) {
+    'use client';
     try {
         const pdfBytes = await generateCerfaPdf(donation, member);
         const blob = new Blob([pdfBytes], { type: 'application/pdf' });
