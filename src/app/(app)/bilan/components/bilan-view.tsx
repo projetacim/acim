@@ -21,6 +21,7 @@ import { CalendarIcon, TrendingUp, Users, DollarSign, PenLine } from 'lucide-rea
 import { cn } from '@/lib/utils';
 import type { Transaction } from '@/lib/types';
 import { numberToWords } from '@/lib/number-to-words';
+import { Separator } from '@/components/ui/separator';
 
 
 const CHART_COLORS = {
@@ -237,12 +238,31 @@ export function BilanView() {
                 Total des revenus de la période sélectionnée, en toutes lettres.
             </CardDescription>
         </CardHeader>
-        <CardContent>
-            <p className="text-lg font-semibold italic text-primary">
-                {totalInWords} euros.
-            </p>
+        <CardContent className="space-y-4">
+             {chartData.length > 0 ? (
+              <ul className="space-y-2 text-sm">
+                {chartData.map(item => (
+                  <li key={item.name} className="flex justify-between items-baseline">
+                    <span className="font-medium">{item.name}:</span>
+                    <span className="italic text-muted-foreground">{numberToWords(item.value)} euros</span>
+                  </li>
+                ))}
+                <Separator className="my-2" />
+                <li className="flex justify-between items-baseline pt-2">
+                    <span className="font-semibold text-base text-primary">Total:</span>
+                     <p className="text-base font-semibold italic text-primary">
+                        {totalInWords} euros.
+                    </p>
+                </li>
+              </ul>
+            ) : (
+                <p className="text-lg font-semibold italic text-primary">
+                    {totalInWords} euros.
+                </p>
+            )}
         </CardContent>
       </Card>
     </div>
   );
-}
+
+    
