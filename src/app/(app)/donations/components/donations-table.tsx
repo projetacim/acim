@@ -224,21 +224,21 @@ export function DonationsTable() {
       </AlertDialog>
 
        <Dialog open={isTestDialogOpen} onOpenChange={setIsTestDialogOpen}>
-        <DialogContent className="sm:max-w-4xl">
+        <DialogContent className="sm:max-w-xl h-[500px]">
           <DialogHeader>
             <DialogTitle>Test Combobox Membre</DialogTitle>
             <DialogDescription>
               Sélectionnez un membre dans la liste ci-dessous.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
+          <div className="py-4 flex justify-center">
             <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
                   role="combobox"
                   aria-expanded={openCombobox}
-                  className="w-full justify-between"
+                  className="w-[350px] justify-between"
                 >
                   {selectedTestMember
                     ? selectedTestMember.nom
@@ -246,7 +246,7 @@ export function DonationsTable() {
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+              <PopoverContent className="w-[350px] p-0">
                 <Command>
                   <CommandInput placeholder="Rechercher un membre..." />
                   <CommandList>
