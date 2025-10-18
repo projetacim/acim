@@ -226,7 +226,7 @@ export function BilanView() {
     // Auto-table pour les moyens de paiement et les transactions
     (doc as any).autoTable({
         startY: currentY,
-        head: [['Répartition par moyen de paiement']],
+        head: [['Répartition par moyen de paiement', 'Montant']],
         body: chartData.map(d => [d.name, d.value.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})]),
         theme: 'striped',
         headStyles: { fillColor: [41, 128, 185] },
@@ -435,3 +435,5 @@ export function BilanView() {
     </div>
   );
 }
+
+    
