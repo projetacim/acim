@@ -42,8 +42,13 @@ async function sendEmail(options: SendEmailOptions) {
     }
     
     if (!process.env.RESEND_API_KEY) {
-        console.warn('RESEND_API_KEY is not set. Skipping email sending.');
+        console.error('RESEND_API_KEY is not set. Skipping email sending.');
         return { success: false, error: 'La clé API Resend est manquante.' };
+    }
+
+    if (!process.env.RESEND_FROM_EMAIL) {
+        console.error('RESEND_FROM_EMAIL is not set. Skipping email sending.');
+        return { success: false, error: 'L\'adresse e-mail d\'expédition (RESEND_FROM_EMAIL) est manquante.' };
     }
     
     // Initialize Resend on first use if it hasn't been already.
@@ -53,7 +58,7 @@ async function sendEmail(options: SendEmailOptions) {
     
     try {
         const { data, error } = await resend.emails.send({
-            from: 'ACIM <noreply@acim.fr>', // TODO: Make this configurable
+            from: process.env.RESEND_FROM_EMAIL,
             ...options
         });
 
