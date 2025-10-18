@@ -123,6 +123,13 @@ export function BilanView() {
       .sort((a,b) => b.value - a.value);
 
   }, [filteredTransactions]);
+
+  const chartConfig = useMemo(() => {
+    return chartData.reduce((acc, item) => {
+        acc[item.name] = { label: item.name, color: item.fill };
+        return acc;
+    }, {} as any)
+  }, [chartData]);
   
   if (isLoading) {
     return (
@@ -219,21 +226,25 @@ export function BilanView() {
             <CardHeader>
                 <CardTitle>Répartition par moyen de paiement</CardTitle>
             </CardHeader>
-            <CardContent>
-                <ResponsiveContainer width="100%" height={250}>
+            <CardContent className="h-[250px] flex items-center justify-center">
+               {chartData.length > 0 ? (
+                <ChartContainer config={chartConfig} className="min-h-[250px] w-full">
                     <PieChart>
-                        <Tooltip
+                        <ChartTooltip
                             cursor={false}
-                            content={<ChartTooltipContent hideLabel indicator="dot" />}
+                            content={<ChartTooltipContent hideLabel />}
                         />
-                        <Pie data={chartData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={80} labelLine={false} label>
+                        <Pie data={chartData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={80} labelLine={false}>
                              {chartData.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={entry.fill} />
+                                <Cell key={`cell-${index}`} fill={entry.fill} name={entry.name} />
                             ))}
                         </Pie>
                         <Legend content={<CustomLegend />} verticalAlign="bottom" align="center" />
                     </PieChart>
-                </ResponsiveContainer>
+                </ChartContainer>
+                 ) : (
+                    <div className="text-muted-foreground">Aucune donnée de paiement pour cette période.</div>
+                )}
             </CardContent>
         </Card>
         <Card className="lg:col-span-4">
@@ -291,5 +302,3 @@ export function BilanView() {
     </div>
   );
 }
-
-    
