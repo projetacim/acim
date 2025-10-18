@@ -106,7 +106,7 @@ export function DonationCategories() {
   const onSubmit: SubmitHandler<CategoryFormValues> = async (data) => {
     if (!firestore || !user) return;
 
-    const collectionRef = collection(firestore, 'users', user.uid, 'donationCategories');
+    const collectionRef = collection(firestore, 'donationCategories');
 
     if (selectedCategory) {
       // Edit category
@@ -124,7 +124,7 @@ export function DonationCategories() {
   const handleDelete = async () => {
     if (!firestore || !user || !selectedCategory) return;
     
-    const docRef = doc(firestore, 'users', user.uid, 'donationCategories', selectedCategory.id);
+    const docRef = doc(firestore, 'donationCategories', selectedCategory.id);
     await deleteDocumentNonBlocking(docRef);
     toast({
       title: 'Catégorie supprimée',
