@@ -30,6 +30,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useRouter } from 'next/navigation';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { numberToWords } from '@/lib/number-to-words';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 type DonationWithMemberName = Donation & { memberName: string };
 
@@ -244,7 +245,7 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
 
   return (
     <>
-      <div className="rounded-md border">
+      <ScrollArea className="h-96 w-full rounded-md border">
         <Table>
             <TableHeader>
             <TableRow>
@@ -318,7 +319,7 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
             )}
             </TableBody>
         </Table>
-      </div>
+      </ScrollArea>
       
       <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
         <AlertDialogContent>
@@ -343,3 +344,4 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
     
 
     
+
