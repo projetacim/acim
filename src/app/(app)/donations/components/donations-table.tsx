@@ -23,9 +23,9 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { PlusCircle, Pencil, Trash2, CheckCircle, XCircle } from 'lucide-react';
-import type { Donation, Member, DonationCategory, Transaction } from '@/lib/types';
-import { useForm, type SubmitHandler, useWatch } from 'react-hook-form';
+import { PlusCircle, Pencil, Trash2, CheckCircle, XCircle, MoreVertical, X, ChevronsUpDown, Check } from 'lucide-react';
+import type { Donation, Member, DonationCategory, Transaction, Payment } from '@/lib/types';
+import { useForm, useFieldArray, type SubmitHandler, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
@@ -54,9 +54,9 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-  DialogDescription,
 } from '@/components/ui/dialog';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Calendar } from '@/components/ui/calendar';
 import { CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -65,13 +65,18 @@ import { fr } from 'date-fns/locale';
 import { Checkbox } from '@/components/ui/checkbox';
 
 
+const paymentSchema = z.object({
+  amount: z.coerce.number().min(0.01, "Le montant doit être positif."),
+  date: z.date({ required_error: "La date est requise." }),
+  paymentMethod: z.enum(['Carte de crédit', 'Virement bancaire', 'Espèces', 'Chèque']),
+});
+
 const donationSchema = z.object({
   memberId: z.string().min(1, 'Veuillez sélectionner un membre.'),
   type: z.enum(['Don', 'Cotisation']),
   donationCategoryId: z.string().optional(),
-  amount: z.coerce.number().min(0.01, 'Le montant doit être supérieur à 0.'),
-  paymentMethod: z.enum(['Carte de crédit', 'Virement bancaire', 'Espèces', 'Chèque']),
-  date: z.date({ required_error: 'La date est requise.' }),
+  totalAmount: z.coerce.number().min(0.01, 'Le montant total doit être supérieur à 0.'),
+  payments: z.array(paymentSchema).max(3, "Vous ne pouvez pas ajouter plus de 3 paiements."),
   memo: z.string().optional(),
   cerfaEligible: z.boolean().default(true),
 });
@@ -85,7 +90,6 @@ export function DonationsTable() {
   const { user } = useUser();
   const { toast } = useToast();
 
-  // Data fetching
   const membersCollection = useMemoFirebase(() => user ? collection(firestore, 'users', user.uid, 'membre') : null, [firestore, user]);
   const donationsCollection = useMemoFirebase(() => user ? collection(firestore, 'users', user.uid, 'donations') : null, [firestore, user]);
   const categoriesCollection = useMemoFirebase(() => collection(firestore, 'donationCategories'), [firestore]);
@@ -94,10 +98,11 @@ export function DonationsTable() {
   const { data: donations, isLoading: isLoadingDonations } = useCollection<Donation>(donationsCollection);
   const { data: categories, isLoading: isLoadingCategories } = useCollection<DonationCategory>(categoriesCollection);
 
-  // State
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [selectedDonation, setSelectedDonation] = useState<DonationWithMemberName | null>(null);
+  const [isMemberPopoverOpen, setMemberPopoverOpen] = useState(false);
+
 
   const form = useForm<DonationFormValues>({
     resolver: zodResolver(donationSchema),
@@ -105,35 +110,41 @@ export function DonationsTable() {
       memberId: '',
       type: 'Don',
       donationCategoryId: '',
-      amount: 0,
-      paymentMethod: 'Espèces',
+      totalAmount: 0,
+      payments: [],
       memo: '',
       cerfaEligible: true,
     },
   });
+  
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "payments"
+  });
 
   const donationType = useWatch({ control: form.control, name: 'type' });
 
-  // Memoized derived data
   const donationsWithMemberNames = useMemo(() => {
     if (!donations || !members) return [];
     const memberMap = new Map(members.map(m => [m.id, m.nom]));
     return donations.map(d => ({
       ...d,
       memberName: memberMap.get(d.memberId) || 'Membre inconnu'
-    })).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    })).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [donations, members]);
+  
+  const getPaidAmount = (payments: Payment[]) => {
+      return payments.reduce((acc, p) => acc + p.amount, 0);
+  }
 
-  // Effects
   useEffect(() => {
     if (selectedDonation) {
       form.reset({
         memberId: selectedDonation.memberId,
         type: selectedDonation.type,
         donationCategoryId: selectedDonation.donationCategoryId || '',
-        amount: selectedDonation.amount,
-        paymentMethod: selectedDonation.paymentMethod,
-        date: new Date(selectedDonation.date),
+        totalAmount: selectedDonation.totalAmount,
+        payments: selectedDonation.payments.map(p => ({...p, date: new Date(p.date)})),
         memo: selectedDonation.memo || '',
         cerfaEligible: selectedDonation.cerfaEligible,
       });
@@ -142,16 +153,14 @@ export function DonationsTable() {
         memberId: '',
         type: 'Don',
         donationCategoryId: '',
-        amount: 0,
-        paymentMethod: 'Espèces',
+        totalAmount: 0,
+        payments: [],
         memo: '',
         cerfaEligible: true,
-        date: new Date()
       });
     }
   }, [selectedDonation, form]);
 
-  // Handlers
   const handleOpenForm = (donation?: DonationWithMemberName) => {
     setSelectedDonation(donation || null);
     setIsFormOpen(true);
@@ -168,12 +177,24 @@ export function DonationsTable() {
       toast({ variant: "destructive", title: "Erreur", description: "Utilisateur ou base de données non disponible." });
       return;
     }
+    
+    const paidAmount = data.payments.reduce((acc, p) => acc + p.amount, 0);
+    let paymentStatus: 'EN ATTENTE' | 'Partiel' | 'Payé';
 
+    if (paidAmount === 0) {
+        paymentStatus = 'EN ATTENTE';
+    } else if (paidAmount < data.totalAmount) {
+        paymentStatus = 'Partiel';
+    } else {
+        paymentStatus = 'Payé';
+    }
+    
     const donationData: Omit<Donation, 'id' | 'createdAt'> = {
-      ...data,
-      amount: Number(data.amount),
-      date: data.date.toISOString(),
-      donationCategoryId: data.type === 'Don' ? data.donationCategoryId : '',
+        ...data,
+        totalAmount: Number(data.totalAmount),
+        donationCategoryId: data.type === 'Don' ? data.donationCategoryId : '',
+        payments: data.payments.map(p => ({...p, date: p.date.toISOString()})),
+        paymentStatus,
     };
 
     try {
@@ -182,23 +203,26 @@ export function DonationsTable() {
         const donationRef = doc(firestore, 'users', user.uid, 'donations', selectedDonation.id);
         await setDocumentNonBlocking(donationRef, { ...donationData, createdAt: selectedDonation.createdAt }, { merge: true });
         toast({ title: 'Don mis à jour' });
-        // Optionally update transaction too, if fields that are duplicated can change
+        // TODO: Handle transaction updates if necessary
       } else {
         // Create
         const collectionRef = collection(firestore, 'users', user.uid, 'donations');
         const newDoc = await addDocumentNonBlocking(collectionRef, { ...donationData, createdAt: new Date().toISOString() });
         
         if (newDoc) {
-          const transactionData: Omit<Transaction, 'id' | 'createdAt'> = {
-            type: donationData.type,
-            relatedId: newDoc.id,
-            amount: donationData.amount,
-            date: donationData.date,
-            paymentMethod: donationData.paymentMethod,
-            memo: donationData.memo
-          };
-          const transactionRef = collection(firestore, 'users', user.uid, 'transactions');
-          await addDocumentNonBlocking(transactionRef, {...transactionData, createdAt: new Date().toISOString()});
+            const transactionData: Omit<Transaction, 'id' | 'createdAt'>[] = data.payments.map(p => ({
+              type: donationData.type,
+              relatedId: newDoc.id,
+              amount: p.amount,
+              date: p.date.toISOString(),
+              paymentMethod: p.paymentMethod,
+              memo: donationData.memo
+            }));
+            
+            const transactionRef = collection(firestore, 'users', user.uid, 'transactions');
+            for(const trans of transactionData){
+                 await addDocumentNonBlocking(transactionRef, {...trans, createdAt: new Date().toISOString()});
+            }
         }
         
         toast({ title: 'Don ajouté', description: `Un nouveau don/cotisation a été enregistré.` });
@@ -212,10 +236,9 @@ export function DonationsTable() {
   
   const handleDelete = async () => {
     if (!firestore || !selectedDonation || !user) return;
-
+    // TODO: Also delete the associated transactions
     const docRef = doc(firestore, 'users', user.uid, 'donations', selectedDonation.id);
     await deleteDocumentNonBlocking(docRef);
-    // TODO: Also delete the associated transaction
     toast({
       variant: 'destructive',
       title: 'Don supprimé',
@@ -229,6 +252,17 @@ export function DonationsTable() {
     setSelectedDonation(donation);
     setIsDeleteAlertOpen(true);
   }
+  
+  const getStatusBadge = (status: Donation['paymentStatus']) => {
+    switch (status) {
+      case 'Payé':
+        return <Badge className="bg-green-100 text-green-800 border-green-200">Payé</Badge>;
+      case 'Partiel':
+        return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">Partiel</Badge>;
+      case 'EN ATTENTE':
+        return <Badge variant="outline">En attente</Badge>;
+    }
+  };
 
   const isLoading = isLoadingMembers || isLoadingDonations || isLoadingCategories;
 
@@ -251,7 +285,8 @@ export function DonationsTable() {
                 <TableHead>Membre</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead className="text-right">Montant</TableHead>
-                <TableHead>Date</TableHead>
+                <TableHead className="text-right">Payé</TableHead>
+                <TableHead>Statut</TableHead>
                 <TableHead>Éligible CERFA</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -260,9 +295,10 @@ export function DonationsTable() {
               {isLoading && Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={i}>
                   <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                  <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
                   <TableCell className="text-right"><Skeleton className="h-4 w-16" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                  <TableCell className="text-right"><Skeleton className="h-4 w-16" /></TableCell>
+                  <TableCell><Skeleton className="h-6 w-24 rounded-full" /></TableCell>
                   <TableCell><Skeleton className="h-6 w-6 rounded-full" /></TableCell>
                   <TableCell className="text-right"><Skeleton className="h-8 w-20" /></TableCell>
                 </TableRow>
@@ -273,8 +309,9 @@ export function DonationsTable() {
                   <TableCell>
                     <Badge variant={donation.type === 'Don' ? 'secondary' : 'outline'}>{donation.type}</Badge>
                   </TableCell>
-                  <TableCell className="text-right">{donation.amount.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})}</TableCell>
-                  <TableCell>{format(new Date(donation.date), 'd MMMM yyyy', {locale: fr})}</TableCell>
+                  <TableCell className="text-right">{donation.totalAmount.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})}</TableCell>
+                  <TableCell className="text-right">{getPaidAmount(donation.payments).toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})}</TableCell>
+                  <TableCell>{getStatusBadge(donation.paymentStatus)}</TableCell>
                   <TableCell>
                     {donation.cerfaEligible 
                         ? <CheckCircle className="h-5 w-5 text-green-500" /> 
@@ -294,7 +331,7 @@ export function DonationsTable() {
               ))}
                {!isLoading && donationsWithMemberNames.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="p-6 text-center text-muted-foreground">
+                  <TableCell colSpan={7} className="p-6 text-center text-muted-foreground">
                     Aucun don ou cotisation trouvé.
                   </TableCell>
                 </TableRow>
@@ -305,30 +342,70 @@ export function DonationsTable() {
       </Card>
       
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>{selectedDonation ? 'Modifier le don' : 'Ajouter un don/cotisation'}</DialogTitle>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 py-4">
               <FormField
                 control={form.control}
                 name="memberId"
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="flex flex-col">
                     <FormLabel>Membre</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Sélectionner un membre" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {isLoadingMembers ? <SelectItem value="loading" disabled>Chargement...</SelectItem> : members?.map(member => (
-                          <SelectItem key={member.id} value={member.id}>{member.nom}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Popover open={isMemberPopoverOpen} onOpenChange={setMemberPopoverOpen}>
+                        <PopoverTrigger asChild>
+                            <FormControl>
+                                <Button
+                                variant="outline"
+                                role="combobox"
+                                className={cn(
+                                    "w-full justify-between",
+                                    !field.value && "text-muted-foreground"
+                                )}
+                                >
+                                {field.value
+                                    ? members?.find(
+                                        (member) => member.id === field.value
+                                    )?.nom
+                                    : "Sélectionner un membre"}
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                            </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                            <Command>
+                                <CommandInput placeholder="Rechercher par nom, email, mémo..." />
+                                <CommandList>
+                                <CommandEmpty>Aucun membre trouvé.</CommandEmpty>
+                                <CommandGroup>
+                                    {members?.map((member) => (
+                                    <CommandItem
+                                        value={`${member.nom} ${member.email} ${member.adresse}`}
+                                        key={member.id}
+                                        onSelect={() => {
+                                            form.setValue("memberId", member.id);
+                                            setMemberPopoverOpen(false);
+                                        }}
+                                    >
+                                        <Check
+                                        className={cn(
+                                            "mr-2 h-4 w-4",
+                                            member.id === field.value ? "opacity-100" : "opacity-0"
+                                        )}
+                                        />
+                                        <div>
+                                            <p>{member.nom}</p>
+                                            <p className="text-xs text-muted-foreground">{member.email} - {member.adresse}</p>
+                                        </div>
+                                    </CommandItem>
+                                    ))}
+                                </CommandGroup>
+                                </CommandList>
+                            </Command>
+                        </PopoverContent>
+                    </Popover>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -341,11 +418,7 @@ export function DonationsTable() {
                     <FormItem>
                       <FormLabel>Type</FormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
+                        <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                         <SelectContent>
                           <SelectItem value="Don">Don</SelectItem>
                           <SelectItem value="Cotisation">Cotisation</SelectItem>
@@ -363,11 +436,7 @@ export function DonationsTable() {
                       <FormItem>
                         <FormLabel>Sous-catégorie de don</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Sélectionner une catégorie" />
-                            </SelectTrigger>
-                          </FormControl>
+                          <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner une catégorie" /></SelectTrigger></FormControl>
                           <SelectContent>
                             {isLoadingCategories ? <SelectItem value="loading" disabled>Chargement...</SelectItem> : categories?.map(cat => (
                               <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
@@ -380,13 +449,12 @@ export function DonationsTable() {
                   />
                 )}
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <FormField
+              <FormField
                   control={form.control}
-                  name="amount"
+                  name="totalAmount"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Montant (€)</FormLabel>
+                      <FormLabel>Montant Total du Don (€)</FormLabel>
                       <FormControl>
                         <Input type="number" step="0.01" {...field} />
                       </FormControl>
@@ -394,69 +462,75 @@ export function DonationsTable() {
                     </FormItem>
                   )}
                 />
-                <FormField
-                  control={form.control}
-                  name="paymentMethod"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Moyen de paiement</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger><SelectValue /></SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="Espèces">Espèces</SelectItem>
-                          <SelectItem value="Chèque">Chèque</SelectItem>
-                          <SelectItem value="Carte de crédit">Carte de crédit</SelectItem>
-                          <SelectItem value="Virement bancaire">Virement bancaire</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
+              <div>
+                <FormLabel>Paiements</FormLabel>
+                <div className="space-y-4 rounded-md border p-4 mt-2">
+                  {fields.map((field, index) => (
+                    <div key={field.id} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start relative">
+                      <FormField
+                        control={form.control}
+                        name={`payments.${index}.amount`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Montant (€)</FormLabel>
+                            <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`payments.${index}.paymentMethod`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Moyen</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                              <SelectContent>
+                                <SelectItem value="Espèces">Espèces</SelectItem>
+                                <SelectItem value="Chèque">Chèque</SelectItem>
+                                <SelectItem value="Carte de crédit">Carte de crédit</SelectItem>
+                                <SelectItem value="Virement bancaire">Virement bancaire</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                       <FormField
+                        control={form.control}
+                        name={`payments.${index}.date`}
+                        render={({ field }) => (
+                          <FormItem className="flex flex-col">
+                             <FormLabel className="mb-2">Date</FormLabel>
+                             <Popover>
+                              <PopoverTrigger asChild>
+                                <FormControl>
+                                  <Button variant={"outline"} className={cn("pl-3 text-left font-normal",!field.value && "text-muted-foreground")}>
+                                    {field.value ? format(field.value, "d MMMM yyyy", { locale: fr }) : <span>Choisir une date</span>}
+                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                  </Button>
+                                </FormControl>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus locale={fr} />
+                              </PopoverContent>
+                            </Popover>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <Button type="button" variant="ghost" size="icon" className="text-destructive hover:text-destructive absolute -right-2 top-5 md:relative md:right-auto md:top-auto md:mt-7" onClick={() => remove(index)}>
+                          <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  {fields.length < 3 && (
+                    <Button type="button" variant="outline" size="sm" onClick={() => append({ amount: 0, date: new Date(), paymentMethod: 'Espèces' })}>
+                      <PlusCircle className="mr-2 h-4 w-4" /> Ajouter un paiement
+                    </Button>
                   )}
-                />
-                 <FormField
-                  control={form.control}
-                  name="date"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col pt-2">
-                       <FormLabel className="mb-[10px]">Date</FormLabel>
-                       <Popover>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button
-                              variant={"outline"}
-                              className={cn(
-                                "pl-3 text-left font-normal",
-                                !field.value && "text-muted-foreground"
-                              )}
-                            >
-                              {field.value ? (
-                                format(field.value, "d MMMM yyyy", { locale: fr })
-                              ) : (
-                                <span>Choisir une date</span>
-                              )}
-                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={field.value}
-                            onSelect={field.onChange}
-                            disabled={(date) =>
-                              date > new Date() || date < new Date("1900-01-01")
-                            }
-                            initialFocus
-                            locale={fr}
-                          />
-                        </PopoverContent>
-                      </Popover>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                </div>
               </div>
               <FormField
                 control={form.control}
@@ -464,9 +538,7 @@ export function DonationsTable() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Mémo (facultatif)</FormLabel>
-                    <FormControl>
-                      <Textarea placeholder="Informations complémentaires..." {...field} />
-                    </FormControl>
+                    <FormControl><Textarea placeholder="Informations complémentaires..." {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -476,17 +548,8 @@ export function DonationsTable() {
                 name="cerfaEligible"
                 render={({ field }) => (
                   <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-4">
-                     <FormControl>
-                      <Checkbox
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                    <div className="space-y-1 leading-none">
-                      <FormLabel>
-                        Éligible pour un reçu fiscal (CERFA)
-                      </FormLabel>
-                    </div>
+                     <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange}/></FormControl>
+                    <div className="space-y-1 leading-none"><FormLabel>Éligible pour un reçu fiscal (CERFA)</FormLabel></div>
                   </FormItem>
                 )}
               />
@@ -504,7 +567,7 @@ export function DonationsTable() {
           <AlertDialogHeader>
             <AlertDialogTitle>Êtes-vous sûr ?</AlertDialogTitle>
             <AlertDialogDescription>
-              Cette action est irréversible. Le don de {selectedDonation?.amount}€ par {selectedDonation?.memberName} sera supprimé.
+              Cette action est irréversible. Le don de {selectedDonation?.totalAmount}€ par {selectedDonation?.memberName} sera supprimé.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

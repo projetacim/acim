@@ -51,65 +51,44 @@
         "email"
       ]
     },
+    "Payment": {
+      "title": "Payment",
+      "type": "object",
+      "description": "Represents a single payment installment for a donation.",
+      "properties": {
+        "amount": { "type": "number" },
+        "date": { "type": "string", "format": "date-time" },
+        "paymentMethod": { "type": "string", "enum": ["Carte de crédit", "Virement bancaire", "Espèces", "Chèque"] }
+      },
+      "required": ["amount", "date", "paymentMethod"]
+    },
     "Donation": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Donation",
       "type": "object",
       "description": "Represents a donation or contribution made by a member.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the donation."
+        "id": { "type": "string" },
+        "memberId": { "type": "string" },
+        "type": { "type": "string", "enum": ["Don", "Cotisation"] },
+        "donationCategoryId": { "type": "string" },
+        "totalAmount": { "type": "number" },
+        "payments": {
+          "type": "array",
+          "items": { "$ref": "#/entities/Payment" }
         },
-        "memberId": {
-          "type": "string",
-          "description": "Reference to Member."
-        },
-        "type": {
-          "type": "string",
-          "enum": ["Don", "Cotisation"],
-          "description": "The type of contribution."
-        },
-        "donationCategoryId": {
-          "type": "string",
-          "description": "Reference to DonationCategory, applicable if type is 'Don'."
-        },
-        "amount": {
-          "type": "number",
-          "description": "The amount of the donation."
-        },
-        "paymentMethod": {
-          "type": "string",
-          "enum": ["Carte de crédit", "Virement bancaire", "Espèces", "Chèque"],
-          "description": "The method of payment."
-        },
-        "date": {
-          "type": "string",
-          "description": "The date of the donation.",
-          "format": "date-time"
-        },
-        "memo": {
-          "type": "string",
-          "description": "A memo for the donation."
-        },
-        "cerfaEligible": {
-          "type": "boolean",
-          "description": "Indicates if a CERFA form can be generated for this donation."
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "The creation date of the donation record.",
-          "format": "date-time"
-        }
+        "paymentStatus": { "type": "string", "enum": ["EN ATTENTE", "Partiel", "Payé"] },
+        "memo": { "type": "string" },
+        "cerfaEligible": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": [
         "id",
         "memberId",
         "type",
-        "amount",
-        "date",
-        "paymentMethod",
-        "cerfaEligible"
+        "totalAmount",
+        "cerfaEligible",
+        "paymentStatus"
       ]
     },
     "Transaction": {

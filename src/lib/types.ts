@@ -11,14 +11,20 @@ export type Member = {
   avatarUrl: string;
 };
 
+export type Payment = {
+  amount: number;
+  date: string; // ISO string
+  paymentMethod: 'Carte de crédit' | 'Virement bancaire' | 'Espèces' | 'Chèque';
+}
+
 export type Donation = {
   id: string;
   memberId: string;
   type: 'Don' | 'Cotisation';
   donationCategoryId?: string;
-  amount: number;
-  paymentMethod: 'Carte de crédit' | 'Virement bancaire' | 'Espèces' | 'Chèque';
-  date: string;
+  totalAmount: number;
+  payments: Payment[];
+  paymentStatus: 'EN ATTENTE' | 'Partiel' | 'Payé';
   memo?: string;
   cerfaEligible: boolean;
   createdAt: string;
