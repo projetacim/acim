@@ -1,6 +1,6 @@
 
 'use client';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import {
   Table,
   TableBody,
@@ -25,6 +25,8 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -56,8 +58,15 @@ export function PendingDonationsTable({ selectedMemberId, onEditDonation }: Pend
   const { members, donations, categories, isLoading } = useData();
   const [selectedDonations, setSelectedDonations] = useState<string[]>([]);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  
+  // Payment dialog state
   const [paymentMethod, setPaymentMethod] = useState<'Carte de crédit' | 'Virement bancaire' | 'Espèces' | 'Chèque'>('Carte de crédit');
   const [paymentDate, setPaymentDate] = useState<Date | undefined>(new Date());
+  const [cerfaNom, setCerfaNom] = useState('');
+  const [cerfaAdresse, setCerfaAdresse] = useState('');
+  const [cerfaEmail, setCerfaEmail] = useState('');
+  const [cerfaDate, setCerfaDate] = useState<Date | undefined>(new Date());
+
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   const firestore = useFirestore();
@@ -95,6 +104,21 @@ export function PendingDonationsTable({ selectedMemberId, onEditDonation }: Pend
       return total + (donation?.remainingAmount || 0);
     }, 0);
   }, [selectedDonations, pendingDonations]);
+
+  useEffect(() => {
+    if (isPaymentDialogOpen) {
+        const firstSelectedId = selectedDonations[0];
+        const firstDonation = pendingDonations.find(d => d.id === firstSelectedId);
+        const member = firstDonation?.member;
+        
+        if (member) {
+            setCerfaNom(firstDonation?.cerfaNom || member.nom || '');
+            setCerfaAdresse(firstDonation?.cerfaAdresse || member.adresse || '');
+            setCerfaEmail(firstDonation?.cerfaEmail || member.email || '');
+            setCerfaDate(firstDonation?.cerfaDate ? new Date(firstDonation.cerfaDate) : new Date());
+        }
+    }
+  }, [isPaymentDialogOpen, selectedDonations, pendingDonations]);
 
   
   const getStatusBadge = (status: Donation['paymentStatus']) => {
@@ -159,6 +183,10 @@ export function PendingDonationsTable({ selectedMemberId, onEditDonation }: Pend
       const donationUpdate: Partial<Donation> = {
         payments: updatedPayments,
         paymentStatus: 'Payé',
+        cerfaNom,
+        cerfaAdresse,
+        cerfaEmail,
+        cerfaDate: cerfaDate?.toISOString(),
       };
 
       let emailSent = false;
@@ -167,7 +195,8 @@ export function PendingDonationsTable({ selectedMemberId, onEditDonation }: Pend
             const newCerfaNumber = await generateCerfaNumber();
             if(newCerfaNumber) {
                 donationUpdate.cerfaNumber = newCerfaNumber;
-                donationUpdate.cerfaDate = (donation.cerfaDate ? new Date(donation.cerfaDate) : new Date()).toISOString();
+                // If cerfaDate wasn't set in dialog, use now.
+                donationUpdate.cerfaDate = (cerfaDate || new Date()).toISOString();
             }
         }
         
@@ -177,7 +206,7 @@ export function PendingDonationsTable({ selectedMemberId, onEditDonation }: Pend
         const updatedDonation = { ...donation, ...donationUpdate } as Donation;
 
         // Send email if applicable
-        if (updatedDonation.paymentStatus === 'Payé' && updatedDonation.cerfaEligible && updatedDonation.cerfaNumber && donation.member) {
+        if (updatedDonation.paymentStatus === 'Payé' && updatedDonation.cerfaEligible && updatedDonation.cerfaNumber && updatedDonation.cerfaEmail && donation.member) {
              const result = await sendCerfaEmail(updatedDonation, donation.member);
              emailSent = result.success;
         }
@@ -302,40 +331,80 @@ export function PendingDonationsTable({ selectedMemberId, onEditDonation }: Pend
       </div>
 
       <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
-          <DialogContent>
+          <DialogContent className="sm:max-w-2xl">
               <DialogHeader>
                   <DialogTitle>Confirmer l'encaissement</DialogTitle>
                   <DialogDescription>
-                    Vous êtes sur le point de solder {selectedDonations.length} don(s) pour un total de {totalSelectedAmount.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})}. Choisissez la méthode et la date de paiement.
+                    Vous êtes sur le point de solder {selectedDonations.length} don(s) pour un total de {totalSelectedAmount.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})}.
                   </DialogDescription>
               </DialogHeader>
-              <div className="grid gap-4 py-4">
-                  <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="paymentMethod" className="text-right">Moyen</Label>
-                       <Select onValueChange={(value: 'Carte de crédit' | 'Virement bancaire' | 'Espèces' | 'Chèque') => setPaymentMethod(value)} defaultValue={paymentMethod}>
-                          <SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Carte de crédit">Carte de crédit</SelectItem>
-                            <SelectItem value="Virement bancaire">Virement bancaire</SelectItem>
-                            <SelectItem value="Espèces">Espèces</SelectItem>
-                            <SelectItem value="Chèque">Chèque</SelectItem>
-                          </SelectContent>
-                        </Select>
+              <div className="grid gap-6 py-4">
+                  <div>
+                    <h3 className="text-sm font-medium mb-2">Informations de Paiement</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <Label htmlFor="paymentMethod">Moyen de paiement</Label>
+                            <Select onValueChange={(value: 'Carte de crédit' | 'Virement bancaire' | 'Espèces' | 'Chèque') => setPaymentMethod(value)} defaultValue={paymentMethod}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="Carte de crédit">Carte de crédit</SelectItem>
+                                    <SelectItem value="Virement bancaire">Virement bancaire</SelectItem>
+                                    <SelectItem value="Espèces">Espèces</SelectItem>
+                                    <SelectItem value="Chèque">Chèque</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                         <div>
+                            <Label htmlFor="paymentDate">Date de paiement</Label>
+                             <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal",!paymentDate && "text-muted-foreground")}>
+                                    {paymentDate ? format(paymentDate, "d MMMM yyyy", { locale: fr }) : <span>Choisir une date</span>}
+                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar mode="single" selected={paymentDate} onSelect={setPaymentDate} initialFocus locale={fr} />
+                                </PopoverContent>
+                            </Popover>
+                        </div>
+                    </div>
                   </div>
-                   <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="paymentDate" className="text-right">Date</Label>
-                       <Popover>
-                        <PopoverTrigger asChild>
-                            <Button variant={"outline"} className={cn("col-span-3 justify-start text-left font-normal",!paymentDate && "text-muted-foreground")}>
-                              {paymentDate ? format(paymentDate, "d MMMM yyyy", { locale: fr }) : <span>Choisir une date</span>}
-                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar mode="single" selected={paymentDate} onSelect={setPaymentDate} initialFocus locale={fr} />
-                        </PopoverContent>
-                      </Popover>
-                  </div>
+
+                 <div className="space-y-2">
+                    <h3 className="text-sm font-medium text-primary">Informations pour le CERFA</h3>
+                     <div className="space-y-4 rounded-md border border-dashed border-primary/50 bg-primary/5 p-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <Label htmlFor="cerfaNom">Nom du Donateur (pour le CERFA)</Label>
+                                <Input id="cerfaNom" value={cerfaNom} onChange={(e) => setCerfaNom(e.target.value)} />
+                            </div>
+                            <div>
+                               <Label htmlFor="cerfaDate">Date de Signature du CERFA</Label>
+                               <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal",!cerfaDate && "text-muted-foreground")}>
+                                    {cerfaDate ? format(cerfaDate, "d MMMM yyyy", { locale: fr }) : <span>Choisir une date</span>}
+                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                    <Calendar mode="single" selected={cerfaDate} onSelect={setCerfaDate} initialFocus locale={fr} />
+                                </PopoverContent>
+                               </Popover>
+                            </div>
+                        </div>
+                        <div>
+                            <Label htmlFor="cerfaAdresse">Adresse du Donateur (pour le CERFA)</Label>
+                            <Textarea id="cerfaAdresse" value={cerfaAdresse} onChange={(e) => setCerfaAdresse(e.target.value)} />
+                        </div>
+                        <div>
+                            <Label htmlFor="cerfaEmail">Email du Donateur (pour envoi)</Label>
+                            <Input id="cerfaEmail" type="email" value={cerfaEmail} onChange={(e) => setCerfaEmail(e.target.value)} />
+                        </div>
+                     </div>
+                 </div>
+
               </div>
               <DialogFooter>
                   <Button variant="ghost" onClick={() => setIsPaymentDialogOpen(false)}>Annuler</Button>
