@@ -106,18 +106,12 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
         const cerfaNumber = `${year}-${nextId.toString().padStart(4, '0')}`;
         const donationDocRef = doc(firestore, 'users', user.uid, 'donations', donationId);
         
-        await updateDoc(donationDocRef, { cerfaNumber: cerfaNumber });
+        await updateDocumentNonBlocking(donationDocRef, { cerfaNumber: cerfaNumber });
         
         toast({ title: 'N° CERFA généré', description: `Le numéro ${cerfaNumber} a été assigné.` });
         return cerfaNumber;
     } catch(err) {
         console.error("Error generating CERFA number: ", err);
-        const contextualError = new FirestorePermissionError({
-          operation: 'update',
-          path: `users/${user.uid}/donations/${donationId}`,
-          requestResourceData: { cerfaNumber: 'GENERATED_NUMBER' }
-        });
-        errorEmitter.emit('permission-error', contextualError);
         toast({ variant: 'destructive', title: 'Erreur Permission CERFA', description: 'Impossible de sauvegarder le numéro CERFA.' });
         return null;
     }
@@ -180,15 +174,12 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
             // Write the payment method string
             page.drawText(paymentMethods, { ...cerfaCoordinates.paymentMethod, font, size: 10, color: textColor });
 
-            // Save and download
+            // Save and open in a new tab
             const pdfBytes = await pdfDoc.save();
             const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = `cerfa-${cerfaNumber}.pdf`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            const url = URL.createObjectURL(blob);
+            window.open(url, '_blank');
+            
         } catch (error) {
             console.error("Failed to generate PDF:", error);
             toast({ variant: 'destructive', title: 'Erreur PDF', description: 'La génération du fichier CERFA a échoué.' });
