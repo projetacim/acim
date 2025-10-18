@@ -15,6 +15,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { LogoWithText } from '@/components/logo-with-text';
 import { Loader2 } from 'lucide-react';
+import { Logo } from '@/components/logo';
 
 const registerSchema = z.object({
   email: z.string().email('Adresse e-mail invalide.'),
