@@ -15,18 +15,10 @@ export function Logo(props: SVGProps<SVGSVGElement>) {
         />
       </defs>
       <g transform="translate(100, 100)">
-        {/* Star of David */}
-        <g stroke="currentColor" strokeWidth="6" fill="none">
-          <polygon points="0,-60 52,-30 0,0" />
-          <polygon points="0,-60 -52,-30 0,0" />
-          <polygon points="0,60 52,30 0,0" />
-          <polygon points="0,60 -52,30 0,0" />
-          <polygon points="0,-60 52,-30 -52,30 0,60 -52,30 52,30 0,-60" stroke="none" fill="currentColor" />
-          <polygon points="0,-48 41.5,-24 -41.5,24 0,48 -41.5,24 41.5,-24 0,-48" stroke="white" strokeWidth="3" />
-        </g>
+        {/* Star of David - Removed */}
         
         {/* Laurel Wreath */}
-        <g transform="scale(1.2)">
+        <g transform="scale(1.2) translate(0, 30)">
             <g transform="scale(-1, 1)">
               <g transform="translate(-10, -80) rotate(-20)">
                 {[...Array(6)].map((_, i) => (
