@@ -37,19 +37,15 @@ export const CerfaReceiptEmail = ({
           alt="ACIM Logo"
           style={logo}
         />
-        <Heading style={h1}>Votre reçu fiscal ACIM</Heading>
+        <Heading style={h1}>Votre reçu fiscal</Heading>
         <Text style={text}>
           Bonjour {member.nom},
         </Text>
         <Text style={text}>
-          Nous vous remercions sincèrement pour votre don de {donation.totalAmount.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}.
-          Votre soutien est précieux pour notre association.
+          Merci pour votre don.
         </Text>
         <Text style={text}>
-          Vous trouverez en pièce jointe de cet e-mail votre reçu fiscal (CERFA) n° **{donation.cerfaNumber}**. Ce document est à conserver pour votre déclaration de revenus.
-        </Text>
-        <Text style={text}>
-          Encore merci pour votre générosité.
+          Veuillez trouver en pièce jointe le reçu fiscal (CERFA) correspondant à votre don de {donation.totalAmount.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })} au profit de l'ACIM.
         </Text>
         <Text style={text}>
           Cordialement,
@@ -57,7 +53,7 @@ export const CerfaReceiptEmail = ({
           L'équipe de l'ACIM
         </Text>
         <Text style={footer}>
-          Association Cultuelle Israélite de Montpellier (ACIM)
+          ACIM - Tel: 01.23.45.67.89
         </Text>
       </Container>
     </Body>
