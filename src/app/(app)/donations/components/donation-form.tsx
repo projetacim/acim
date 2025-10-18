@@ -134,7 +134,7 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
                   type: 'Don',
                   donationCategoryId: '',
                   totalAmount: 0,
-                  payments: [],
+                  payments: [{ amount: 0, date: new Date(), paymentMethod: 'Espèces' }],
                   memo: '',
                   cerfaEligible: true,
               });
@@ -356,7 +356,7 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
                     <FormItem>
                       <FormLabel>Montant Total du Don (€)</FormLabel>
                       <FormControl>
-                        <Input type="number" step="0.01" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || 0)} />
+                        <Input type="number" step="0.01" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || 0)} className="border-black"/>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -484,5 +484,3 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
     </Card>
   );
 }
-
-    
