@@ -1,7 +1,7 @@
 
 'use client';
 import { useState, useMemo, useEffect } from 'react';
-import { useFirestore, useCollection, useMemoFirebase, deleteDocumentNonBlocking, useUser } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, deleteDocumentNonBlocking, useUser, updateDocumentNonBlocking } from '@/firebase';
 import { collection, doc, getDocs, query, where, updateDoc, getDoc } from 'firebase/firestore';
 import {
   Table,
@@ -94,15 +94,16 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
 
   const generateCerfaNumber = async (donationId: string) => {
     if (!firestore || !user || !donations) return;
-    
+
     const year = new Date().getFullYear();
-    // Filter donations for the current year that already have a CERFA number
     const yearDonations = donations.filter(d => d.cerfaNumber && d.cerfaNumber.startsWith(year.toString()));
     const nextId = yearDonations.length + 1;
     const cerfaNumber = `${year}-${nextId.toString().padStart(4, '0')}`;
 
     const donationDocRef = doc(firestore, 'users', user.uid, 'donations', donationId);
-    await updateDoc(donationDocRef, { cerfaNumber: cerfaNumber });
+    
+    // Use non-blocking update to trigger contextual error handling
+    updateDocumentNonBlocking(donationDocRef, { cerfaNumber: cerfaNumber });
     
     toast({ title: 'N° CERFA généré', description: `Le numéro ${cerfaNumber} a été assigné.` });
     return cerfaNumber;
@@ -331,3 +332,5 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
     </>
   );
 }
+
+    
