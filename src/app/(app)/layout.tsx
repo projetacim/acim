@@ -128,14 +128,32 @@ export default function AppLayout({
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild tooltip="CERFA Assistant">
-                <Link href="/cerfa">
-                  <FileText />
-                  <span>CERFA Assistant</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
+            
+            <Collapsible asChild>
+              <SidebarMenuItem>
+                <CollapsibleTrigger asChild>
+                  <SidebarMenuButton tooltip="CERFA">
+                    <FileText />
+                    <span>CERFA</span>
+                    <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]:rotate-180" />
+                  </SidebarMenuButton>
+                </CollapsibleTrigger>
+                <CollapsibleContent asChild>
+                  <SidebarMenuSub>
+                    <li>
+                      <SidebarMenuSubButton asChild>
+                        <Link href="/cerfa">Liste des CERFA</Link>
+                      </SidebarMenuSubButton>
+                    </li>
+                    <li>
+                      <SidebarMenuSubButton asChild>
+                        <Link href="/cerfa/assistant">Assistant CERFA</Link>
+                      </SidebarMenuSubButton>
+                    </li>
+                  </SidebarMenuSub>
+                </CollapsibleContent>
+              </SidebarMenuItem>
+            </Collapsible>
 
             <Collapsible asChild>
               <SidebarMenuItem>
