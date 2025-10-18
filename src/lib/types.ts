@@ -34,6 +34,7 @@ export type Donation = {
   // CERFA specific fields, can be different from member's default info
   cerfaNom?: string;
   cerfaAdresse?: string;
+  cerfaEmail?: string;
 };
 
 export type Transaction = {

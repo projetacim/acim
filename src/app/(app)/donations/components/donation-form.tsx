@@ -59,6 +59,7 @@ const donationSchema = z.object({
   // CERFA specific fields
   cerfaNom: z.string().optional(),
   cerfaAdresse: z.string().optional(),
+  cerfaEmail: z.string().email("Email invalide").optional(),
   cerfaDate: z.date().optional(),
 });
 
@@ -111,6 +112,7 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
       cerfaEligible: true,
       cerfaNom: '',
       cerfaAdresse: '',
+      cerfaEmail: '',
       cerfaDate: new Date(),
     },
   });
@@ -151,6 +153,7 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
               setMember(memberData);
               form.setValue('cerfaNom', existingDonation.cerfaNom || memberData.nom);
               form.setValue('cerfaAdresse', existingDonation.cerfaAdresse || memberData.adresse || '');
+              form.setValue('cerfaEmail', existingDonation.cerfaEmail || memberData.email || '');
             }
 
             form.reset({
@@ -163,6 +166,7 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
               cerfaEligible: existingDonation.cerfaEligible,
               cerfaNom: existingDonation.cerfaNom || member?.nom || '',
               cerfaAdresse: existingDonation.cerfaAdresse || member?.adresse || '',
+              cerfaEmail: existingDonation.cerfaEmail || member?.email || '',
               cerfaDate: existingDonation.cerfaDate ? new Date(existingDonation.cerfaDate) : new Date(),
             });
           }
@@ -182,6 +186,7 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
                   cerfaEligible: true,
                   cerfaNom: memberData.nom,
                   cerfaAdresse: memberData.adresse || '',
+                  cerfaEmail: memberData.email,
                   cerfaDate: new Date(),
               });
             } else {
@@ -498,7 +503,7 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
                     render={({ field }) => (
                         <FormItem>
                         <FormLabel>Mémo</FormLabel>
-                        <FormControl><Textarea placeholder="Informations complémentaires..." {...field} /></FormControl>
+                        <FormControl><Textarea placeholder="Informations complémentaires..." {...field} className="border-black" /></FormControl>
                         <FormMessage />
                         </FormItem>
                     )}
@@ -636,6 +641,17 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
                       <FormItem>
                         <FormLabel>Adresse du Donateur (pour le CERFA)</FormLabel>
                         <FormControl><Textarea {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="cerfaEmail"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email du Donateur (pour envoi)</FormLabel>
+                        <FormControl><Input type="email" {...field} /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
