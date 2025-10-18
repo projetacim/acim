@@ -8,6 +8,8 @@ import { format, subDays } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import Link from 'next/link';
 import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,7 +21,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartStyle } from '@/components/ui/chart';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { CalendarIcon, TrendingUp, Users, DollarSign, PenLine, FileDown } from 'lucide-react';
+import { CalendarIcon, TrendingUp, Users, DollarSign, PenLine, FileDown, FileType } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Transaction, Donation, Member, DonationCategory } from '@/lib/types';
 import { numberToWords } from '@/lib/number-to-words';
@@ -133,10 +135,13 @@ export function BilanView() {
         return acc;
     }, {} as any)
   }, [chartData]);
+
+  const getDateHeader = () => {
+    return `Période du ${dateRange?.from ? format(dateRange.from, 'dd/MM/yyyy') : 'début'} au ${dateRange?.to ? format(dateRange.to, 'dd/MM/yyyy') : 'fin'}`;
+  }
   
   const exportToExcel = () => {
-    // 1. Prepare data
-    const dateHeader = `Période du ${dateRange?.from ? format(dateRange.from, 'dd/MM/yyyy') : 'début'} au ${dateRange?.to ? format(dateRange.to, 'dd/MM/yyyy') : 'fin'}`;
+    const dateHeader = getDateHeader();
 
     const summaryHeader = ['Moyen de Paiement', 'Montant Total'];
     const summaryData = chartData.map(item => [item.name, item.value]);
@@ -152,36 +157,25 @@ export function BilanView() {
       t.memo,
     ]);
 
-    // 2. Create worksheet
     const worksheet = XLSX.utils.aoa_to_sheet([]);
     
-    // 3. Add data to worksheet
     XLSX.utils.sheet_add_aoa(worksheet, [[dateHeader]], { origin: 'A1' });
-    XLSX.utils.sheet_add_aoa(worksheet, [[]], { origin: 'A2' }); // Empty row for spacing
+    XLSX.utils.sheet_add_aoa(worksheet, [[]], { origin: 'A2' });
     
     XLSX.utils.sheet_add_aoa(worksheet, [summaryHeader], { origin: 'A3' });
     XLSX.utils.sheet_add_aoa(worksheet, summaryData, { origin: 'A4' });
     
     const nextRow = 4 + summaryData.length;
-    XLSX.utils.sheet_add_aoa(worksheet, [[]], { origin: `A${nextRow}` }); // Empty row
+    XLSX.utils.sheet_add_aoa(worksheet, [[]], { origin: `A${nextRow}` });
 
     XLSX.utils.sheet_add_aoa(worksheet, [transactionsHeader], { origin: `A${nextRow + 1}` });
     XLSX.utils.sheet_add_aoa(worksheet, transactionsData, { origin: `A${nextRow + 2}` });
 
-    // Auto-fit columns
     const columnWidths = [
-      {wch: 15}, // Date
-      {wch: 25}, // Membre
-      {wch: 15}, // Type
-      {wch: 20}, // Catégorie
-      {wch: 20}, // Moyen de paiement
-      {wch: 15}, // Montant
-      {wch: 40}  // Mémo
+      {wch: 15}, {wch: 25}, {wch: 15}, {wch: 20}, {wch: 20}, {wch: 15}, {wch: 40}
     ];
     worksheet['!cols'] = columnWidths;
 
-
-    // 4. Create workbook and export
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Bilan');
     XLSX.writeFile(workbook, `bilan_transactions_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
@@ -189,6 +183,79 @@ export function BilanView() {
     toast({ title: 'Exportation réussie', description: 'Le fichier Excel a été téléchargé.' });
   };
   
+  const exportToPdf = () => {
+    const doc = new jsPDF();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    let currentY = 20;
+
+    // Titre et Période
+    doc.setFontSize(18);
+    doc.text('Bilan Financier', 14, currentY);
+    currentY += 8;
+    doc.setFontSize(11);
+    doc.setTextColor(100);
+    doc.text(getDateHeader(), 14, currentY);
+    currentY += 15;
+
+    // Cartes de statistiques
+    doc.setDrawColor(230); // light grey for borders
+    const cardWidth = 45;
+    const cardHeight = 20;
+    const cards = [
+        {title: 'Total Revenus', value: stats.total.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})},
+        {title: 'Total Dons', value: stats.dons.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})},
+        {title: 'Total Cotisations', value: stats.cotisations.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})},
+        {title: 'Transactions', value: `+${stats.count}`}
+    ];
+    
+    cards.forEach((card, index) => {
+        const x = 14 + (index * (cardWidth + 5));
+        doc.roundedRect(x, currentY, cardWidth, cardHeight, 3, 3, 'S');
+        doc.setFontSize(10);
+        doc.setTextColor(100);
+        doc.text(card.title, x + 5, currentY + 7);
+        doc.setFontSize(12);
+        doc.setTextColor(0);
+        doc.setFont('helvetica', 'bold');
+        doc.text(card.value, x + 5, currentY + 14);
+        doc.setFont('helvetica', 'normal');
+    });
+    currentY += cardHeight + 15;
+
+
+    // Auto-table pour les moyens de paiement et les transactions
+    (doc as any).autoTable({
+        startY: currentY,
+        head: [['Répartition par moyen de paiement']],
+        body: chartData.map(d => [d.name, d.value.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})]),
+        theme: 'striped',
+        headStyles: { fillColor: [41, 128, 185] },
+        tableWidth: 'auto',
+        columnStyles: { 1: { halign: 'right' } }
+    });
+
+    currentY = (doc as any).autoTable.previous.finalY + 10;
+    
+    (doc as any).autoTable({
+        startY: currentY,
+        head: [['Date', 'Membre', 'Type', 'Catégorie', 'Mémo', 'Montant']],
+        body: filteredTransactions.map(t => [
+            format(new Date(t.date), 'dd/MM/yy'),
+            t.memberName,
+            t.type,
+            t.categoryName,
+            t.memo || '',
+            t.amount.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})
+        ]),
+        theme: 'grid',
+        headStyles: { fillColor: [41, 128, 185] },
+        columnStyles: { 5: { halign: 'right' } }
+    });
+
+    doc.save(`bilan_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+    toast({ title: 'Exportation réussie', description: 'Le fichier PDF a été téléchargé.' });
+  }
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -209,9 +276,13 @@ export function BilanView() {
   return (
     <div className="space-y-6">
        <div className="flex justify-end gap-2">
+         <Button onClick={exportToPdf} variant="outline" disabled={filteredTransactions.length === 0}>
+            <FileType className="mr-2 h-4 w-4" />
+            Exporter en PDF
+         </Button>
          <Button onClick={exportToExcel} variant="outline" disabled={filteredTransactions.length === 0}>
             <FileDown className="mr-2 h-4 w-4" />
-            Exporter
+            Exporter en Excel
          </Button>
          <Popover>
             <PopoverTrigger asChild>
@@ -265,7 +336,7 @@ export function BilanView() {
             <CardTitle className="text-sm font-medium">Total des Dons</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent><div className="text-2xl font-bold">{stats.dons.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})}</div></CardContent>
+          <CardContent><div className="text-2xl font-bold">{stats.dons.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})}</div></-content>
         </Card>
          <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
