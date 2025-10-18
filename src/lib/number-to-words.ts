@@ -48,6 +48,7 @@ function convertHundred(n: number): string {
 
 
 export function numberToWords(num: number): string {
+  if (typeof num !== 'number') return 'zéro';
   if (num === 0) return 'zéro';
 
   const integerPart = Math.floor(num);

@@ -7,7 +7,7 @@ import { DateRange } from 'react-day-picker';
 import { format, subDays } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -17,9 +17,10 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartStyle } from '@/components/ui/chart';
 import { PieChart, Pie, Cell, Tooltip } from 'recharts';
-import { CalendarIcon, TrendingUp, Users, DollarSign } from 'lucide-react';
+import { CalendarIcon, TrendingUp, Users, DollarSign, PenLine } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Transaction } from '@/lib/types';
+import { numberToWords } from '@/lib/number-to-words';
 
 
 const CHART_COLORS = {
@@ -71,6 +72,12 @@ export function BilanView() {
       .sort((a,b) => b.value - a.value);
 
   }, [filteredTransactions]);
+  
+  const totalInWords = useMemo(() => {
+    const words = numberToWords(stats.total);
+    return words.charAt(0).toUpperCase() + words.slice(1);
+  }, [stats.total]);
+
 
   if (isLoading) {
     return (
@@ -220,6 +227,22 @@ export function BilanView() {
           </CardContent>
         </Card>
       </div>
+      <Card>
+        <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+                <PenLine className="h-5 w-5 text-muted-foreground" />
+                Arrêté en lettres
+            </CardTitle>
+            <CardDescription>
+                Total des revenus de la période sélectionnée, en toutes lettres.
+            </CardDescription>
+        </CardHeader>
+        <CardContent>
+            <p className="text-lg font-semibold italic text-primary">
+                {totalInWords} euros.
+            </p>
+        </CardContent>
+      </Card>
     </div>
   );
 }
