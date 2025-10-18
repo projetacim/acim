@@ -1,8 +1,6 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { useFirestore, addDocumentNonBlocking, setDocumentNonBlocking, useUser } from '@/firebase';
 import { collection, doc, getDocs, getDoc } from 'firebase/firestore';
 import type { Donation, Member, DonationCategory, Transaction, Payment } from '@/lib/types';
@@ -29,7 +27,6 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Calendar } from '@/components/ui/calendar';
 import { CalendarIcon, PlusCircle, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -60,14 +57,14 @@ type DonationFormValues = z.infer<typeof donationSchema>;
 
 interface DonationFormProps {
   donationId?: string;
-  memberIdParam?: string;
+  memberIdParam: string;
+  onFormSubmit: () => void;
 }
 
-export function DonationForm({ donationId, memberIdParam }: DonationFormProps) {
+export function DonationForm({ donationId, memberIdParam, onFormSubmit }: DonationFormProps) {
   const firestore = useFirestore();
   const { user } = useUser();
   const { toast } = useToast();
-  const router = useRouter();
 
   const [member, setMember] = useState<Member | null>(null);
   const [categories, setCategories] = useState<DonationCategory[]>([]);
@@ -78,7 +75,7 @@ export function DonationForm({ donationId, memberIdParam }: DonationFormProps) {
   const form = useForm<DonationFormValues>({
     resolver: zodResolver(donationSchema),
     defaultValues: {
-      memberId: '',
+      memberId: memberIdParam,
       type: 'Don',
       donationCategoryId: '',
       totalAmount: 0,
@@ -98,8 +95,6 @@ export function DonationForm({ donationId, memberIdParam }: DonationFormProps) {
       if (!user || !firestore) return;
       setIsLoading(true);
       
-      const memberIdToFetch = isEditMode ? null : memberIdParam;
-
       try {
         const categoriesCollectionRef = collection(firestore, 'donationCategories');
         const categoriesSnapshot = await getDocs(categoriesCollectionRef);
@@ -111,7 +106,6 @@ export function DonationForm({ donationId, memberIdParam }: DonationFormProps) {
           const donationSnap = await getDoc(donationDocRef);
           if (donationSnap.exists()) {
             const existingDonation = donationSnap.data() as Donation;
-            form.setValue('memberId', existingDonation.memberId);
             
             const memberDocRef = doc(firestore, 'users', user.uid, 'membre', existingDonation.memberId);
             const memberSnap = await getDoc(memberDocRef);
@@ -129,13 +123,13 @@ export function DonationForm({ donationId, memberIdParam }: DonationFormProps) {
               cerfaEligible: existingDonation.cerfaEligible,
             });
           }
-        } else if (memberIdToFetch) {
-            const memberDocRef = doc(firestore, 'users', user.uid, 'membre', memberIdToFetch);
+        } else if (memberIdParam) {
+            const memberDocRef = doc(firestore, 'users', user.uid, 'membre', memberIdParam);
             const memberSnap = await getDoc(memberDocRef);
              if(memberSnap.exists()) {
               const memberData = {id: memberSnap.id, ...memberSnap.data()} as Member;
               setMember(memberData);
-              form.reset({
+              form.reset({ // Use reset here to set initial form state
                   memberId: memberData.id,
                   type: 'Don',
                   donationCategoryId: '',
@@ -211,7 +205,7 @@ export function DonationForm({ donationId, memberIdParam }: DonationFormProps) {
     };
 
     try {
-      if (isEditMode) {
+      if (isEditMode && donationId) {
         const donationDocRef = doc(firestore, 'users', user.uid, 'donations', donationId);
         const donationSnap = await getDoc(donationDocRef);
         const existingDonation = donationSnap.data();
@@ -239,7 +233,8 @@ export function DonationForm({ donationId, memberIdParam }: DonationFormProps) {
         
         toast({ title: 'Don ajouté', description: `Un nouveau don/cotisation a été enregistré.` });
       }
-      router.push('/donations');
+      form.reset();
+      onFormSubmit();
     } catch (e: any) {
         console.error("Error saving donation", e);
         toast({ variant: "destructive", title: "Erreur de sauvegarde", description: e.message });
@@ -264,13 +259,10 @@ export function DonationForm({ donationId, memberIdParam }: DonationFormProps) {
   }
 
   return (
-    <Card>
+    <Card className="border-0 shadow-none">
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
-          <CardHeader>
-            <CardTitle>{isEditMode ? 'Modifier le don' : 'Ajouter un don/cotisation'}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className="space-y-6 p-0">
             <FormItem>
               <FormLabel>Membre</FormLabel>
               <FormControl>
@@ -441,9 +433,9 @@ export function DonationForm({ donationId, memberIdParam }: DonationFormProps) {
               )}
             />
           </CardContent>
-          <CardFooter className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" asChild>
-              <Link href="/donations">Annuler</Link>
+          <CardFooter className="flex justify-end gap-2 p-0 pt-6">
+            <Button type="button" variant="ghost" onClick={onFormSubmit}>
+              Annuler
             </Button>
             <Button type="submit" disabled={form.formState.isSubmitting}>
               {form.formState.isSubmitting ? (
