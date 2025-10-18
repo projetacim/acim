@@ -1,3 +1,4 @@
+
 'use server';
 
 import { Resend } from 'resend';
@@ -6,7 +7,8 @@ import type { Donation, Member } from '@/lib/types';
 import { generateCerfaPdf } from '@/lib/pdf';
 import { ReactElement } from 'react';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// The Resend instance will be initialized inside sendEmail.
+let resend: Resend | null = null;
 
 interface SendEmailOptions {
     to: string;
@@ -21,7 +23,12 @@ interface SendEmailOptions {
 async function sendEmail(options: SendEmailOptions) {
     if (!process.env.RESEND_API_KEY) {
         console.warn('RESEND_API_KEY is not set. Skipping email sending.');
-        return { success: false, error: 'API key is missing.' };
+        return { success: false, error: 'La clé API Resend est manquante.' };
+    }
+    
+    // Initialize Resend on first use if it hasn't been already.
+    if (!resend) {
+        resend = new Resend(process.env.RESEND_API_KEY);
     }
     
     try {
