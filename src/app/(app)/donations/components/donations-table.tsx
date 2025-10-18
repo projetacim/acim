@@ -222,6 +222,61 @@ export function DonationsTable() {
         </AlertDialogContent>
       </AlertDialog>
 
+       <Dialog open={isTestDialogOpen} onOpenChange={setIsTestDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Test Combobox Membre</DialogTitle>
+            <DialogDescription>
+              Sélectionnez un membre dans la liste ci-dessous.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={openCombobox}
+                  className="w-full justify-between"
+                >
+                  {selectedTestMember
+                    ? selectedTestMember.nom
+                    : "Sélectionner un membre..."}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                <Command>
+                  <CommandInput placeholder="Rechercher un membre..." />
+                  <CommandList>
+                    <CommandEmpty>Aucun membre trouvé.</CommandEmpty>
+                    <CommandGroup>
+                      {members?.map((member) => (
+                        <CommandItem
+                          key={member.id}
+                          value={member.nom}
+                          onSelect={(currentValue) => {
+                            setSelectedTestMemberId(member.id === selectedTestMemberId ? null : member.id);
+                            setOpenCombobox(false);
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              selectedTestMemberId === member.id ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          {member.nom}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
