@@ -130,7 +130,7 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
       const memberIdToFetch = isEditMode ? null : memberIdParam;
 
       try {
-        const categoriesCollectionRef = collection(firestore, 'users', user.uid, 'donationCategories');
+        const categoriesCollectionRef = collection(firestore, 'donationCategories');
         const categoriesSnapshot = await getDocs(categoriesCollectionRef);
         const categoriesList = categoriesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as DonationCategory[];
         setCategories(categoriesList);
@@ -412,7 +412,7 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
             <CardTitle>{isEditMode ? 'Modifier le don' : 'Ajouter un don/cotisation'}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
               {/* COLONNE GAUCHE */}
               <div className="space-y-6">
                 <FormItem>
@@ -481,7 +481,7 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
 
               {/* COLONNE DROITE */}
               <div className="space-y-6">
-                 <div className="space-y-2 rounded-md bg-muted p-3 text-sm">
+                 <div className="space-y-2 rounded-md bg-muted p-3 text-sm h-full">
                     <h3 className="font-medium mb-3">Résumé</h3>
                     <div className="flex justify-between">
                         <span className="text-muted-foreground">Payé</span>
@@ -496,8 +496,11 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
                         {getStatusBadge(paymentStatus)}
                     </div>
                  </div>
-                
-                 <FormField
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                <FormField
                     control={form.control}
                     name="memo"
                     render={({ field }) => (
@@ -508,19 +511,18 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
                         </FormItem>
                     )}
                 />
-
                 <FormField
                     control={form.control}
                     name="cerfaEligible"
                     render={({ field }) => (
-                        <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-4">
+                        <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-4 h-fit mt-8">
                         <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange}/></FormControl>
                         <div className="space-y-1 leading-none"><FormLabel>Éligible pour un reçu fiscal (CERFA)</FormLabel></div>
                         </FormItem>
                     )}
                 />
-              </div>
             </div>
+
 
             {/* PAIEMENTS - pleine largeur */}
             <div className="pt-4">
@@ -680,3 +682,5 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
     </Card>
   );
 }
+
+    
