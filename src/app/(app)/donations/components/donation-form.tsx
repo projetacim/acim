@@ -51,9 +51,9 @@ const donationSchema = z.object({
   type: z.enum(['Don', 'Cotisation']),
   donationCategoryId: z.string().optional(),
   totalAmount: z.coerce.number().min(0.01, 'Le montant total doit être supérieur à 0.'),
-  payments: z.array(paymentSchema).min(1, "Veuillez ajouter au moins un paiement.").max(3, "Vous ne pouvez pas ajouter plus de 3 paiements."),
-  memo: z.string().min(1, 'Le mémo est obligatoire.'),
-  cerfaEligible: z.boolean().default(true),
+  payments: z.array(paymentSchema).min(1, "Veuillez ajouter au moins un paiement.").max(12, "Vous ne pouvez pas ajouter plus de 12 paiements."),
+  memo: z.string().optional(),
+  cerfaEligible: z.boolean().default(false),
 });
 
 type DonationFormValues = z.infer<typeof donationSchema>;
@@ -90,7 +90,7 @@ export function DonationForm({ donationId }: DonationFormProps) {
       totalAmount: 0,
       payments: [],
       memo: '',
-      cerfaEligible: true,
+      cerfaEligible: false,
     },
   });
   
@@ -141,7 +141,7 @@ export function DonationForm({ donationId }: DonationFormProps) {
         totalAmount: 0,
         payments: [{ amount: 0, date: new Date(), paymentMethod: 'Espèces' }],
         memo: '',
-        cerfaEligible: true,
+        cerfaEligible: false,
       });
     }
   }, [isEditMode, existingDonation, form]);
@@ -165,6 +165,7 @@ export function DonationForm({ donationId }: DonationFormProps) {
     
     const donationData: Omit<Donation, 'id' | 'createdAt'> = {
         ...data,
+        memo: data.memo || '',
         totalAmount: Number(data.totalAmount),
         donationCategoryId: data.type === 'Don' ? data.donationCategoryId : '',
         payments: data.payments.map(p => ({...p, amount: Number(p.amount), date: p.date.toISOString()})),
@@ -220,7 +221,8 @@ export function DonationForm({ donationId }: DonationFormProps) {
     }
   };
 
-  if (isLoadingDonation) {
+  const isLoading = isLoadingMembers || isLoadingDonation || isLoadingCategories;
+  if (isLoading) {
     return <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin"/></div>
   }
 
@@ -228,10 +230,7 @@ export function DonationForm({ donationId }: DonationFormProps) {
     <Card>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
-          <CardHeader>
-            <CardTitle>{isEditMode ? 'Modifier le don' : 'Ajouter un don/cotisation'}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className="space-y-6 pt-6">
             <FormField
               control={form.control}
               name="memberId"
@@ -300,7 +299,7 @@ export function DonationForm({ donationId }: DonationFormProps) {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Type</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
                       <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                       <SelectContent>
                         <SelectItem value="Don">Don</SelectItem>
@@ -318,7 +317,7 @@ export function DonationForm({ donationId }: DonationFormProps) {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Sous-catégorie de don</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
                         <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner une catégorie" /></SelectTrigger></FormControl>
                         <SelectContent>
                           {isLoadingCategories ? <SelectItem value="loading" disabled>Chargement...</SelectItem> : categories?.map(cat => (
@@ -424,7 +423,7 @@ export function DonationForm({ donationId }: DonationFormProps) {
                     </Button>
                   </div>
                 ))}
-                {fields.length < 3 && (
+                {fields.length < 12 && (
                   <Button type="button" variant="outline" size="sm" onClick={() => append({ amount: 0, date: new Date(), paymentMethod: 'Espèces' })}>
                     <PlusCircle className="mr-2 h-4 w-4" /> Ajouter un paiement
                   </Button>
