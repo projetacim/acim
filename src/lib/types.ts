@@ -1,3 +1,4 @@
+
 export type Member = {
   id: string;
   nom: string;
@@ -23,7 +24,7 @@ export type Donation = {
   donationCategoryId?: string;
   totalAmount: number;
   payments: Payment[];
-  paymentStatus: 'EN ATTENTE' | 'Partiel' | 'Payé';
+  paymentStatus: 'EN ATTENTE' | 'Partiel' | 'Payé' | 'Annulé';
   memo: string;
   cerfaEligible: boolean;
   cerfaNumber?: string;

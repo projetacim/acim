@@ -42,19 +42,23 @@ export default function DashboardPage() {
            <MembersTable onMemberSelect={setSelectedMember} selectedMember={selectedMember} onAddDonation={handleAddDonationClick} />
         </CardContent>
       </Card>
+      
+      <Card>
+        <CardHeader>
+          <CardTitle>Dons en attente et partiels</CardTitle>
+          {selectedMember ? 
+            <CardDescription>Vue d'ensemble des dons non soldés pour {selectedMember.nom}. Cliquez sur une ligne pour la modifier.</CardDescription>
+          :
+            <CardDescription>Sélectionnez un membre pour voir ses dons non soldés.</CardDescription>
+          }
+        </CardHeader>
+        <CardContent>
+            <PendingDonationsTable selectedMemberId={selectedMember?.id ?? null} />
+        </CardContent>
+      </Card>
 
       {selectedMember && (
         <div className="flex flex-col gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Dons en attente et partiels</CardTitle>
-              <CardDescription>Vue d'ensemble des dons non soldés pour {selectedMember.nom}.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <PendingDonationsTable selectedMemberId={selectedMember?.id ?? null} />
-            </CardContent>
-          </Card>
-          
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <div className="space-y-1">

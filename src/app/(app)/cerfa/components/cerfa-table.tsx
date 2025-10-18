@@ -16,7 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import type { Donation, Member, DonationCategory } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import { PDFDocument, rgb, StandardFonts, degrees } from 'pdf-lib';
 import { numberToWords } from '@/lib/number-to-words';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
@@ -117,9 +117,23 @@ export function CerfaTable() {
         const templateBytes = await fetch('/cerfa_template.pdf').then(res => res.arrayBuffer());
         const pdfDoc = await PDFDocument.load(templateBytes);
         const page = pdfDoc.getPages()[0];
+        const { width, height } = page.getSize();
 
         const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+        const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
         const textColor = rgb(0, 0, 0);
+
+        if (donation.paymentStatus === 'Annulé') {
+            page.drawText('ANNULÉ', {
+                x: width / 2 - 150,
+                y: height / 2 + 100,
+                font: boldFont,
+                size: 100,
+                color: rgb(1, 0, 0),
+                opacity: 0.2,
+                rotate: degrees(-45),
+            });
+        }
 
         const lastPayment = donation.payments.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
         const paymentDate = new Date(lastPayment.date);
@@ -231,11 +245,11 @@ export function CerfaTable() {
                 </TableRow>
             ))}
             {!isLoading && cerfaDonations.map((donation) => (
-                <TableRow key={donation.id}>
+                <TableRow key={donation.id} className={cn(donation.paymentStatus === 'Annulé' && 'bg-red-50 dark:bg-red-900/20')}>
                     <TableCell>
                         <Button 
                             variant="link" 
-                            className="p-0 h-auto font-medium"
+                            className={cn("p-0 h-auto font-medium", donation.paymentStatus === 'Annulé' && 'text-red-500')}
                             onClick={() => handleCerfaClick(donation)}
                         >
                             {donation.cerfaNumber}

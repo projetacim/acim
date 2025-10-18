@@ -23,15 +23,16 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Pencil, Trash2, XCircle, FileWarning } from 'lucide-react';
 import type { Donation, Member, Payment, DonationCategory } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRouter } from 'next/navigation';
-import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import { PDFDocument, rgb, StandardFonts, degrees } from 'pdf-lib';
 import { numberToWords } from '@/lib/number-to-words';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 
 
 type DonationWithDetails = Donation & { memberName: string; categoryName?: string; };
@@ -72,6 +73,7 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
   const { data: categories, isLoading: isLoadingCategories } = useCollection<DonationCategory>(categoriesCollection);
   
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
+  const [isCancelAlertOpen, setIsCancelAlertOpen] = useState(false);
   const [selectedDonation, setSelectedDonation] = useState<DonationWithDetails | null>(null);
 
   const processedDonations = useMemo(() => {
@@ -146,28 +148,36 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
             }
             const member = memberSnap.data() as Member;
 
-            // Fetch the PDF template
             const templateBytes = await fetch('/cerfa_template.pdf').then(res => res.arrayBuffer());
             const pdfDoc = await PDFDocument.load(templateBytes);
             const page = pdfDoc.getPages()[0];
+            const { width, height } = page.getSize();
 
-            // Set font and color
             const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+            const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
             const textColor = rgb(0, 0, 0);
 
-            // Get payment details
+            if (donation.paymentStatus === 'Annulé') {
+                page.drawText('ANNULÉ', {
+                    x: width / 2 - 150,
+                    y: height / 2 + 100,
+                    font: boldFont,
+                    size: 100,
+                    color: rgb(1, 0, 0),
+                    opacity: 0.2,
+                    rotate: degrees(-45),
+                });
+            }
+
             const lastPayment = donation.payments.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
             const paymentDate = new Date(lastPayment.date);
             const formattedDate = `${paymentDate.getDate().toString().padStart(2, '0')}/${(paymentDate.getMonth() + 1).toString().padStart(2, '0')}/${paymentDate.getFullYear()}`;
 
-            // Create payment methods string
             const paymentMethods = [...new Set(donation.payments.map(p => {
                 if (p.paymentMethod === 'Carte de crédit') return 'CB';
                 return p.paymentMethod;
             }))].join(', ');
 
-
-            // Fill the PDF
             page.drawText(cerfaNumber, { ...cerfaCoordinates.cerfaId, font, size: 10, color: textColor });
             page.drawText(member.nom, { ...cerfaCoordinates.donorName, font, size: 10, color: textColor });
             page.drawText(member.adresse || '', { ...cerfaCoordinates.donorAddress, font, size: 10, color: textColor });
@@ -179,10 +189,8 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
             page.drawText(formattedDate, { ...cerfaCoordinates.signatureDate, font, size: 10, color: textColor });
             page.drawText(formattedDate, { ...cerfaCoordinates.signatureDate2, font, size: 10, color: textColor });
 
-            // Write the payment method string
             page.drawText(paymentMethods, { ...cerfaCoordinates.paymentMethod, font, size: 10, color: textColor });
 
-            // Save and open in a new tab
             const pdfBytes = await pdfDoc.save();
             const blob = new Blob([pdfBytes], { type: 'application/pdf' });
             const url = URL.createObjectURL(blob);
@@ -230,10 +238,32 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
     setSelectedDonation(null);
   };
   
+  const handleCancelDonation = async () => {
+    if (!firestore || !selectedDonation || !user) return;
+    const donationDocRef = doc(firestore, 'users', user.uid, 'donations', selectedDonation.id);
+    try {
+      await updateDocumentNonBlocking(donationDocRef, { paymentStatus: 'Annulé' });
+      toast({
+        title: 'Don annulé',
+        description: `Le don de ${selectedDonation.memberName} a été marqué comme annulé.`,
+      });
+    } catch (error) {
+      console.error("Error canceling donation:", error);
+      toast({ variant: 'destructive', title: 'Erreur', description: "L'annulation du don a échoué." });
+    }
+    setIsCancelAlertOpen(false);
+    setSelectedDonation(null);
+  };
+
   const openDeleteAlert = (donation: DonationWithDetails) => {
     setSelectedDonation(donation);
     setIsDeleteAlertOpen(true);
   }
+  
+  const openCancelAlert = (donation: DonationWithDetails) => {
+    setSelectedDonation(donation);
+    setIsCancelAlertOpen(true);
+  };
   
   const getStatusBadge = (status: Donation['paymentStatus']) => {
     switch (status) {
@@ -243,6 +273,8 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
         return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">Partiel</Badge>;
       case 'EN ATTENTE':
         return <Badge variant="outline">En attente</Badge>;
+      case 'Annulé':
+        return <Badge variant="destructive">Annulé</Badge>;
       default:
         return <Badge variant="secondary">Inconnu</Badge>;
     }
@@ -280,7 +312,7 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
                 </TableRow>
             ))}
             {!isLoading && processedDonations.map((donation) => (
-                <TableRow key={donation.id}>
+                <TableRow key={donation.id} className={cn(donation.paymentStatus === 'Annulé' && 'bg-red-50 dark:bg-red-900/20')}>
                 {!selectedMemberId && <TableCell className="font-medium">{donation.memberName}</TableCell>}
                 <TableCell>
                     <Badge variant={donation.type === 'Don' ? 'secondary' : 'outline'}>{donation.type}</Badge>
@@ -306,9 +338,9 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
                     {donation.cerfaEligible ? (
                         <Button 
                             variant="link" 
-                            className="p-0 h-auto"
+                            className={cn("p-0 h-auto", donation.paymentStatus === 'Annulé' && 'text-red-500')}
                             onClick={() => handleCerfaClick(donation)}
-                            disabled={donation.paymentStatus !== 'Payé' && !donation.cerfaNumber}
+                            disabled={donation.paymentStatus !== 'Payé' && !donation.cerfaNumber && donation.paymentStatus !== 'Annulé'}
                         >
                             {donation.cerfaNumber || (donation.paymentStatus === 'Payé' ? 'Générer' : 'N/A')}
                         </Button>
@@ -318,14 +350,21 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
                 </TableCell>
                 <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-0 md:gap-2">
-                        <Button variant="ghost" size="icon" onClick={() => router.push(`/donations/${donation.id}/edit`)}>
-                        <Pencil className="h-4 w-4" />
-                        <span className="sr-only">Modifier</span>
+                        <Button variant="ghost" size="icon" onClick={() => router.push(`/donations/${donation.id}/edit`)} disabled={donation.paymentStatus === 'Payé' || donation.paymentStatus === 'Annulé'}>
+                          <Pencil className="h-4 w-4" />
+                          <span className="sr-only">Modifier</span>
                         </Button>
-                    <Button variant="ghost" size="icon" onClick={() => openDeleteAlert(donation)} className="text-destructive hover:text-destructive">
-                        <Trash2 className="h-4 w-4" />
-                        <span className="sr-only">Supprimer</span>
-                    </Button>
+                        {donation.cerfaNumber ? (
+                             <Button variant="ghost" size="icon" onClick={() => openCancelAlert(donation)} className="text-destructive hover:text-destructive" disabled={donation.paymentStatus === 'Annulé'}>
+                               <FileWarning className="h-4 w-4" />
+                               <span className="sr-only">Annuler le don</span>
+                            </Button>
+                        ) : (
+                            <Button variant="ghost" size="icon" onClick={() => openDeleteAlert(donation)} className="text-destructive hover:text-destructive" disabled={donation.paymentStatus === 'Annulé'}>
+                                <Trash2 className="h-4 w-4" />
+                                <span className="sr-only">Supprimer</span>
+                            </Button>
+                        )}
                     </div>
                 </TableCell>
                 </TableRow>
@@ -353,6 +392,23 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
             <AlertDialogCancel>Annuler</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
               Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={isCancelAlertOpen} onOpenChange={setIsCancelAlertOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Annuler le don avec CERFA ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Cette action est irréversible. Le don de {selectedDonation?.totalAmount.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})} par {selectedDonation?.memberName} sera marqué comme "Annulé". Le reçu fiscal (CERFA n°{selectedDonation?.cerfaNumber}) sera invalidé.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Retour</AlertDialogCancel>
+            <AlertDialogAction onClick={handleCancelDonation} className="bg-destructive hover:bg-destructive/90">
+              Confirmer l'annulation
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

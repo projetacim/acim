@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -54,6 +55,7 @@ const donationSchema = z.object({
   payments: z.array(paymentSchema).min(1, "Veuillez ajouter au moins un paiement.").max(3, "Vous ne pouvez pas ajouter plus de 3 paiements."),
   memo: z.string().min(1, 'Le mémo est obligatoire.'),
   cerfaEligible: z.boolean().default(true),
+  paymentStatus: z.enum(['EN ATTENTE', 'Partiel', 'Payé', 'Annulé']).optional(),
 });
 
 type DonationFormValues = z.infer<typeof donationSchema>;
@@ -254,6 +256,8 @@ export function DonationForm({ donationId, memberIdParam }: DonationFormProps) {
         return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">Partiel</Badge>;
       case 'EN ATTENTE':
         return <Badge variant="outline">En attente</Badge>;
+       case 'Annulé':
+        return <Badge variant="destructive">Annulé</Badge>;
       default:
         return <Badge variant="secondary">Inconnu</Badge>;
     }
