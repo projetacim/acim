@@ -54,13 +54,13 @@ const donationSchema = z.object({
   donationCategoryId: z.string().optional(),
   totalAmount: z.coerce.number().min(0.01, 'Le montant total doit être supérieur à 0.'),
   payments: z.array(paymentSchema).min(1, "Veuillez ajouter au moins un paiement.").max(3, "Vous ne pouvez pas ajouter plus de 3 paiements."),
-  memo: z.string().min(1, 'Le mémo est obligatoire.'),
+  memo: z.string().optional(),
   cerfaEligible: z.boolean().default(true),
   paymentStatus: z.enum(['EN ATTENTE', 'Partiel', 'Payé', 'Annulé']).optional(),
   // CERFA specific fields
   cerfaNom: z.string().optional(),
   cerfaAdresse: z.string().optional(),
-  cerfaEmail: z.string().email("Email invalide").optional(),
+  cerfaEmail: z.string().email("Email invalide").optional().or(z.literal('')),
   cerfaDate: z.date().optional(),
 });
 
@@ -130,7 +130,6 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
           if (donationSnap.exists()) {
             const existingDonation = { ...donationSnap.data(), id: donationSnap.id } as Donation;
             setCurrentDonation(existingDonation);
-            form.setValue('memberId', existingDonation.memberId);
             
             const memberDocRef = doc(firestore, 'users', user.uid, 'membre', existingDonation.memberId);
             const memberSnap = await getDoc(memberDocRef);
@@ -256,6 +255,7 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
         payments: data.payments.map(p => ({...p, amount: Number(p.amount), date: p.date.toISOString()})),
         paymentStatus: finalPaymentStatus,
         cerfaDate: data.cerfaDate?.toISOString(),
+        cerfaEmail: data.cerfaEmail || '',
     };
     
     let emailSent = false;
@@ -553,7 +553,7 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
             </div>
 
             {/* Section Informations CERFA */}
-            {watchCerfaEligible && (
+            {watchCerfaEligible && paymentStatus === 'Payé' && (
               <div className="space-y-2">
                 <h3 className="font-medium text-primary">Informations pour le CERFA</h3>
                 <div className="space-y-4 rounded-md border border-dashed border-primary/50 bg-primary/5 p-4">
