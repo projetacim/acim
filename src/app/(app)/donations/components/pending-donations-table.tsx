@@ -64,6 +64,11 @@ export function PendingDonationsTable({ selectedMemberId, onEditDonation }: Pend
   const { user } = useUser();
   const { toast } = useToast();
   
+  const getPaidAmount = (payments: Payment[] | undefined) => {
+      if(!payments) return 0;
+      return payments.reduce((acc, p) => acc + p.amount, 0);
+  }
+
   const pendingDonations = useMemo(() => {
     if (!donations || !members || !selectedMemberId || !categories) return [];
     
@@ -76,16 +81,21 @@ export function PendingDonationsTable({ selectedMemberId, onEditDonation }: Pend
         ...d,
         memberName: memberMap.get(d.memberId)?.nom || 'Membre inconnu',
         member: memberMap.get(d.memberId),
-        categoryName: d.donationCategoryId ? categoryMap.get(d.donationCategoryId) : ''
+        categoryName: d.donationCategoryId ? categoryMap.get(d.donationCategoryId) : '',
+        remainingAmount: d.totalAmount - getPaidAmount(d.payments),
       }))
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   }, [donations, members, categories, selectedMemberId]);
   
-  const getPaidAmount = (payments: Payment[] | undefined) => {
-      if(!payments) return 0;
-      return payments.reduce((acc, p) => acc + p.amount, 0);
-  }
+  const totalSelectedAmount = useMemo(() => {
+    if (selectedDonations.length === 0) return 0;
+    return selectedDonations.reduce((total, donationId) => {
+      const donation = pendingDonations.find(d => d.id === donationId);
+      return total + (donation?.remainingAmount || 0);
+    }, 0);
+  }, [selectedDonations, pendingDonations]);
+
   
   const getStatusBadge = (status: Donation['paymentStatus']) => {
     switch (status) {
@@ -137,18 +147,10 @@ export function PendingDonationsTable({ selectedMemberId, onEditDonation }: Pend
 
     for (const donationId of selectedDonations) {
       const donation = pendingDonations.find(d => d.id === donationId);
-      if (!donation) continue;
-
-      const paidAmount = getPaidAmount(donation.payments);
-      const remainingAmount = donation.totalAmount - paidAmount;
-
-      if (remainingAmount <= 0) {
-        successCount++;
-        continue;
-      }
+      if (!donation || donation.remainingAmount <= 0) continue;
       
       const newPayment: Payment = {
-        amount: remainingAmount,
+        amount: donation.remainingAmount,
         date: paymentDate.toISOString(),
         paymentMethod: paymentMethod,
       };
@@ -218,13 +220,20 @@ export function PendingDonationsTable({ selectedMemberId, onEditDonation }: Pend
 
   return (
     <>
+      <div className="flex justify-end mb-4">
+        {selectedDonations.length > 0 && (
+            <Button onClick={() => setIsPaymentDialogOpen(true)}>
+                Encaisser la sélection ({selectedDonations.length} / {totalSelectedAmount.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})})
+            </Button>
+        )}
+      </div>
       <div className="w-full rounded-md border">
           <Table>
               <TableHeader>
               <TableRow>
                   <TableHead className="w-[50px]">
                     <Checkbox
-                      checked={selectedDonations.length > 0 && selectedDonations.length === pendingDonations.length}
+                      checked={pendingDonations.length > 0 && selectedDonations.length === pendingDonations.length}
                       onCheckedChange={(checked) => {
                         if (checked) {
                           setSelectedDonations(pendingDonations.map(d => d.id));
@@ -232,6 +241,7 @@ export function PendingDonationsTable({ selectedMemberId, onEditDonation }: Pend
                           setSelectedDonations([]);
                         }
                       }}
+                      aria-label="Tout sélectionner"
                     />
                   </TableHead>
                   <TableHead>Type</TableHead>
@@ -266,6 +276,7 @@ export function PendingDonationsTable({ selectedMemberId, onEditDonation }: Pend
                           checked={selectedDonations.includes(donation.id)}
                           onCheckedChange={() => handleSelectDonation(donation.id)}
                           onClick={(e) => e.stopPropagation()}
+                          aria-label={`Sélectionner le don de ${donation.totalAmount}€`}
                         />
                       </TableCell>
                       <TableCell onClick={() => onEditDonation(donation.id)} className="cursor-pointer">
@@ -274,7 +285,7 @@ export function PendingDonationsTable({ selectedMemberId, onEditDonation }: Pend
                       <TableCell onClick={() => onEditDonation(donation.id)} className="cursor-pointer">{donation.categoryName}</TableCell>
                       <TableCell onClick={() => onEditDonation(donation.id)} className="cursor-pointer text-muted-foreground truncate max-w-xs hidden sm:table-cell">{donation.memo}</TableCell>
                       <TableCell onClick={() => onEditDonation(donation.id)} className="cursor-pointer text-right">{donation.totalAmount.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})}</TableCell>
-                      <TableCell onClick={() => onEditDonation(donation.id)} className="cursor-pointer text-right text-destructive font-medium">{(donation.totalAmount - getPaidAmount(donation.payments)).toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})}</TableCell>
+                      <TableCell onClick={() => onEditDonation(donation.id)} className="cursor-pointer text-right text-destructive font-medium">{donation.remainingAmount.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})}</TableCell>
                       <TableCell onClick={() => onEditDonation(donation.id)} className="cursor-pointer">{getStatusBadge(donation.paymentStatus)}</TableCell>
                       <TableCell onClick={() => onEditDonation(donation.id)} className="cursor-pointer hidden md:table-cell">{new Date(donation.createdAt).toLocaleDateString('fr-FR')}</TableCell>
                   </TableRow>
@@ -289,20 +300,13 @@ export function PendingDonationsTable({ selectedMemberId, onEditDonation }: Pend
               </TableBody>
           </Table>
       </div>
-      {selectedDonations.length > 0 && (
-        <div className="flex justify-end mt-4">
-            <Button onClick={() => setIsPaymentDialogOpen(true)}>
-                Encaisser la sélection ({selectedDonations.length})
-            </Button>
-        </div>
-      )}
 
       <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
           <DialogContent>
               <DialogHeader>
                   <DialogTitle>Confirmer l'encaissement</DialogTitle>
                   <DialogDescription>
-                    Vous êtes sur le point de solder {selectedDonations.length} don(s). Choisissez la méthode et la date de paiement.
+                    Vous êtes sur le point de solder {selectedDonations.length} don(s) pour un total de {totalSelectedAmount.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})}. Choisissez la méthode et la date de paiement.
                   </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
