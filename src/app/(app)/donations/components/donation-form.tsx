@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useFirestore, addDocumentNonBlocking, setDocumentNonBlocking, useUser } from '@/firebase';
-import { collection, doc, getDocs, getDoc } from 'firebase/firestore';
-import type { Donation, Member, DonationCategory, Transaction, Payment } from '@/lib/types';
+import { collection, doc, getDocs, getDoc, updateDoc, query, where } from 'firebase/firestore';
+import type { Donation, Member, DonationCategory, Transaction } from '@/lib/types';
 import { useForm, useFieldArray, type SubmitHandler, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -179,6 +179,24 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
   }, [paidAmount, watchTotalAmount]);
 
 
+  const generateCerfaNumber = async (donationId: string) => {
+    if (!firestore || !user) return null;
+
+    const year = new Date().getFullYear();
+    const donationsRef = collection(firestore, 'users', user.uid, 'donations');
+    const q = query(donationsRef, where("cerfaNumber", ">=", `${year}-0000`), where("cerfaNumber", "<", `${year+1}-0000`));
+    
+    const querySnapshot = await getDocs(q);
+    const nextId = querySnapshot.docs.length + 1;
+    const cerfaNumber = `${year}-${nextId.toString().padStart(4, '0')}`;
+
+    const donationDocRef = doc(firestore, 'users', user.uid, 'donations', donationId);
+    await updateDoc(donationDocRef, { cerfaNumber: cerfaNumber });
+    
+    toast({ title: 'N° CERFA généré', description: `Le numéro ${cerfaNumber} a été assigné.` });
+    return cerfaNumber;
+  };
+
   const onSubmit: SubmitHandler<DonationFormValues> = async (data) => {
     if (!firestore || !user) {
       toast({ variant: "destructive", title: "Erreur", description: "Utilisateur ou base de données non disponible." });
@@ -196,38 +214,51 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
         finalPaymentStatus = 'Payé';
     }
     
-    const donationData: Omit<Donation, 'id' | 'createdAt'> = {
+    let donationData: Omit<Donation, 'id' | 'createdAt'> = {
         ...data,
         totalAmount: Number(data.totalAmount),
         donationCategoryId: data.type === 'Don' ? data.donationCategoryId : '',
         payments: (data.payments || []).map(p => ({...p, amount: Number(p.amount), date: p.date.toISOString()})),
         paymentStatus: finalPaymentStatus,
     };
-
+    
     try {
       if (isEditMode && donationId) {
         const donationDocRef = doc(firestore, 'users', user.uid, 'donations', donationId);
         const donationSnap = await getDoc(donationDocRef);
-        const existingDonation = donationSnap.data();
+        const existingDonation = donationSnap.data() as Donation;
+
         await setDocumentNonBlocking(donationDocRef, { ...donationData, createdAt: existingDonation?.createdAt }, { merge: true });
+        
+        if (finalPaymentStatus === 'Payé' && !existingDonation.cerfaNumber && donationData.cerfaEligible) {
+            await generateCerfaNumber(donationId);
+        }
+
         toast({ title: 'Don mis à jour' });
       } else {
         const collectionRef = collection(firestore, 'users', user.uid, 'donations');
-        const newDocRef = await addDocumentNonBlocking(collectionRef, { ...donationData, createdAt: new Date().toISOString() });
+        const newDocData = { ...donationData, createdAt: new Date().toISOString() };
+        const newDocRef = await addDocumentNonBlocking(collectionRef, newDocData);
         
-        if (newDocRef && donationData.payments.length > 0) {
-            const transactionData: Omit<Transaction, 'id' | 'createdAt'>[] = (data.payments || []).map(p => ({
-              type: donationData.type,
-              relatedId: newDocRef.id,
-              amount: Number(p.amount),
-              date: p.date.toISOString(),
-              paymentMethod: p.paymentMethod,
-              memo: donationData.memo
-            }));
-            
-            const transactionRef = collection(firestore, 'users', user.uid, 'transactions');
-            for(const trans of transactionData){
-                 await addDocumentNonBlocking(transactionRef, {...trans, createdAt: new Date().toISOString()});
+        if (newDocRef) {
+             if (newDocData.paymentStatus === 'Payé' && newDocData.cerfaEligible) {
+                await generateCerfaNumber(newDocRef.id);
+            }
+
+            if (newDocData.payments.length > 0) {
+                const transactionData: Omit<Transaction, 'id' | 'createdAt'>[] = (data.payments || []).map(p => ({
+                  type: donationData.type,
+                  relatedId: newDocRef.id,
+                  amount: Number(p.amount),
+                  date: p.date.toISOString(),
+                  paymentMethod: p.paymentMethod,
+                  memo: donationData.memo
+                }));
+                
+                const transactionRef = collection(firestore, 'users', user.uid, 'transactions');
+                for(const trans of transactionData){
+                     await addDocumentNonBlocking(transactionRef, {...trans, createdAt: new Date().toISOString()});
+                }
             }
         }
         

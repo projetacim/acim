@@ -1,9 +1,8 @@
 
 'use client';
 import { useState, useMemo, useEffect } from 'react';
-import Link from 'next/link';
 import { useFirestore, useCollection, useMemoFirebase, deleteDocumentNonBlocking, useUser } from '@/firebase';
-import { collection, doc, getDocs, query, where } from 'firebase/firestore';
+import { collection, doc, getDocs, query, where, updateDoc } from 'firebase/firestore';
 import {
   Table,
   TableBody,
@@ -24,11 +23,12 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Pencil, Trash2, CheckCircle, XCircle } from 'lucide-react';
+import { Pencil, Trash2 } from 'lucide-react';
 import type { Donation, Member, Payment } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRouter } from 'next/navigation';
+import jsPDF from 'jspdf';
 
 type DonationWithMemberName = Donation & { memberName: string };
 
@@ -73,7 +73,45 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
       if(!payments) return 0;
       return payments.reduce((acc, p) => acc + p.amount, 0);
   }
+
+  const generateCerfaNumber = async (donationId: string) => {
+    if (!firestore || !user || !donations) return;
+    
+    const year = new Date().getFullYear();
+    // Filter donations for the current year that already have a CERFA number
+    const yearDonations = donations.filter(d => d.cerfaNumber && d.cerfaNumber.startsWith(year.toString()));
+    const nextId = yearDonations.length + 1;
+    const cerfaNumber = `${year}-${nextId.toString().padStart(4, '0')}`;
+
+    const donationDocRef = doc(firestore, 'users', user.uid, 'donations', donationId);
+    await updateDoc(donationDocRef, { cerfaNumber: cerfaNumber });
+    
+    toast({ title: 'N° CERFA généré', description: `Le numéro ${cerfaNumber} a été assigné.` });
+    return cerfaNumber;
+  };
   
+  const handleCerfaClick = async (donation: DonationWithMemberName) => {
+    if (!donation.cerfaEligible) return;
+
+    let cerfaNumber = donation.cerfaNumber;
+    if (!cerfaNumber && donation.paymentStatus === 'Payé') {
+        cerfaNumber = await generateCerfaNumber(donation.id);
+    }
+    
+    if (cerfaNumber) {
+        // Placeholder for PDF generation
+        console.log(`Generating PDF for CERFA ${cerfaNumber}`);
+        const doc = new jsPDF();
+        doc.text(`Reçu fiscal CERFA N°: ${cerfaNumber}`, 10, 10);
+        doc.text(`Donateur: ${donation.memberName}`, 10, 20);
+        doc.text(`Montant: ${donation.totalAmount.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})}`, 10, 30);
+        doc.save(`cerfa-${cerfaNumber}.pdf`);
+    } else {
+        toast({ variant: 'destructive', title: 'Action impossible', description: 'Le don doit être entièrement payé pour générer un CERFA.' });
+    }
+  };
+
+
   const handleDelete = async () => {
     if (!firestore || !selectedDonation || !user) return;
     const donationDocRef = doc(firestore, 'users', user.uid, 'donations', selectedDonation.id);
@@ -138,7 +176,7 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
                 <TableHead className="text-right">Montant Payé</TableHead>
                 <TableHead>Statut Paiement</TableHead>
                 <TableHead>Date</TableHead>
-                <TableHead>Éligible CERFA</TableHead>
+                <TableHead>N° CERFA</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
             </TableRow>
             </TableHeader>
@@ -151,7 +189,7 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
                 <TableCell className="text-right"><Skeleton className="h-4 w-16" /></TableCell>
                 <TableCell><Skeleton className="h-6 w-24 rounded-full" /></TableCell>
                 <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                <TableCell><Skeleton className="h-6 w-6 rounded-full" /></TableCell>
+                <TableCell><Skeleton className="h-6 w-24" /></TableCell>
                 <TableCell className="text-right"><Skeleton className="h-8 w-20" /></TableCell>
                 </TableRow>
             ))}
@@ -166,9 +204,18 @@ export function DonationsTable({ selectedMemberId }: DonationsTableProps) {
                 <TableCell>{getStatusBadge(donation.paymentStatus)}</TableCell>
                 <TableCell>{new Date(donation.createdAt).toLocaleDateString('fr-FR')}</TableCell>
                 <TableCell>
-                    {donation.cerfaEligible 
-                        ? <CheckCircle className="h-5 w-5 text-green-500" /> 
-                        : <XCircle className="h-5 w-5 text-muted-foreground" />}
+                    {donation.cerfaEligible ? (
+                        <Button 
+                            variant="link" 
+                            className="p-0 h-auto"
+                            onClick={() => handleCerfaClick(donation)}
+                            disabled={donation.paymentStatus !== 'Payé' && !donation.cerfaNumber}
+                        >
+                            {donation.cerfaNumber || (donation.paymentStatus === 'Payé' ? 'Générer' : 'N/A')}
+                        </Button>
+                    ) : (
+                        <span className="text-muted-foreground">Non éligible</span>
+                    )}
                 </TableCell>
                 <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">

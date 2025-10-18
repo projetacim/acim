@@ -8,7 +8,6 @@ export type Member = {
   memo?: string;
   membershipStatus: 'Active' | 'Inactive' | 'Pending';
   joinDate: string;
-  avatarUrl: string;
 };
 
 export type Payment = {
@@ -27,6 +26,7 @@ export type Donation = {
   paymentStatus: 'EN ATTENTE' | 'Partiel' | 'Payé';
   memo: string;
   cerfaEligible: boolean;
+  cerfaNumber?: string;
   createdAt: string;
 };
 

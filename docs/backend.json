@@ -80,6 +80,7 @@
         "paymentStatus": { "type": "string", "enum": ["EN ATTENTE", "Partiel", "Payé"] },
         "memo": { "type": "string" },
         "cerfaEligible": { "type": "boolean" },
+        "cerfaNumber": { "type": "string", "description": "The unique sequential number for the generated CERFA document." },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": [
