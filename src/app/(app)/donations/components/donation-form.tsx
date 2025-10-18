@@ -128,10 +128,13 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
       const memberIdToFetch = isEditMode ? null : memberIdParam;
 
       try {
-        const categoriesCollectionRef = collection(firestore, 'donationCategories');
+        const categoriesCollectionRef = collection(firestore, 'users', user.uid, 'donationCategories');
         const categoriesSnapshot = await getDocs(categoriesCollectionRef);
         const categoriesList = categoriesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as DonationCategory[];
         setCategories(categoriesList);
+
+        const benZakaiCategory = categoriesList.find(cat => cat.name.toUpperCase() === 'BEN ZAKAI');
+        const defaultCategoryId = benZakaiCategory ? benZakaiCategory.id : '';
 
         if (isEditMode && donationId) {
           const donationDocRef = doc(firestore, 'users', user.uid, 'donations', donationId);
@@ -172,9 +175,9 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
               form.reset({
                   memberId: memberData.id,
                   type: 'Don',
-                  donationCategoryId: '',
+                  donationCategoryId: defaultCategoryId,
                   totalAmount: 0,
-                  payments: [{ amount: 0, date: new Date(), paymentMethod: 'Espèces' }],
+                  payments: [{ amount: 0, date: new Date(), paymentMethod: 'Carte de crédit' }],
                   memo: '',
                   cerfaEligible: true,
                   cerfaNom: memberData.nom,
@@ -283,7 +286,7 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
         toast({ title: 'Don mis à jour' });
       } else {
         const collectionRef = collection(firestore, 'users', user.uid, 'donations');
-        const donationToSave = { ...donationData, createdAt: new Date().toISOString() };
+        const donationToSave: Partial<Donation> & { createdAt: string } = { ...donationData, createdAt: new Date().toISOString() };
 
         if(finalPaymentStatus === 'Payé' && data.cerfaEligible) {
             const newCerfaNumber = await generateCerfaNumber();
@@ -442,7 +445,7 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Sous-catégorie de don</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl><SelectTrigger><SelectValue placeholder="Sélectionner une catégorie" /></SelectTrigger></FormControl>
                           <SelectContent>
                             {isLoading ? <SelectItem value="loading" disabled>Chargement...</SelectItem> : categories?.map(cat => (
@@ -463,7 +466,7 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
                     <FormItem>
                       <FormLabel>Montant Total du Don (€)</FormLabel>
                       <FormControl>
-                        <Input type="number" step="0.01" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || 0)} />
+                        <Input type="number" step="0.01" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || 0)} className="border-black" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -526,7 +529,7 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Montant (€)</FormLabel>
-                          <FormControl><Input type="number" step="0.01" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || 0)} /></FormControl>
+                          <FormControl><Input type="number" step="0.01" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || 0)} className="border-black" /></FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -540,10 +543,10 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
                           <Select onValueChange={field.onChange} defaultValue={field.value}>
                             <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                             <SelectContent>
-                              <SelectItem value="Espèces">Espèces</SelectItem>
-                              <SelectItem value="Chèque">Chèque</SelectItem>
                               <SelectItem value="Carte de crédit">Carte de crédit</SelectItem>
                               <SelectItem value="Virement bancaire">Virement bancaire</SelectItem>
+                              <SelectItem value="Espèces">Espèces</SelectItem>
+                              <SelectItem value="Chèque">Chèque</SelectItem>
                             </SelectContent>
                           </Select>
                           <FormMessage />
@@ -579,7 +582,7 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
                   </div>
                 ))}
                 {fields.length < 3 && (
-                  <Button type="button" variant="outline" size="sm" onClick={() => append({ amount: 0, date: new Date(), paymentMethod: 'Espèces' })}>
+                  <Button type="button" variant="outline" size="sm" onClick={() => append({ amount: 0, date: new Date(), paymentMethod: 'Carte de crédit' })}>
                     <PlusCircle className="mr-2 h-4 w-4" /> Ajouter un paiement
                   </Button>
                 )}
@@ -661,5 +664,3 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
     </Card>
   );
 }
-
-    
