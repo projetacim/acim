@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Pencil, Trash2, CheckCircle, XCircle, Search, ListFilter } from 'lucide-react';
+import { Pencil, Trash2, CheckCircle, XCircle, Search, ListFilter, PlusCircle } from 'lucide-react';
 import type { Donation, Member, Payment } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -143,7 +143,7 @@ export default function DonationsPage() {
       <div className="space-y-1 mb-6">
         <h1 className="text-3xl font-bold tracking-tight">Gestion des Dons et Cotisations</h1>
         <p className="text-muted-foreground">
-          Enregistrez, modifiez et suivez tous les dons et cotisations. Pour ajouter un don, allez sur la page des membres.
+          Consultez, modifiez et suivez tous les dons. Pour ajouter un don, commencez par sélectionner un membre sur la page des membres.
         </p>
       </div>
 
@@ -198,6 +198,12 @@ export default function DonationsPage() {
                   </div>
                 </PopoverContent>
               </Popover>
+               <Button asChild>
+                <Link href="/members">
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Ajouter un don
+                </Link>
+              </Button>
             </div>
           </div>
         </CardHeader>
