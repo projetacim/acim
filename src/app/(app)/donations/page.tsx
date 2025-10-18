@@ -1,6 +1,5 @@
 'use client';
-import { useState, useMemo, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useFirestore, useCollection, useMemoFirebase, deleteDocumentNonBlocking, useUser } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
@@ -24,11 +23,16 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Pencil, Trash2, CheckCircle, XCircle } from 'lucide-react';
+import { Pencil, Trash2, CheckCircle, XCircle, Search, ListFilter } from 'lucide-react';
 import type { Donation, Member, Payment } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+
 
 type DonationWithMemberName = Donation & { memberName: string };
 
@@ -45,6 +49,10 @@ export default function DonationsPage() {
   
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [selectedDonation, setSelectedDonation] = useState<DonationWithMemberName | null>(null);
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [typeFilters, setTypeFilters] = useState<string[]>([]);
+  const [statusFilters, setStatusFilters] = useState<string[]>([]);
   
   const donationsWithMemberNames = useMemo(() => {
     if (!donations || !members) return [];
@@ -52,8 +60,22 @@ export default function DonationsPage() {
     return donations.map(d => ({
       ...d,
       memberName: memberMap.get(d.memberId) || 'Membre inconnu'
-    })).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [donations, members]);
+    }))
+    .filter(donation => {
+        // Filter by search query (member name)
+        const searchLower = searchQuery.toLowerCase();
+        const memberNameMatch = donation.memberName.toLowerCase().includes(searchLower);
+
+        // Filter by type
+        const typeMatch = typeFilters.length === 0 || typeFilters.includes(donation.type);
+        
+        // Filter by status
+        const statusMatch = statusFilters.length === 0 || statusFilters.includes(donation.paymentStatus);
+
+        return memberNameMatch && typeMatch && statusMatch;
+    })
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [donations, members, searchQuery, typeFilters, statusFilters]);
   
   const getPaidAmount = (payments: Payment[]) => {
       if(!payments) return 0;
@@ -101,6 +123,19 @@ export default function DonationsPage() {
     }
   };
 
+  const handleTypeFilterChange = (type: string) => {
+    setTypeFilters(prev => 
+      prev.includes(type) ? prev.filter(s => s !== type) : [...prev, type]
+    );
+  };
+
+  const handleStatusFilterChange = (status: string) => {
+    setStatusFilters(prev => 
+      prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]
+    );
+  };
+
+  const activeFiltersCount = typeFilters.length + statusFilters.length;
   const isLoading = isLoadingMembers || isLoadingDonations;
 
   return (
@@ -114,8 +149,57 @@ export default function DonationsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Historique des dons et cotisations</CardTitle>
-          <CardDescription>Liste de tous les dons et cotisations enregistrés.</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Historique des dons et cotisations</CardTitle>
+              <CardDescription>Liste de tous les dons et cotisations enregistrés.</CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="relative w-full max-w-sm">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Rechercher par membre..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="gap-2">
+                    <ListFilter className="h-4 w-4" />
+                    Filtres
+                    {activeFiltersCount > 0 && <span className="ml-1 h-5 w-5 flex items-center justify-center rounded-full bg-primary text-primary-foreground text-xs">{activeFiltersCount}</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56 p-3">
+                  <div className="space-y-4">
+                    <h4 className="font-medium leading-none">Type</h4>
+                    <div className="grid gap-2">
+                      <Label className="flex items-center gap-2 font-normal">
+                        <Checkbox checked={typeFilters.includes('Don')} onCheckedChange={() => handleTypeFilterChange('Don')} />Don
+                      </Label>
+                      <Label className="flex items-center gap-2 font-normal">
+                        <Checkbox checked={typeFilters.includes('Cotisation')} onCheckedChange={() => handleTypeFilterChange('Cotisation')} />Cotisation
+                      </Label>
+                    </div>
+                     <h4 className="font-medium leading-none">Statut</h4>
+                    <div className="grid gap-2">
+                      <Label className="flex items-center gap-2 font-normal">
+                        <Checkbox checked={statusFilters.includes('Payé')} onCheckedChange={() => handleStatusFilterChange('Payé')} />Payé
+                      </Label>
+                      <Label className="flex items-center gap-2 font-normal">
+                        <Checkbox checked={statusFilters.includes('Partiel')} onCheckedChange={() => handleStatusFilterChange('Partiel')} />Partiel
+                      </Label>
+                      <Label className="flex items-center gap-2 font-normal">
+                        <Checkbox checked={statusFilters.includes('EN ATTENTE')} onCheckedChange={() => handleStatusFilterChange('EN ATTENTE')} />En attente
+                      </Label>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
