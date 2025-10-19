@@ -85,7 +85,7 @@ export function RelanceView() {
         donationsToProcess = donationsToProcess.filter(d => new Date(d.referenceDate) < cutoffDate);
     }
     
-    return donationsToProcess;
+    return donationsToProcess.sort((a, b) => new Date(a.referenceDate).getTime() - new Date(b.referenceDate).getTime());
   }, [donations, members, ageFilter]);
   
   const selectableDonations = useMemo(() => {
@@ -107,6 +107,17 @@ export function RelanceView() {
           setSelectedDonationIds([]);
       }
   }
+
+  const handleToggleNoRelance = (donationId: string, currentValue: boolean) => {
+    if (!firestore || !user) {
+        toast({ variant: "destructive", title: "Erreur", description: "Impossible de sauvegarder la modification." });
+        return;
+    }
+    const donationDocRef = doc(firestore, 'users', user.uid, 'donations', donationId);
+    updateDocumentNonBlocking(donationDocRef, { ne_pas_relancer: !currentValue });
+    toast({ title: "Mise à jour", description: `Le statut de relance a été modifié.` });
+  };
+
 
   const handleSendReminders = async () => {
     if (selectedDonationIds.length === 0 || !firestore || !user) return;
@@ -238,7 +249,7 @@ export function RelanceView() {
                 ))
               ) : pendingDonations.length > 0 ? (
                 pendingDonations.map(donation => (
-                  <TableRow key={donation.id} className={donation.ne_pas_relancer ? 'bg-orange-50 dark:bg-orange-900/20' : ''}>
+                  <TableRow key={donation.id} data-state={selectedDonationIds.includes(donation.id) && 'selected'}>
                     <TableCell>
                       <Checkbox
                         checked={selectedDonationIds.includes(donation.id)}
@@ -278,16 +289,20 @@ export function RelanceView() {
                         ) : <Badge variant="outline">0</Badge>}
                     </TableCell>
                     <TableCell className="text-center">
-                        {donation.ne_pas_relancer && (
-                            <Tooltip>
-                                <TooltipTrigger>
-                                     <ShieldAlert className="h-5 w-5 text-orange-600"/>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>Ce don est exclu des relances automatiques.</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        )}
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <div>
+                                    <Checkbox
+                                        checked={donation.ne_pas_relancer}
+                                        onCheckedChange={() => handleToggleNoRelance(donation.id, donation.ne_pas_relancer || false)}
+                                        aria-label="Ne pas relancer"
+                                    />
+                                </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>Cochez pour exclure ce don des relances.</p>
+                            </TooltipContent>
+                        </Tooltip>
                     </TableCell>
                     <TableCell className="text-right">{donation.totalAmount.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</TableCell>
                     <TableCell className="text-right font-bold text-destructive">{donation.remainingAmount.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</TableCell>
