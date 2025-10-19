@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -42,7 +43,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 
 
 const paymentSchema = z.object({
-  amount: z.coerce.number().min(0.01, "Le montant doit être positif.").default(0),
+  amount: z.coerce.number().min(0, "Le montant ne peut être négatif.").default(0),
   date: z.date({ required_error: "La date est requise." }),
   paymentMethod: z.enum(['Carte de crédit', 'Virement bancaire', 'Espèces', 'Chèque']),
 });
@@ -52,8 +53,8 @@ const donationSchema = z.object({
   type: z.enum(['Don', 'Cotisation']),
   donationCategoryId: z.string().optional(),
   totalAmount: z.coerce.number().min(0.01, 'Le montant total doit être supérieur à 0.'),
-  payments: z.array(paymentSchema).min(1, "Veuillez ajouter au moins un paiement.").max(3, "Vous ne pouvez pas ajouter plus de 3 paiements."),
-  memo: z.string().min(1, 'Le mémo est obligatoire.'),
+  payments: z.array(paymentSchema).max(3, "Vous ne pouvez pas ajouter plus de 3 paiements."),
+  memo: z.string().optional(),
   cerfaEligible: z.boolean().default(true),
   paymentStatus: z.enum(['EN ATTENTE', 'Partiel', 'Payé', 'Annulé']).optional(),
 });
@@ -193,23 +194,15 @@ export function DonationForm({ donationId, memberIdParam }: DonationFormProps) {
       return;
     }
     
-    const paidSum = data.payments.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
-    let finalPaymentStatus: 'EN ATTENTE' | 'Partiel' | 'Payé';
-
-    if (paidSum <= 0) {
-        finalPaymentStatus = 'EN ATTENTE';
-    } else if (paidSum < data.totalAmount) {
-        finalPaymentStatus = 'Partiel';
-    } else {
-        finalPaymentStatus = 'Payé';
-    }
+    let finalPaymentStatus = paymentStatus;
     
     const donationData: Omit<Donation, 'id' | 'createdAt'> = {
         ...data,
         totalAmount: Number(data.totalAmount),
-        donationCategoryId: data.type === 'Don' ? data.donationCategoryId : '',
+        donationCategoryId: data.type === 'Don' ? data.donationCategoryId : undefined,
         payments: data.payments.map(p => ({...p, amount: Number(p.amount), date: p.date.toISOString()})),
         paymentStatus: finalPaymentStatus,
+        memo: data.memo || '',
     };
 
     try {
@@ -224,7 +217,9 @@ export function DonationForm({ donationId, memberIdParam }: DonationFormProps) {
         const newDocRef = await addDocumentNonBlocking(collectionRef, { ...donationData, createdAt: new Date().toISOString() });
         
         if (newDocRef) {
-            const transactionData: Omit<Transaction, 'id' | 'createdAt'>[] = data.payments.map(p => ({
+            const transactionData: Omit<Transaction, 'id' | 'createdAt'>[] = data.payments
+              .filter(p => p.amount > 0)
+              .map(p => ({
               type: donationData.type,
               relatedId: newDocRef.id,
               amount: Number(p.amount),
@@ -419,6 +414,11 @@ export function DonationForm({ donationId, memberIdParam }: DonationFormProps) {
                 {fields.length < 3 && (
                   <Button type="button" variant="outline" size="sm" onClick={() => append({ amount: 0, date: new Date(), paymentMethod: 'Espèces' })}>
                     <PlusCircle className="mr-2 h-4 w-4" /> Ajouter un paiement
+                  </Button>
+                )}
+                 {fields.length === 0 && (
+                  <Button type="button" variant="outline" size="sm" onClick={() => append({ amount: 0, date: new Date(), paymentMethod: 'Espèces' })}>
+                    <PlusCircle className="mr-2 h-4 w-4" /> Ajouter un premier paiement
                   </Button>
                 )}
               </div>

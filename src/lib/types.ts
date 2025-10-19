@@ -28,7 +28,7 @@ export type Donation = {
   totalAmount: number;
   payments: Payment[];
   paymentStatus: 'EN ATTENTE' | 'Partiel' | 'Payé' | 'Annulé';
-  memo: string;
+  memo?: string;
   cerfaEligible: boolean;
   cerfaNumber?: string;
   cerfaDate?: string; // ISO string

@@ -44,7 +44,7 @@ import { sendCerfaEmail } from '@/lib/email';
 
 
 const paymentSchema = z.object({
-  amount: z.coerce.number().min(0, "Le montant ne peut pas être négatif.").default(0),
+  amount: z.coerce.number().min(0, "Le montant ne peut être négatif.").default(0),
   date: z.date({ required_error: "La date est requise." }),
   paymentMethod: z.enum(['Carte de crédit', 'Virement bancaire', 'Espèces', 'Chèque']),
 });
@@ -167,7 +167,7 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
                   type: 'Don',
                   donationCategoryId: defaultCategoryId,
                   totalAmount: 0,
-                  payments: [],
+                  payments: [{ amount: 0, date: new Date(), paymentMethod: 'Espèces' }],
                   memo: '',
                   cerfaEligible: true,
                   cerfaNom: memberData.nom,
@@ -643,5 +643,4 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
     </Card>
   );
 }
-
     
