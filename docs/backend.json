@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "Member": {
@@ -52,8 +53,7 @@
       },
       "required": [
         "id",
-        "nom",
-        "email"
+        "nom"
       ]
     },
     "Payment": {
@@ -248,3 +248,5 @@
     ]
   }
 }
+
+    

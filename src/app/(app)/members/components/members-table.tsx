@@ -69,7 +69,7 @@ import { useData } from '@/app/(app)/data-provider';
 
 const memberSchema = z.object({
   nom: z.string().min(2, 'Le nom doit contenir au moins 2 caractères.'),
-  email: z.string().email('Adresse e-mail invalide.'),
+  email: z.string().email('Adresse e-mail invalide.').optional().or(z.literal('')),
   telephone: z.string().optional(),
   adresse: z.string().optional(),
   doc: z.enum(['M', 'C', 'Non', '']).optional(),
@@ -128,7 +128,7 @@ export function MembersTable({ onMemberSelect, selectedMember, onAddDonation }: 
         const searchLower = searchQuery.toLowerCase();
         return (
           member.nom.toLowerCase().includes(searchLower) ||
-          member.email.toLowerCase().includes(searchLower) ||
+          (member.email && member.email.toLowerCase().includes(searchLower)) ||
           (member.memo && member.memo.toLowerCase().includes(searchLower))
         );
       });
@@ -147,7 +147,7 @@ export function MembersTable({ onMemberSelect, selectedMember, onAddDonation }: 
     if (member) {
          form.reset({
             nom: member.nom,
-            email: member.email,
+            email: member.email || '',
             telephone: member.telephone || '',
             adresse: member.adresse || '',
             doc: (member.doc as 'M' | 'C' | 'Non' | '') || '',
@@ -182,6 +182,7 @@ export function MembersTable({ onMemberSelect, selectedMember, onAddDonation }: 
     
     const memberData = {
       ...data,
+      email: data.email || '',
       telephone: data.telephone || '',
       adresse: data.adresse || '',
       doc: data.doc || '',
@@ -409,7 +410,7 @@ export function MembersTable({ onMemberSelect, selectedMember, onAddDonation }: 
                 name="email"
                 render={({ field }) => (
                   <FormItem className="md:col-span-2">
-                    <FormLabel>Email</FormLabel>
+                    <FormLabel>Email (facultatif)</FormLabel>
                     <FormControl>
                       <Input type="email" placeholder="john.doe@example.com" {...field} />
                     </FormControl>
@@ -521,3 +522,5 @@ export function MembersTable({ onMemberSelect, selectedMember, onAddDonation }: 
     </>
   );
 }
+
+    

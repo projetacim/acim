@@ -3,7 +3,7 @@
 export type Member = {
   id: string;
   nom: string;
-  email: string;
+  email?: string;
   telephone?: string;
   adresse?: string;
   doc?: string;
@@ -55,3 +55,5 @@ export type DonationCategory = {
   name: string;
   description?: string;
 };
+
+    
