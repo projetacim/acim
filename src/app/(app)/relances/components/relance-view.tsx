@@ -34,6 +34,7 @@ type DonationWithDetails = Donation & {
   memberEmail?: string;
   remainingAmount: number;
   memberIsDelicate: boolean;
+  referenceDate: string; // The date used for aging (last payment or creation date)
 };
 
 export function RelanceView() {
@@ -52,27 +53,40 @@ export function RelanceView() {
     const memberMap = new Map(members.map(m => [m.id, m]));
     const now = new Date();
     
-    let filtered = donations.filter(d => (d.paymentStatus === 'EN ATTENTE' || d.paymentStatus === 'Partiel') && d.paymentStatus !== 'Annulé');
-
-    if (ageFilter !== 'all') {
-        const months = parseInt(ageFilter, 10);
-        const cutoffDate = subMonths(now, months);
-        filtered = filtered.filter(d => new Date(d.createdAt) < cutoffDate);
-    }
-    
-    return filtered
+    let donationsToProcess = donations
+      .filter(d => (d.paymentStatus === 'EN ATTENTE' || d.paymentStatus === 'Partiel') && d.paymentStatus !== 'Annulé')
       .map(d => {
         const member = memberMap.get(d.memberId);
         const paidAmount = d.payments.reduce((acc, p) => acc + p.amount, 0);
+
+        let referenceDate: Date;
+        if (d.paymentStatus === 'Partiel' && d.payments.length > 0) {
+            // Sort payments to find the most recent one
+            const lastPayment = d.payments.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+            referenceDate = new Date(lastPayment.date);
+        } else {
+            referenceDate = new Date(d.createdAt);
+        }
+
         return {
           ...d,
           memberName: member?.nom || 'Membre inconnu',
           memberEmail: member?.email,
           remainingAmount: d.totalAmount - paidAmount,
           memberIsDelicate: member?.delicat || false,
+          referenceDate: referenceDate.toISOString(),
         };
       })
       .filter(d => d.remainingAmount > 0);
+
+
+    if (ageFilter !== 'all') {
+        const months = parseInt(ageFilter, 10);
+        const cutoffDate = subMonths(now, months);
+        donationsToProcess = donationsToProcess.filter(d => new Date(d.referenceDate) < cutoffDate);
+    }
+    
+    return donationsToProcess;
   }, [donations, members, ageFilter]);
   
   const selectableDonations = useMemo(() => {
@@ -201,7 +215,7 @@ export function RelanceView() {
                 <TableHead>Membre</TableHead>
                 <TableHead className="hidden sm:table-cell">E-mail</TableHead>
                 <TableHead>Type</TableHead>
-                <TableHead className="hidden md:table-cell">Date du don</TableHead>
+                <TableHead className="hidden md:table-cell">Date de Référence</TableHead>
                 <TableHead>Relances</TableHead>
                 <TableHead className="text-right">Montant Total</TableHead>
                 <TableHead className="text-right">Montant Restant</TableHead>
@@ -247,7 +261,7 @@ export function RelanceView() {
                     <TableCell>
                       <Badge variant={donation.type === 'Don' ? 'secondary' : 'outline'}>{donation.type}</Badge>
                     </TableCell>
-                    <TableCell className="hidden md:table-cell">{new Date(donation.createdAt).toLocaleDateString('fr-FR')}</TableCell>
+                    <TableCell className="hidden md:table-cell">{new Date(donation.referenceDate).toLocaleDateString('fr-FR')}</TableCell>
                     <TableCell>
                         {donation.reminders && donation.reminders.length > 0 ? (
                             <Tooltip>
