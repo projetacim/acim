@@ -14,7 +14,7 @@ import {
   Settings,
   BarChart,
   HardDrive,
-  MailUp,
+  Send,
 } from 'lucide-react';
 import { useUser, useAuth, useFirestore, useMemoFirebase } from '@/firebase';
 import { signOut } from 'firebase/auth';
@@ -128,7 +128,7 @@ function AppLayoutContent({
             <SidebarMenuItem>
                 <SidebarMenuButton asChild tooltip="Relances">
                     <Link href="/relances">
-                        <MailUp />
+                        <Send />
                         <span>Relances</span>
                     </Link>
                 </SidebarMenuButton>
