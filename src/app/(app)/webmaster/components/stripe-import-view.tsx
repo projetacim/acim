@@ -6,22 +6,14 @@ import * as XLSX from 'xlsx';
 import { useData } from '@/app/(app)/data-provider';
 import { useFirestore, useUser, addDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
-import type { Member, Donation, Transaction } from '@/lib/types';
+import type { Member, Donation, Transaction, DonationCategory } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '@/components/ui/command';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, UploadCloud, Check, ChevronsUpDown, CheckCircle } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { openCerfaPdf } from '@/lib/cerfa-actions';
@@ -56,14 +48,13 @@ type ProcessedRow = {
   dateHeure: Date;
   memo: string;
   initialMemberId?: string;
-  doc?: string;
   matched: boolean;
 };
 
 const DONATEUR_INVITE_ID = 'DONATEUR_INVITE';
 
 export function StripeImportView() {
-  const { members, isLoading: isDataLoading } = useData();
+  const { members, categories, isLoading: isDataLoading } = useData();
   const { toast } = useToast();
   const firestore = useFirestore();
   const { user } = useUser();
@@ -73,14 +64,13 @@ export function StripeImportView() {
   const [isImporting, setIsImporting] = useState<string | null>(null);
   const [processedRows, setProcessedRows] = useState<ProcessedRow[]>([]);
   const [selectedMembers, setSelectedMembers] = useState<Record<string, string>>({});
-  const [openComboboxId, setOpenComboboxId] = useState<string | null>(null);
-
+  const [selectedCategories, setSelectedCategories] = useState<Record<string, string>>({});
 
   const membersByEmail = useMemo(() => {
     return new Map(members?.map(m => [m.email?.toLowerCase() || '', m]));
   }, [members]);
 
-  const allMembersForCombobox = useMemo(() => {
+  const allMembersForSelect = useMemo(() => {
     const regularMembers = members?.map(m => ({ value: m.id, label: m.nom })) || [];
     return [
       { value: DONATEUR_INVITE_ID, label: 'DONATEUR (invité)' },
@@ -103,7 +93,7 @@ export function StripeImportView() {
         const workbook = XLSX.read(data, { type: 'array', cellDates: true });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const json = XLSX.utils.sheet_to_json<StripeRow>(worksheet, {raw: false});
+        const json = XLSX.utils.sheet_to_json<StripeRow>(worksheet, { raw: false });
 
         const newSelectedMembers: Record<string, string> = {};
         const newProcessedRows = json.map((row, index): ProcessedRow => {
@@ -126,7 +116,6 @@ export function StripeImportView() {
             dateHeure: row['Date & Heure'] instanceof Date ? row['Date & Heure'] : new Date(),
             memo: row.Commentaire || '',
             initialMemberId: matchedMember?.id,
-            doc: matchedMember?.doc,
             matched: !!matchedMember,
           };
         });
@@ -150,6 +139,8 @@ export function StripeImportView() {
      setIsImporting(row.id);
      
      const selectedMemberId = selectedMembers[row.id];
+     const selectedCategoryId = selectedCategories[row.id];
+
      if (!selectedMemberId) {
          toast({ variant: 'destructive', title: 'Erreur', description: 'Veuillez sélectionner un membre.' });
          setIsImporting(null);
@@ -161,6 +152,7 @@ export function StripeImportView() {
      const donation: Omit<Donation, 'id' | 'createdAt'> = {
          memberId: isInvite ? DONATEUR_INVITE_ID : selectedMemberId,
          type: 'Don',
+         donationCategoryId: selectedCategoryId,
          totalAmount: row.montant,
          payments: [{
              amount: row.montant,
@@ -223,10 +215,13 @@ export function StripeImportView() {
      }
   };
 
-    const handleSelectMember = (rowId: string, memberId: string) => {
-        setSelectedMembers(prev => ({ ...prev, [rowId]: memberId }));
-        setOpenComboboxId(null);
-    };
+  const handleSelectMember = (rowId: string, memberId: string) => {
+    setSelectedMembers(prev => ({ ...prev, [rowId]: memberId }));
+  };
+
+  const handleSelectCategory = (rowId: string, categoryId: string) => {
+    setSelectedCategories(prev => ({ ...prev, [rowId]: categoryId }));
+  };
 
   return (
     <div className="grid gap-8">
@@ -255,64 +250,66 @@ export function StripeImportView() {
         <Card>
             <CardHeader>
                 <CardTitle>Rapprochement des Dons</CardTitle>
-                <CardDescription>Assignez chaque don importé à un membre.</CardDescription>
+                <CardDescription>Assignez chaque don importé à un membre et une catégorie.</CardDescription>
             </CardHeader>
             <CardContent>
                 <ScrollArea className="h-[60vh]">
                 <Table>
                     <TableHeader>
                     <TableRow>
-                        <TableHead className="w-[250px]">Nom</TableHead>
-                        <TableHead className="w-[300px]">Membre</TableHead>
-                        <TableHead>Email</TableHead>
+                        <TableHead className="w-[200px]">Nom</TableHead>
+                        <TableHead className="w-[250px]">Membre</TableHead>
+                        <TableHead className="w-[200px]">Catégorie</TableHead>
                         <TableHead>Montant</TableHead>
-                        <TableHead>N° Reçu</TableHead>
-                        <TableHead>Date</TableHead>
+                        <TableHead>Commentaire</TableHead>
                         <TableHead className="text-right">Action</TableHead>
                     </TableRow>
                     </TableHeader>
                     <TableBody>
                         {processedRows.map((row) => (
                             <TableRow key={row.id} className={cn(row.matched && 'bg-green-500/10')}>
-                                <TableCell className="font-medium">{row.nom}</TableCell>
-                                <TableCell>
-                                     <Popover open={openComboboxId === row.id} onOpenChange={(isOpen) => setOpenComboboxId(isOpen ? row.id : null)}>
-                                        <PopoverTrigger asChild>
-                                            <Button variant="outline" role="combobox" aria-expanded={openComboboxId === row.id} className="w-full justify-between font-roboto" style={{fontFamily: 'Roboto, sans-serif'}}>
-                                                {selectedMembers[row.id]
-                                                    ? allMembersForCombobox.find((m) => m.value === selectedMembers[row.id])?.label
-                                                    : "Sélectionner un membre..."}
-                                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                            </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-[300px] p-0">
-                                            <Command>
-                                                <CommandInput placeholder="Rechercher un membre..." />
-                                                <CommandList>
-                                                    <CommandEmpty>Aucun membre trouvé.</CommandEmpty>
-                                                    <CommandGroup>
-                                                        {allMembersForCombobox.map((m) => (
-                                                            <CommandItem
-                                                                key={m.value}
-                                                                value={m.label}
-                                                                onSelect={() => handleSelectMember(row.id, m.value)}
-                                                            >
-                                                                <Check className={cn("mr-2 h-4 w-4", selectedMembers[row.id] === m.value ? "opacity-100" : "opacity-0")} />
-                                                                {m.label}
-                                                            </CommandItem>
-                                                        ))}
-                                                    </CommandGroup>
-                                                </CommandList>
-                                            </Command>
-                                        </PopoverContent>
-                                    </Popover>
+                                <TableCell className="font-medium align-top">
+                                  {row.nom}
+                                  <div className="text-xs text-muted-foreground">{row.email}</div>
                                 </TableCell>
-                                <TableCell>{row.email}</TableCell>
-                                <TableCell>{row.montant.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</TableCell>
-                                <TableCell>{row.numeroRecu}</TableCell>
-                                <TableCell>{row.dateHeure.toLocaleDateString('fr-FR')}</TableCell>
-                                <TableCell className="text-right">
-                                    <Button size="sm" onClick={() => handleAttribuer(row)} disabled={isImporting === row.id}>
+                                <TableCell className="align-top">
+                                    <Select 
+                                      value={selectedMembers[row.id]} 
+                                      onValueChange={(value) => handleSelectMember(row.id, value)}
+                                    >
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Sélectionner un membre..." />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {allMembersForSelect.map((m) => (
+                                          <SelectItem key={m.value} value={m.value}>
+                                            {m.label}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                </TableCell>
+                                <TableCell className="align-top">
+                                     <Select 
+                                      value={selectedCategories[row.id]}
+                                      onValueChange={(value) => handleSelectCategory(row.id, value)}
+                                    >
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Sélectionner..." />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {categories?.map((c) => (
+                                          <SelectItem key={c.id} value={c.id}>
+                                            {c.name}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                </TableCell>
+                                <TableCell className="align-top">{row.montant.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</TableCell>
+                                <TableCell className="text-muted-foreground align-top max-w-[200px] truncate">{row.memo}</TableCell>
+                                <TableCell className="text-right align-top">
+                                    <Button size="sm" onClick={() => handleAttribuer(row)} disabled={isImporting === row.id || !selectedMembers[row.id]}>
                                        {isImporting === row.id ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Attribuer'}
                                     </Button>
                                 </TableCell>
@@ -328,3 +325,5 @@ export function StripeImportView() {
     </div>
   );
 }
+
+    
