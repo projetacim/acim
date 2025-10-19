@@ -85,8 +85,11 @@ function MemberCombobox({ members, value, onSelect }: { members: { value: string
                 <CommandItem
                   key={member.value}
                   value={member.label}
-                  onSelect={() => {
-                    onSelect(member.value === value ? "" : member.value);
+                  onSelect={(currentValue) => {
+                    const selectedMember = members.find(m => m.label.toLowerCase() === currentValue.toLowerCase());
+                    if (selectedMember) {
+                      onSelect(selectedMember.value === value ? "" : selectedMember.value);
+                    }
                     setOpen(false);
                   }}
                 >
