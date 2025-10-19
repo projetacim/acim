@@ -55,7 +55,7 @@ const donationSchema = z.object({
   donationCategoryId: z.string().optional(),
   totalAmount: z.coerce.number().min(0.01, 'Le montant total doit être supérieur à 0.'),
   payments: z.array(paymentSchema).max(3, "Vous ne pouvez pas ajouter plus de 3 paiements."),
-  memo: z.string().optional(),
+  memo: z.string().min(1, "Le mémo est obligatoire."),
   cerfaEligible: z.boolean().default(true),
   paymentStatus: z.enum(['EN ATTENTE', 'Partiel', 'Payé', 'Annulé']).optional(),
   // CERFA specific fields
@@ -553,6 +553,11 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
                     <PlusCircle className="mr-2 h-4 w-4" /> Ajouter un paiement
                   </Button>
                 )}
+                 {fields.length === 0 && (
+                  <Button type="button" variant="outline" size="sm" onClick={() => append({ amount: 0, date: new Date(), paymentMethod: 'Carte de crédit' })}>
+                    <PlusCircle className="mr-2 h-4 w-4" /> Ajouter un premier paiement
+                  </Button>
+                )}
               </div>
             </div>
 
@@ -644,6 +649,8 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
     </Card>
   );
 }
+    
+
     
 
     
