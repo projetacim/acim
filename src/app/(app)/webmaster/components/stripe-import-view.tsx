@@ -213,6 +213,12 @@ export function StripeImportView() {
          setIsImporting(null);
          return;
      }
+     
+     if (!selectedCategoryId) {
+         toast({ variant: 'destructive', title: 'Erreur', description: 'Veuillez sélectionner une catégorie.' });
+         setIsImporting(null);
+         return;
+     }
 
      const isInvite = selectedMemberId === DONATEUR_INVITE_ID;
      
@@ -370,7 +376,7 @@ export function StripeImportView() {
                                 <TableCell className="align-top text-xs">{format(row.dateHeure, 'dd/MM/yy HH:mm', {locale: fr})}</TableCell>
                                 <TableCell className="text-muted-foreground align-top max-w-[200px] truncate">{row.memo}</TableCell>
                                 <TableCell className="text-right align-top">
-                                    <Button size="sm" onClick={() => handleAttribuer(row)} disabled={isImporting === row.id || !selectedMembers[row.id]}>
+                                    <Button size="sm" onClick={() => handleAttribuer(row)} disabled={isImporting === row.id || !selectedMembers[row.id] || !selectedCategories[row.id]}>
                                        {isImporting === row.id ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Attribuer'}
                                     </Button>
                                 </TableCell>
