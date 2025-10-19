@@ -19,7 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Loader2, Send, Mail } from 'lucide-react';
+import { Loader2, Send, Mail, ShieldAlert } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { sendReminderEmail } from '@/lib/email';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -216,6 +216,7 @@ export function RelanceView() {
                 <TableHead>Type</TableHead>
                 <TableHead className="hidden md:table-cell">Date de Référence</TableHead>
                 <TableHead>Relances</TableHead>
+                <TableHead className="text-center">Pas de Relance</TableHead>
                 <TableHead className="text-right">Montant Total</TableHead>
                 <TableHead className="text-right">Montant Restant</TableHead>
               </TableRow>
@@ -229,6 +230,7 @@ export function RelanceView() {
                     <TableCell className="hidden sm:table-cell"><Skeleton className="h-5 w-40" /></TableCell>
                     <TableCell><Skeleton className="h-6 w-20" /></TableCell>
                     <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-12" /></TableCell>
                     <TableCell><Skeleton className="h-5 w-12" /></TableCell>
                     <TableCell className="text-right"><Skeleton className="h-5 w-20" /></TableCell>
                     <TableCell className="text-right"><Skeleton className="h-5 w-20" /></TableCell>
@@ -247,7 +249,6 @@ export function RelanceView() {
                     </TableCell>
                     <TableCell>
                         <div className="font-medium">{donation.memberName}</div>
-                        {donation.ne_pas_relancer && <Badge variant="outline" className="mt-1 border-orange-500 text-orange-600">Relance manuelle</Badge>}
                     </TableCell>
                     <TableCell className="hidden sm:table-cell">
                         {donation.memberEmail ? 
@@ -276,13 +277,25 @@ export function RelanceView() {
                             </Tooltip>
                         ) : <Badge variant="outline">0</Badge>}
                     </TableCell>
+                    <TableCell className="text-center">
+                        {donation.ne_pas_relancer && (
+                            <Tooltip>
+                                <TooltipTrigger>
+                                     <ShieldAlert className="h-5 w-5 text-orange-600"/>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>Ce don est exclu des relances automatiques.</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        )}
+                    </TableCell>
                     <TableCell className="text-right">{donation.totalAmount.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</TableCell>
                     <TableCell className="text-right font-bold text-destructive">{donation.remainingAmount.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</TableCell>
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={8} className="h-24 text-center">
+                  <TableCell colSpan={9} className="h-24 text-center">
                     Aucun don en attente de paiement. Excellent travail !
                   </TableCell>
                 </TableRow>
