@@ -19,6 +19,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { openCerfaPdf } from '@/lib/cerfa-actions';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+
 
 type StripeRow = {
   'Type de don': string;
@@ -31,7 +34,7 @@ type StripeRow = {
   Pays: string;
   'E-mail': string;
   Portable: string;
-  Montant: string | number; // Can be string or number
+  Montant: string;
   'Frais/Commissions': number;
   'Numéro reçu': string;
   'Moyen de paiement': string;
@@ -54,6 +57,70 @@ type ProcessedRow = {
 };
 
 const DONATEUR_INVITE_ID = 'DONATEUR_INVITE';
+
+
+// Custom Combobox Component
+const MemberCombobox = ({
+  members,
+  value,
+  onSelect,
+}: {
+  members: { value: string; label: string }[];
+  value: string;
+  onSelect: (value: string) => void;
+}) => {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between"
+        >
+          {value
+            ? members.find((member) => member.value === value)?.label
+            : 'Sélectionner un membre...'}
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[300px] p-0">
+        <Command>
+          <CommandInput placeholder="Rechercher un membre..." />
+          <CommandList>
+            <CommandEmpty>Aucun membre trouvé.</CommandEmpty>
+            <CommandGroup>
+              {members.map((member) => (
+                <CommandItem
+                  key={member.value}
+                  value={member.label}
+                  onSelect={(currentValue) => {
+                    const selected = members.find(m => m.label.toLowerCase() === currentValue.toLowerCase());
+                    if (selected) {
+                      onSelect(selected.value);
+                    }
+                    setOpen(false);
+                  }}
+                >
+                  <Check
+                    className={cn(
+                      'mr-2 h-4 w-4',
+                      value === member.value ? 'opacity-100' : 'opacity-0'
+                    )}
+                  />
+                  {member.label}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+};
+
 
 export function StripeImportView() {
   const { members, categories, isLoading: isDataLoading } = useData();
@@ -112,7 +179,7 @@ export function StripeImportView() {
           
           const montantStr = String(row.Montant || '0')
               .replace('€', '')
-              .replace(/\s/g, '') // remove spaces
+              .replace(/\s/g, '')
               .replace(',', '.');
           const montant = parseFloat(montantStr) || 0;
 
@@ -292,19 +359,11 @@ export function StripeImportView() {
                                   <div className="text-xs text-muted-foreground">{row.email}</div>
                                 </TableCell>
                                 <TableCell className="align-top">
-                                  <Select 
-                                     value={selectedMembers[row.id] || ''}
-                                     onValueChange={(value) => handleSelectMember(row.id, value)}
-                                  >
-                                    <SelectTrigger>
-                                      <SelectValue placeholder="Sélectionner un membre..." />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {allMembersForSelect.map(m => (
-                                        <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
+                                  <MemberCombobox 
+                                    members={allMembersForSelect}
+                                    value={selectedMembers[row.id] || ''}
+                                    onSelect={(value) => handleSelectMember(row.id, value)}
+                                  />
                                 </TableCell>
                                 <TableCell className="align-top">
                                      <Select 
