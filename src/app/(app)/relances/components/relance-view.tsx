@@ -18,13 +18,16 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Loader2, Send } from 'lucide-react';
+import { Loader2, Send, Mail } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { sendReminderEmail } from '@/lib/email';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { format } from 'date-fns';
+import { format, subMonths } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { useFirestore, useUser, updateDocumentNonBlocking } from '@/firebase';
+import { doc, arrayUnion } from 'firebase/firestore';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 type DonationWithDetails = Donation & {
   memberName: string;
@@ -35,18 +38,29 @@ type DonationWithDetails = Donation & {
 
 export function RelanceView() {
   const { donations, members, isLoading } = useData();
+  const firestore = useFirestore();
+  const { user } = useUser();
   const { toast } = useToast();
   
   const [selectedDonationIds, setSelectedDonationIds] = useState<string[]>([]);
   const [isSending, setIsSending] = useState(false);
+  const [ageFilter, setAgeFilter] = useState('all');
 
   const pendingDonations = useMemo((): DonationWithDetails[] => {
     if (!donations || !members) return [];
 
     const memberMap = new Map(members.map(m => [m.id, m]));
+    const now = new Date();
+    
+    let filtered = donations.filter(d => (d.paymentStatus === 'EN ATTENTE' || d.paymentStatus === 'Partiel') && d.paymentStatus !== 'Annulé');
 
-    return donations
-      .filter(d => (d.paymentStatus === 'EN ATTENTE' || d.paymentStatus === 'Partiel') && d.paymentStatus !== 'Annulé')
+    if (ageFilter !== 'all') {
+        const months = parseInt(ageFilter, 10);
+        const cutoffDate = subMonths(now, months);
+        filtered = filtered.filter(d => new Date(d.createdAt) < cutoffDate);
+    }
+    
+    return filtered
       .map(d => {
         const member = memberMap.get(d.memberId);
         const paidAmount = d.payments.reduce((acc, p) => acc + p.amount, 0);
@@ -59,7 +73,7 @@ export function RelanceView() {
         };
       })
       .filter(d => d.remainingAmount > 0);
-  }, [donations, members]);
+  }, [donations, members, ageFilter]);
   
   const selectableDonations = useMemo(() => {
       return pendingDonations.filter(d => !d.memberIsDelicate);
@@ -82,22 +96,37 @@ export function RelanceView() {
   }
 
   const handleSendReminders = async () => {
-    if (selectedDonationIds.length === 0) return;
+    if (selectedDonationIds.length === 0 || !firestore || !user) return;
     
     setIsSending(true);
     let successCount = 0;
+    let manualCount = 0;
     let errorCount = 0;
 
     for (const donationId of selectedDonationIds) {
       const donation = pendingDonations.find(d => d.id === donationId);
       const member = members?.find(m => m.id === donation?.memberId);
 
-      if (donation && member && (member.email || donation.cerfaEmail)) {
+      if (donation && member) {
         try {
-          await sendReminderEmail(donation, member);
-          successCount++;
+          const result = await sendReminderEmail(donation, member);
+          if (result.success) {
+            // Update the donation document with the reminder date
+            const donationDocRef = doc(firestore, 'users', user.uid, 'donations', donation.id);
+            await updateDocumentNonBlocking(donationDocRef, {
+                reminders: arrayUnion(new Date().toISOString())
+            });
+
+            if (result.manualLog) {
+                manualCount++;
+            } else {
+                successCount++;
+            }
+          } else {
+             errorCount++;
+          }
         } catch (error) {
-          console.error(`Failed to send reminder for donation ${donation.id}:`, error);
+          console.error(`Failed to process reminder for donation ${donation.id}:`, error);
           errorCount++;
         }
       } else {
@@ -109,8 +138,8 @@ export function RelanceView() {
     setSelectedDonationIds([]);
     
     toast({
-        title: "Envoi des relances terminé",
-        description: `${successCount} e-mail(s) envoyé(s) avec succès. ${errorCount} erreur(s).`,
+        title: "Traitement des relances terminé",
+        description: `${successCount} e-mail(s) envoyé(s), ${manualCount} relance(s) manuelle(s) enregistrée(s). ${errorCount > 0 ? `${errorCount} erreur(s).` : ''}`,
         variant: errorCount > 0 ? 'destructive' : 'default',
     });
   };
@@ -128,12 +157,25 @@ export function RelanceView() {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
                 <CardTitle>Dons nécessitant une relance</CardTitle>
-                <CardDescription>Liste des dons non soldés pour les membres non marqués comme "délicats".</CardDescription>
+                <CardDescription>Liste des dons non soldés.</CardDescription>
             </div>
-            <Button onClick={handleSendReminders} disabled={selectedDonationIds.length === 0 || isSending}>
-                {isSending ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Send className="mr-2 h-4 w-4" />}
-                Relancer la sélection ({selectedDonationIds.length})
-            </Button>
+            <div className="flex items-center gap-2">
+                <Select value={ageFilter} onValueChange={setAgeFilter}>
+                    <SelectTrigger className="w-full md:w-[180px]">
+                        <SelectValue placeholder="Ancienneté" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">Toute période</SelectItem>
+                        <SelectItem value="2">Supérieur à 2 mois</SelectItem>
+                        <SelectItem value="4">Supérieur à 4 mois</SelectItem>
+                        <SelectItem value="6">Supérieur à 6 mois</SelectItem>
+                    </SelectContent>
+                </Select>
+                <Button onClick={handleSendReminders} disabled={selectedDonationIds.length === 0 || isSending}>
+                    {isSending ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Send className="mr-2 h-4 w-4" />}
+                    Traiter la sélection ({selectedDonationIds.length})
+                </Button>
+            </div>
         </div>
       </CardHeader>
       <CardContent>
@@ -141,7 +183,7 @@ export function RelanceView() {
              <Alert className="mb-4">
               <AlertTitle>Résumé de la sélection</AlertTitle>
               <AlertDescription>
-                Vous êtes sur le point de relancer {selectedDonationIds.length} don(s) pour un montant total restant de {totalSelectedAmount.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}.
+                Vous êtes sur le point de traiter {selectedDonationIds.length} don(s) pour un montant total restant de {totalSelectedAmount.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}. Une relance sera enregistrée pour chaque don, et un e-mail sera envoyé si une adresse est disponible.
               </AlertDescription>
             </Alert>
         )}
@@ -157,6 +199,7 @@ export function RelanceView() {
                   />
                 </TableHead>
                 <TableHead>Membre</TableHead>
+                <TableHead className="hidden sm:table-cell">E-mail</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead className="hidden md:table-cell">Date du don</TableHead>
                 <TableHead>Relances</TableHead>
@@ -170,6 +213,7 @@ export function RelanceView() {
                   <TableRow key={i}>
                     <TableCell><Skeleton className="h-4 w-4" /></TableCell>
                     <TableCell><Skeleton className="h-5 w-32" /></TableCell>
+                    <TableCell className="hidden sm:table-cell"><Skeleton className="h-5 w-40" /></TableCell>
                     <TableCell><Skeleton className="h-6 w-20" /></TableCell>
                     <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-24" /></TableCell>
                     <TableCell><Skeleton className="h-5 w-12" /></TableCell>
@@ -192,6 +236,14 @@ export function RelanceView() {
                         <div className="font-medium">{donation.memberName}</div>
                         {donation.memberIsDelicate && <Badge variant="destructive" className="mt-1">Membre délicat</Badge>}
                     </TableCell>
+                    <TableCell className="hidden sm:table-cell">
+                        {donation.memberEmail ? 
+                          <span className="flex items-center gap-1 text-muted-foreground">
+                            <Mail className="h-3 w-3"/>
+                            {donation.memberEmail}
+                          </span>
+                          : <span className="text-xs text-muted-foreground italic">Aucun e-mail</span>}
+                    </TableCell>
                     <TableCell>
                       <Badge variant={donation.type === 'Don' ? 'secondary' : 'outline'}>{donation.type}</Badge>
                     </TableCell>
@@ -203,7 +255,7 @@ export function RelanceView() {
                                     <Badge variant="secondary">{donation.reminders.length}</Badge>
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                    <p>Relances envoyées le:</p>
+                                    <p>Relances effectuées le:</p>
                                     <ul className="list-disc pl-4">
                                         {donation.reminders.map((r, i) => <li key={i}>{format(new Date(r), 'dd/MM/yyyy', {locale: fr})}</li>)}
                                     </ul>
@@ -217,7 +269,7 @@ export function RelanceView() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-24 text-center">
+                  <TableCell colSpan={8} className="h-24 text-center">
                     Aucun don en attente de paiement. Excellent travail !
                   </TableCell>
                 </TableRow>
