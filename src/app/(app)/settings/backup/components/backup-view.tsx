@@ -268,9 +268,11 @@ export function BackupRestoreView() {
       
       <Card className="border-destructive">
         <CardHeader>
-          <CardTitle>Restaurer depuis une sauvegarde</CardTitle>
+           <CardTitle className="flex items-baseline">
+            Restaurer depuis une sauvegarde
+          </CardTitle>
           <CardDescription>
-             Cette action est irréversible. Elle remplacera toutes les données existantes par celles du fichier de sauvegarde.
+             Cette action est irréversible et remplacera toutes les données existantes. Utilisez le fichier JSON obtenu via la "Sauvegarde complète des données".
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
@@ -317,3 +319,5 @@ export function BackupRestoreView() {
     </div>
   );
 }
+
+    
