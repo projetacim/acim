@@ -29,7 +29,7 @@ type StripeRow = {
   Pays: string;
   'E-mail': string;
   Portable: string;
-  Montant: number;
+  Montant: string | number; // Can be string or number
   'Frais/Commissions': number;
   'Numéro reçu': string;
   'Moyen de paiement': string;
@@ -97,7 +97,7 @@ export function StripeImportView() {
         const workbook = XLSX.read(data, { type: 'array', cellDates: true });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const json = XLSX.utils.sheet_to_json<StripeRow>(worksheet, { raw: false });
+        const json = XLSX.utils.sheet_to_json<StripeRow>(worksheet, { raw: false, cellDates: true });
 
         const newSelectedMembers: Record<string, string> = {};
         const newProcessedRows = json.map((row, index): ProcessedRow => {
@@ -109,13 +109,19 @@ export function StripeImportView() {
             newSelectedMembers[rowId] = matchedMember.id;
           }
 
+          const montantStr = String(row.Montant || '0')
+              .replace('€', '')
+              .replace(/\s/g, '')
+              .replace(',', '.');
+          const montant = parseFloat(montantStr) || 0;
+
           return {
             id: rowId,
             nom: `${row.Nom} ${row.Prénom}`.trim(),
             email: row['E-mail'] || '',
             adresse: `${row.Adresse || ''}, ${row.CP || ''} ${row.Ville || ''}`.trim(),
             portable: row.Portable || '',
-            montant: Number(row.Montant) || 0,
+            montant: montant,
             numeroRecu: String(row['Numéro reçu'] || ''),
             dateHeure: row['Date & Heure'] instanceof Date ? row['Date & Heure'] : new Date(),
             memo: row.Commentaire || '',
