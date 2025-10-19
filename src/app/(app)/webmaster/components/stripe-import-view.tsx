@@ -4,8 +4,8 @@
 import { useState, useMemo, useCallback } from 'react';
 import * as XLSX from 'xlsx';
 import { useData } from '@/app/(app)/data-provider';
-import { useFirestore, useUser, addDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
+import { useFirestore, useUser, addDocumentNonBlocking } from '@/firebase';
+import { collection } from 'firebase/firestore';
 import type { Member, Donation, Transaction, DonationCategory } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -14,11 +14,13 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, UploadCloud, Check, ChevronsUpDown, CheckCircle } from 'lucide-react';
+import { Loader2, UploadCloud, Check, ChevronsUpDown } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { openCerfaPdf } from '@/lib/cerfa-actions';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 
 type StripeRow = {
   'Type de don': string;
@@ -54,6 +56,56 @@ type ProcessedRow = {
 };
 
 const DONATEUR_INVITE_ID = 'DONATEUR_INVITE';
+
+// Self-contained Combobox Component
+function MemberCombobox({ members, value, onSelect }: { members: { value: string, label: string }[], value: string, onSelect: (value: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const selectedLabel = members.find((m) => m.value === value)?.label || "Sélectionner un membre...";
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between"
+        >
+          <span className="truncate">{selectedLabel}</span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[300px] p-0">
+        <Command>
+          <CommandInput placeholder="Rechercher un membre..." />
+          <CommandList>
+            <CommandEmpty>Aucun membre trouvé.</CommandEmpty>
+            <CommandGroup>
+              {members.map((member) => (
+                <CommandItem
+                  key={member.value}
+                  value={member.label}
+                  onSelect={() => {
+                    onSelect(member.value === value ? "" : member.value);
+                    setOpen(false);
+                  }}
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      value === member.value ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                  {member.label}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 
 export function StripeImportView() {
@@ -110,11 +162,11 @@ export function StripeImportView() {
           if (matchedMember) {
             newSelectedMembers[rowId] = matchedMember.id;
           }
-
+          
           const montantStr = String(row.Montant || '0')
               .replace('€', '')
               .replace(/\s/g, '') // remove spaces
-              .replace(',', '.'); // replace comma with dot
+              .replace(',', '.');
           const montant = parseFloat(montantStr) || 0;
 
           return {
@@ -287,21 +339,11 @@ export function StripeImportView() {
                                   <div className="text-xs text-muted-foreground">{row.email}</div>
                                 </TableCell>
                                 <TableCell className="align-top">
-                                  <Select 
-                                    value={selectedMembers[row.id]}
-                                    onValueChange={(value) => handleSelectMember(row.id, value)}
-                                  >
-                                    <SelectTrigger>
-                                      <SelectValue placeholder="Sélectionner un membre..." />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {allMembersForSelect.map(m => (
-                                        <SelectItem key={m.value} value={m.value}>
-                                          {m.label}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
+                                  <MemberCombobox 
+                                     members={allMembersForSelect}
+                                     value={selectedMembers[row.id] || ''}
+                                     onSelect={(value) => handleSelectMember(row.id, value)}
+                                  />
                                 </TableCell>
                                 <TableCell className="align-top">
                                      <Select 
