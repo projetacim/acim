@@ -1,4 +1,5 @@
 
+
 'use client';
 import { useMemo, useState, useEffect } from 'react';
 import {
@@ -275,13 +276,13 @@ export function PendingDonationsTable({ selectedMemberId, onEditDonation }: Pend
                     </TableHead>
                   )}
                   <TableHead>Membre</TableHead>
+                  <TableHead>Date Création</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Catégorie</TableHead>
                   <TableHead className="hidden sm:table-cell">Mémo</TableHead>
                   <TableHead className="text-right">Montant Total</TableHead>
                   <TableHead className="text-right">Reste à payer</TableHead>
                   <TableHead>Statut</TableHead>
-                  <TableHead className="hidden md:table-cell">Date de création</TableHead>
               </TableRow>
               </TableHeader>
               <TableBody>
@@ -289,13 +290,13 @@ export function PendingDonationsTable({ selectedMemberId, onEditDonation }: Pend
                   <TableRow key={i}>
                       {selectedMemberId && <TableCell><Skeleton className="h-4 w-4" /></TableCell>}
                       <TableCell><Skeleton className="h-4 w-28" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                       <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
                       <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                       <TableCell className="hidden sm:table-cell"><Skeleton className="h-4 w-32" /></TableCell>
                       <TableCell className="text-right"><Skeleton className="h-4 w-16" /></TableCell>
                       <TableCell className="text-right"><Skeleton className="h-4 w-16" /></TableCell>
                       <TableCell><Skeleton className="h-6 w-24 rounded-full" /></TableCell>
-                      <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-24" /></TableCell>
                   </TableRow>
               ))}
               {!isLoading && pendingDonations.map((donation) => (
@@ -315,6 +316,7 @@ export function PendingDonationsTable({ selectedMemberId, onEditDonation }: Pend
                         </TableCell>
                       )}
                       <TableCell className="font-medium">{donation.memberName}</TableCell>
+                      <TableCell>{format(new Date(donation.createdAt), 'dd/MM/yyyy')}</TableCell>
                       <TableCell>
                           <Badge variant={donation.type === 'Don' ? 'secondary' : 'outline'}>{donation.type}</Badge>
                       </TableCell>
@@ -336,7 +338,6 @@ export function PendingDonationsTable({ selectedMemberId, onEditDonation }: Pend
                       <TableCell className="text-right">{donation.totalAmount.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})}</TableCell>
                       <TableCell className="text-right text-destructive font-medium">{donation.remainingAmount.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})}</TableCell>
                       <TableCell>{getStatusBadge(donation.paymentStatus)}</TableCell>
-                      <TableCell className="hidden md:table-cell">{new Date(donation.createdAt).toLocaleDateString('fr-FR')}</TableCell>
                   </TableRow>
               ))}
               {!isLoading && pendingDonations.length === 0 && (

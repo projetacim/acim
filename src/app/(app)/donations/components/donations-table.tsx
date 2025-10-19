@@ -355,6 +355,7 @@ export function DonationsTable({ selectedMemberId, onEditDonation, onSelectMembe
             <TableHeader>
             <TableRow>
                 {!selectedMemberId && <TableHead>Membre</TableHead>}
+                <TableHead>Date Création</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Catégorie</TableHead>
                 <TableHead className="hidden sm:table-cell">Mémo</TableHead>
@@ -369,6 +370,7 @@ export function DonationsTable({ selectedMemberId, onEditDonation, onSelectMembe
             {isLoading && Array.from({ length: 3 }).map((_, i) => (
                 <TableRow key={i}>
                     {!selectedMemberId && <TableCell><Skeleton className="h-4 w-32" /></TableCell>}
+                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                     <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                     <TableCell className="hidden sm:table-cell"><Skeleton className="h-4 w-28" /></TableCell>
@@ -389,6 +391,7 @@ export function DonationsTable({ selectedMemberId, onEditDonation, onSelectMembe
                       </Button>
                   </TableCell>
                 }
+                <TableCell>{format(new Date(donation.createdAt), 'dd/MM/yyyy')}</TableCell>
                 <TableCell>
                     <Badge variant={donation.type === 'Don' ? 'secondary' : 'outline'}>{donation.type}</Badge>
                 </TableCell>
