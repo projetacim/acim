@@ -13,6 +13,7 @@ import {
   ChevronDown,
   Settings,
   BarChart,
+  HardDrive,
 } from 'lucide-react';
 import { useUser, useAuth, useFirestore, useMemoFirebase } from '@/firebase';
 import { signOut } from 'firebase/auth';
@@ -118,18 +119,10 @@ function AppLayoutContent({
             <SidebarMenuItem>
               <SidebarMenuButton asChild tooltip="Dashboard">
                 <Link href="/">
-                  <LayoutDashboard />
-                  <span>Dashboard</span>
+                  <Users />
+                  <span>Membres</span>
                 </Link>
               </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-                <SidebarMenuButton asChild tooltip="Membres">
-                    <Link href="/">
-                        <Users />
-                        <span>Membres</span>
-                    </Link>
-                </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
                 <SidebarMenuButton asChild tooltip="Bilan">
@@ -144,6 +137,14 @@ function AppLayoutContent({
                     <Link href="/cerfa">
                         <FileText />
                         <span>Liste des CERFA</span>
+                    </Link>
+                </SidebarMenuButton>
+            </SidebarMenuItem>
+             <SidebarMenuItem>
+                <SidebarMenuButton asChild tooltip="Webmaster">
+                    <Link href="/webmaster">
+                        <HardDrive />
+                        <span>Webmaster</span>
                     </Link>
                 </SidebarMenuButton>
             </SidebarMenuItem>
