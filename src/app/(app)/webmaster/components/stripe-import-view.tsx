@@ -73,7 +73,7 @@ export function StripeImportView() {
   const [isImporting, setIsImporting] = useState<string | null>(null);
   const [processedRows, setProcessedRows] = useState<ProcessedRow[]>([]);
   const [selectedMembers, setSelectedMembers] = useState<Record<string, string>>({});
-  const [openCombobox, setOpenCombobox] = useState<string | null>(null);
+  const [openComboboxes, setOpenComboboxes] = useState<Record<string, boolean>>({});
 
   const membersByEmail = useMemo(() => {
     return new Map(members?.map(m => [m.email?.toLowerCase() || '', m]));
@@ -271,9 +271,9 @@ export function StripeImportView() {
                             <TableRow key={row.id} className={cn(row.matched && 'bg-green-500/10')}>
                                 <TableCell className="font-medium">{row.nom}</TableCell>
                                 <TableCell>
-                                    <Popover open={openCombobox === row.id} onOpenChange={(isOpen) => setOpenCombobox(isOpen ? row.id : null)}>
+                                    <Popover open={openComboboxes[row.id]} onOpenChange={(isOpen) => setOpenComboboxes(prev => ({...prev, [row.id]: isOpen}))}>
                                         <PopoverTrigger asChild>
-                                        <Button variant="outline" role="combobox" className="w-full justify-between font-roboto">
+                                        <Button variant="outline" role="combobox" className="w-full justify-between font-roboto" style={{fontFamily: 'Roboto, sans-serif'}}>
                                             {selectedMembers[row.id]
                                             ? allMembersForCombobox.find((m) => m.value === selectedMembers[row.id])?.label
                                             : "Sélectionner un membre..."}
@@ -292,7 +292,7 @@ export function StripeImportView() {
                                                         value={m.label}
                                                         onSelect={() => {
                                                             setSelectedMembers(prev => ({...prev, [row.id]: m.value}));
-                                                            setOpenCombobox(null);
+                                                            setOpenComboboxes(prev => ({...prev, [row.id]: false}));
                                                         }}
                                                     >
                                                     <Check className={cn("mr-2 h-4 w-4", selectedMembers[row.id] === m.value ? "opacity-100" : "opacity-0")} />
