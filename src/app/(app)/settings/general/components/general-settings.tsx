@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -23,41 +24,39 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, AlertTriangle } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
 
 export function GeneralSettings() {
   const [isResetting, setIsResetting] = useState(false);
+  const [isTotalResetting, setIsTotalResetting] = useState(false);
   const [isAlertOpen, setIsAlertOpen] = useState(false);
+  const [isTotalAlertOpen, setIsTotalAlertOpen] = useState(false);
   const { toast } = useToast();
   const firestore = useFirestore();
   const { user } = useUser();
 
-  const handleReset = async () => {
+  const performReset = async (collectionsToDelete: string[]) => {
     if (!firestore || !user) {
       toast({
         variant: 'destructive',
         title: 'Erreur',
         description: 'Non authentifié.',
       });
-      return;
+      return {success: false, count: 0};
     }
 
-    setIsResetting(true);
-
+    let totalDeleted = 0;
     try {
-      const collectionsToDelete = ['transactions', 'donations'];
-      let totalDeleted = 0;
-
       for (const collectionName of collectionsToDelete) {
         const collectionRef = collection(firestore, 'users', user.uid, collectionName);
         const snapshot = await getDocs(collectionRef);
         if (snapshot.empty) continue;
 
-        // Firestore limits batches to 500 operations
         const batches = [];
         let currentBatch = writeBatch(firestore);
         let operationsInBatch = 0;
 
-        snapshot.docs.forEach((doc, index) => {
+        snapshot.docs.forEach((doc) => {
           currentBatch.delete(doc.ref);
           operationsInBatch++;
           totalDeleted++;
@@ -71,15 +70,9 @@ export function GeneralSettings() {
         if (operationsInBatch > 0) {
           batches.push(currentBatch);
         }
-
         await Promise.all(batches.map(batch => batch.commit()));
       }
-
-
-      toast({
-        title: 'Réinitialisation terminée',
-        description: `Toutes les données de test (dons, transactions) ont été effacées. ${totalDeleted} documents supprimés.`,
-      });
+      return {success: true, count: totalDeleted};
     } catch (error) {
       console.error('Failed to reset data:', error);
       toast({
@@ -87,11 +80,36 @@ export function GeneralSettings() {
         title: 'Erreur de réinitialisation',
         description: 'Une erreur est survenue. Consultez la console pour plus de détails.',
       });
-    } finally {
-      setIsResetting(false);
-      setIsAlertOpen(false);
+      return {success: false, count: 0};
     }
+  }
+
+  const handlePartialReset = async () => {
+    setIsResetting(true);
+    const result = await performReset(['transactions', 'donations']);
+    if(result.success) {
+      toast({
+        title: 'Réinitialisation terminée',
+        description: `Les données de test (dons, transactions) ont été effacées. ${result.count} documents supprimés.`,
+      });
+    }
+    setIsResetting(false);
+    setIsAlertOpen(false);
   };
+  
+  const handleTotalReset = async () => {
+    setIsTotalResetting(true);
+    const result = await performReset(['transactions', 'donations', 'membre']);
+     if(result.success) {
+      toast({
+        title: 'Réinitialisation totale terminée',
+        description: `Toutes les données (membres, dons, transactions) ont été effacées. ${result.count} documents supprimés.`,
+      });
+    }
+    setIsTotalResetting(false);
+    setIsTotalAlertOpen(false);
+  };
+
 
   return (
     <>
@@ -102,25 +120,51 @@ export function GeneralSettings() {
             Ces actions sont irréversibles. Soyez absolument certain avant de continuer.
           </CardDescription>
         </CardHeader>
-        <CardContent className="flex items-center justify-between">
-          <div>
-            <h3 className="font-semibold">Réinitialiser les données de test</h3>
-            <p className="text-sm text-muted-foreground">
-              Supprime tous les dons et transactions, mais conserve les membres. Le compteur CERFA sera réinitialisé.
-            </p>
+        <CardContent className="flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold">Réinitialiser les données de dons</h3>
+              <p className="text-sm text-muted-foreground">
+                Supprime tous les dons et transactions, mais conserve les membres.
+              </p>
+            </div>
+            <Button
+              variant="destructive"
+              onClick={() => setIsAlertOpen(true)}
+              disabled={isResetting}
+            >
+              {isResetting ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <AlertTriangle className="mr-2 h-4 w-4" />
+              )}
+              Réinitialiser
+            </Button>
           </div>
-          <Button
-            variant="destructive"
-            onClick={() => setIsAlertOpen(true)}
-            disabled={isResetting}
-          >
-            {isResetting ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <AlertTriangle className="mr-2 h-4 w-4" />
-            )}
-            Réinitialiser
-          </Button>
+
+          <Separator />
+
+           <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold">Réinitialisation totale</h3>
+              <p className="text-sm text-muted-foreground">
+                Supprime toutes les données : membres, dons et transactions.
+              </p>
+            </div>
+            <Button
+              variant="destructive"
+              onClick={() => setIsTotalAlertOpen(true)}
+              disabled={isTotalResetting}
+            >
+              {isTotalResetting ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <AlertTriangle className="mr-2 h-4 w-4" />
+              )}
+              Réinitialisation Totale
+            </Button>
+          </div>
+
         </CardContent>
       </Card>
 
@@ -129,17 +173,38 @@ export function GeneralSettings() {
           <AlertDialogHeader>
             <AlertDialogTitle>Êtes-vous absolument sûr ?</AlertDialogTitle>
             <AlertDialogDescription>
-              Cette action est **irréversible**. Elle supprimera définitivement **tous les dons et toutes les transactions**. Les membres seront conservés. Ceci est utile pour redémarrer une phase de test sans avoir à réimporter tous vos membres.
+              Cette action est **irréversible**. Elle supprimera définitivement **tous les dons et toutes les transactions**. Les membres seront conservés.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Annuler</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleReset}
+              onClick={handlePartialReset}
               disabled={isResetting}
               className="bg-destructive hover:bg-destructive/90"
             >
               Je comprends, tout supprimer sauf les membres
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={isTotalAlertOpen} onOpenChange={setIsTotalAlertOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Êtes-vous absolument sûr ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Cette action est **extrêmement dangereuse et irréversible**. Elle supprimera définitivement **TOUTES les données** : membres, dons et transactions.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleTotalReset}
+              disabled={isTotalResetting}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Je comprends, supprimer toutes les données
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
