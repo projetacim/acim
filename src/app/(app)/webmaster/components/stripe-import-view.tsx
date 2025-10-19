@@ -271,7 +271,7 @@ export function StripeImportView() {
                             <TableRow key={row.id} className={cn(row.matched && 'bg-green-500/10')}>
                                 <TableCell className="font-medium">{row.nom}</TableCell>
                                 <TableCell>
-                                    <Popover open={openComboboxes[row.id]} onOpenChange={(isOpen) => setOpenComboboxes(prev => ({...prev, [row.id]: isOpen}))}>
+                                    <Popover open={openComboboxes[row.id] || false} onOpenChange={(isOpen) => setOpenComboboxes(prev => ({...prev, [row.id]: isOpen}))}>
                                         <PopoverTrigger asChild>
                                         <Button variant="outline" role="combobox" className="w-full justify-between font-roboto" style={{fontFamily: 'Roboto, sans-serif'}}>
                                             {selectedMembers[row.id]
