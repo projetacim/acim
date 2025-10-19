@@ -79,13 +79,19 @@ export function PendingDonationsTable({ selectedMemberId, onEditDonation }: Pend
   }
 
   const pendingDonations = useMemo(() => {
-    if (!donations || !members || !selectedMemberId || !categories) return [];
+    if (!donations || !members || !categories) return [];
     
     const memberMap = new Map(members.map(m => [m.id, m]));
     const categoryMap = new Map(categories.map(c => [c.id, c.name]));
     
-    return donations
-      .filter(d => d.memberId === selectedMemberId && (d.paymentStatus === 'EN ATTENTE' || d.paymentStatus === 'Partiel'))
+    let filteredList = donations.filter(d => (d.paymentStatus === 'EN ATTENTE' || d.paymentStatus === 'Partiel'));
+    
+    // If a member is selected, filter by that member
+    if (selectedMemberId) {
+        filteredList = filteredList.filter(d => d.memberId === selectedMemberId);
+    }
+    
+    return filteredList
       .map(d => ({
         ...d,
         memberName: memberMap.get(d.memberId)?.nom || 'Membre inconnu',
@@ -239,14 +245,6 @@ export function PendingDonationsTable({ selectedMemberId, onEditDonation }: Pend
     setSelectedDonations([]);
   };
 
-  if (!selectedMemberId) {
-    return (
-       <div className="rounded-md border p-6 text-center text-muted-foreground">
-          Sélectionnez un membre pour voir ses dons en attente.
-       </div>
-    )
-  }
-
   return (
     <>
       <div className="flex justify-end mb-4">
@@ -273,6 +271,7 @@ export function PendingDonationsTable({ selectedMemberId, onEditDonation }: Pend
                       aria-label="Tout sélectionner"
                     />
                   </TableHead>
+                  <TableHead>Membre</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Catégorie</TableHead>
                   <TableHead className="hidden sm:table-cell">Mémo</TableHead>
@@ -283,9 +282,10 @@ export function PendingDonationsTable({ selectedMemberId, onEditDonation }: Pend
               </TableRow>
               </TableHeader>
               <TableBody>
-              {isLoading && Array.from({ length: 1 }).map((_, i) => (
+              {isLoading && Array.from({ length: 3 }).map((_, i) => (
                   <TableRow key={i}>
                       <TableCell><Skeleton className="h-4 w-4" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-28" /></TableCell>
                       <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
                       <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                       <TableCell className="hidden sm:table-cell"><Skeleton className="h-4 w-32" /></TableCell>
@@ -308,6 +308,7 @@ export function PendingDonationsTable({ selectedMemberId, onEditDonation }: Pend
                           aria-label={`Sélectionner le don de ${donation.totalAmount}€`}
                         />
                       </TableCell>
+                      <TableCell onClick={() => onEditDonation(donation.id)} className="cursor-pointer font-medium">{donation.memberName}</TableCell>
                       <TableCell onClick={() => onEditDonation(donation.id)} className="cursor-pointer">
                           <Badge variant={donation.type === 'Don' ? 'secondary' : 'outline'}>{donation.type}</Badge>
                       </TableCell>
@@ -321,8 +322,8 @@ export function PendingDonationsTable({ selectedMemberId, onEditDonation }: Pend
               ))}
               {!isLoading && pendingDonations.length === 0 && (
                   <TableRow>
-                  <TableCell colSpan={8} className="p-6 text-center text-muted-foreground">
-                      Aucun don en attente ou partiel pour ce membre.
+                  <TableCell colSpan={9} className="p-6 text-center text-muted-foreground">
+                      {selectedMemberId ? 'Aucun don en attente ou partiel pour ce membre.' : 'Aucun don en attente ou partiel.'}
                   </TableCell>
                   </TableRow>
               )}

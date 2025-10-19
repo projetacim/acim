@@ -80,20 +80,22 @@ function DashboardContent() {
         </CardContent>
       </Card>
       
-      {selectedMember && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Dons en attente et partiels</CardTitle>
-              <CardDescription>Vue d'ensemble des dons non soldés pour {selectedMember.nom}.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <PendingDonationsTable 
-                  selectedMemberId={selectedMember?.id ?? null} 
-                  onEditDonation={handleEditDonationClick} 
-                />
-            </CardContent>
-          </Card>
-      )}
+      <Card>
+        <CardHeader>
+          <CardTitle>Dons en attente et partiels</CardTitle>
+          {selectedMember ? 
+            <CardDescription>Dons non soldés pour {selectedMember.nom}.</CardDescription>
+            :
+            <CardDescription>Vue d'ensemble de tous les dons non soldés.</CardDescription>
+          }
+        </CardHeader>
+        <CardContent>
+            <PendingDonationsTable 
+              selectedMemberId={selectedMember?.id ?? null} 
+              onEditDonation={handleEditDonationClick} 
+            />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader className="flex flex-row items-start justify-between">

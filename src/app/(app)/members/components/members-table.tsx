@@ -27,7 +27,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { PlusCircle, Pencil, Trash2, FileDown, ListFilter, Search, DollarSign } from 'lucide-react';
+import { PlusCircle, Pencil, Trash2, FileDown, ListFilter, Search, DollarSign, X } from 'lucide-react';
 import type { Member } from '@/lib/types';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -105,13 +105,12 @@ export function MembersTable({ onMemberSelect, selectedMember, onAddDonation }: 
 
   useEffect(() => {
     if (selectedMember) {
-      setSearchQuery(selectedMember.nom);
+      // We don't auto-set search query anymore to avoid confusion
+      // setSearchQuery(selectedMember.nom);
       const row = memberRowRefs.current[selectedMember.id];
       if (row) {
         row.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
-    } else {
-      setSearchQuery('');
     }
   }, [selectedMember]);
 
@@ -255,6 +254,12 @@ export function MembersTable({ onMemberSelect, selectedMember, onAddDonation }: 
       prev.includes(docValue) ? prev.filter(s => s !== docValue) : [...prev, docValue]
     );
   };
+  
+  const handleResetFilters = () => {
+    setSearchQuery('');
+    setDocFilters([]);
+    onMemberSelect(null);
+  };
 
   const exportToExcel = () => {
     const dataToExport = filteredMembers.map(({ id, ...rest }) => rest);
@@ -270,6 +275,8 @@ export function MembersTable({ onMemberSelect, selectedMember, onAddDonation }: 
       onAddDonation(member);
   }
 
+  const hasActiveFilters = searchQuery || docFilters.length > 0;
+
   return (
     <>
       <div className="space-y-4">
@@ -280,8 +287,13 @@ export function MembersTable({ onMemberSelect, selectedMember, onAddDonation }: 
                 placeholder="Rechercher par nom, email ou mémo..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 border-black bg-slate-100 dark:bg-slate-800"
+                className="pl-9 pr-8 border-black bg-slate-100 dark:bg-slate-800"
               />
+              {hasActiveFilters && (
+                <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={handleResetFilters}>
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
             </div>
             <div className="flex items-center gap-2 w-full md:w-auto">
                <Popover>
