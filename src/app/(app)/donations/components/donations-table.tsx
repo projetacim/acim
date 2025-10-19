@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Pencil, Trash2, XCircle, FileWarning, Mail, Loader2, Link as LinkIcon } from 'lucide-react';
+import { Pencil, Trash2, XCircle, FileWarning, Mail, Loader2, Link as LinkIcon, Search, Calendar as CalendarIcon, Filter, X } from 'lucide-react';
 import type { Donation, Member, Payment, DonationCategory } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -37,6 +37,12 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useData } from '@/app/(app)/data-provider';
+import { Input } from '@/components/ui/input';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { DateRange } from 'react-day-picker';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Card, CardContent } from '@/components/ui/card';
 
 
 type DonationWithDetails = Donation & { memberName: string; categoryName?: string; };
@@ -59,6 +65,12 @@ export function DonationsTable({ selectedMemberId, onEditDonation, onSelectMembe
   const [isCancelAlertOpen, setIsCancelAlertOpen] = useState(false);
   const [isSendingMail, setIsSendingMail] = useState<string | null>(null);
   const [selectedDonation, setSelectedDonation] = useState<DonationWithDetails | null>(null);
+  
+  // Filters
+  const [searchQuery, setSearchQuery] = useState('');
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
 
   const processedDonations = useMemo(() => {
     if (!donations || !members || !categories) return [];
@@ -67,6 +79,8 @@ export function DonationsTable({ selectedMemberId, onEditDonation, onSelectMembe
     const categoryMap = new Map(categories.map(c => [c.id, c.name]));
     
     let filteredDonations = donations;
+
+    // Filter by selected member if any
     if(selectedMemberId) {
         filteredDonations = donations.filter(d => d.memberId === selectedMemberId);
     }
@@ -81,15 +95,47 @@ export function DonationsTable({ selectedMemberId, onEditDonation, onSelectMembe
           categoryName: d.donationCategoryId ? categoryMap.get(d.donationCategoryId) : ''
         } as DonationWithDetails
       })
+      .filter(d => {
+        // Date range filter on createdAt
+        const donationDate = new Date(d.createdAt);
+        if (dateRange?.from && donationDate < dateRange.from) return false;
+        if (dateRange?.to && donationDate > dateRange.to) return false;
+
+        // Type filter
+        if (typeFilter !== 'all' && d.type !== typeFilter) return false;
+
+        // Status filter
+        if (statusFilter !== 'all' && d.paymentStatus !== statusFilter) return false;
+
+        // Search query filter
+        const searchLower = searchQuery.toLowerCase();
+        if(searchLower) {
+            return (
+                d.memberName.toLowerCase().includes(searchLower) ||
+                (d.memo && d.memo.toLowerCase().includes(searchLower)) ||
+                (d.cerfaNumber && d.cerfaNumber.toLowerCase().includes(searchLower))
+            );
+        }
+        return true;
+      })
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-  }, [donations, members, categories, selectedMemberId]);
+  }, [donations, members, categories, selectedMemberId, dateRange, typeFilter, statusFilter, searchQuery]);
   
-  const getPaidAmount = (payments: Payment[] | undefined) => {
-      if(!payments) return 0;
-      return payments.reduce((acc, p) => acc + p.amount, 0);
+  const stats = useMemo(() => {
+    const totalAmount = processedDonations.reduce((acc, d) => acc + d.totalAmount, 0);
+    const donationCount = processedDonations.length;
+    const averageDonation = donationCount > 0 ? totalAmount / donationCount : 0;
+    return { totalAmount, donationCount, averageDonation };
+  }, [processedDonations]);
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setDateRange(undefined);
+    setTypeFilter('all');
+    setStatusFilter('all');
   }
-  
+
   const handleCerfaClick = async (donation: DonationWithDetails) => {
     if (!donation.cerfaNumber) {
         toast({ variant: 'destructive', title: 'Action impossible', description: 'Aucun numéro de CERFA à générer.' });
@@ -211,8 +257,81 @@ export function DonationsTable({ selectedMemberId, onEditDonation, onSelectMembe
     }
   };
 
+  const hasActiveFilters = searchQuery || dateRange || typeFilter !== 'all' || statusFilter !== 'all';
+
   return (
     <>
+      <div className="space-y-4">
+        {/* Filters */}
+        <div className="flex flex-col gap-2 md:flex-row md:items-center">
+            <div className="relative flex-grow">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                    placeholder="Rechercher par membre, mémo, n° CERFA..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9"
+                />
+            </div>
+             <Popover>
+                <PopoverTrigger asChild>
+                <Button id="date" variant={"outline"} className={cn("w-full md:w-auto justify-start text-left font-normal", !dateRange && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {dateRange?.from ? (dateRange.to ? (<>{format(dateRange.from, "d LLL, y", {locale:fr})} - {format(dateRange.to, "d LLL, y", {locale:fr})}</>) : (format(dateRange.from, "d LLL, y", {locale:fr}))) : (<span>Filtrer par date</span>)}
+                </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="end">
+                    <Calendar initialFocus mode="range" defaultMonth={dateRange?.from} selected={dateRange} onSelect={setDateRange} numberOfMonths={2} locale={fr}/>
+                </PopoverContent>
+            </Popover>
+             <Select value={typeFilter} onValueChange={setTypeFilter}>
+                <SelectTrigger className="w-full md:w-[180px]">
+                    <SelectValue placeholder="Type" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="all">Tous les types</SelectItem>
+                    <SelectItem value="Don">Don</SelectItem>
+                    <SelectItem value="Cotisation">Cotisation</SelectItem>
+                </SelectContent>
+            </Select>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-full md:w-[180px]">
+                    <SelectValue placeholder="Statut" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="all">Tous les statuts</SelectItem>
+                    <SelectItem value="Payé">Payé</SelectItem>
+                    <SelectItem value="Partiel">Partiel</SelectItem>
+                    <SelectItem value="EN ATTENTE">En attente</SelectItem>
+                    <SelectItem value="Annulé">Annulé</SelectItem>
+                </SelectContent>
+            </Select>
+            {hasActiveFilters && <Button variant="ghost" onClick={clearFilters}><X className="mr-2 h-4 w-4"/>Effacer</Button>}
+        </div>
+        
+        {/* Stats */}
+        <div className="grid gap-4 md:grid-cols-3">
+             <Card>
+                <CardContent className="p-4">
+                    <div className="text-sm font-medium text-muted-foreground">Montant Total</div>
+                    <div className="text-2xl font-bold">{stats.totalAmount.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})}</div>
+                </CardContent>
+            </Card>
+             <Card>
+                <CardContent className="p-4">
+                    <div className="text-sm font-medium text-muted-foreground">Nombre de Dons</div>
+                    <div className="text-2xl font-bold">{stats.donationCount}</div>
+                </CardContent>
+            </Card>
+             <Card>
+                <CardContent className="p-4">
+                    <div className="text-sm font-medium text-muted-foreground">Don Moyen</div>
+                    <div className="text-2xl font-bold">{stats.averageDonation.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})}</div>
+                </CardContent>
+            </Card>
+        </div>
+      </div>
+
       <ScrollArea className="h-96 w-full rounded-md border">
         <Table>
             <TableHeader>
@@ -327,7 +446,7 @@ export function DonationsTable({ selectedMemberId, onEditDonation, onSelectMembe
             {!isLoading && processedDonations.length === 0 && (
                 <TableRow>
                 <TableCell colSpan={selectedMemberId ? 8 : 9} className="p-6 text-center text-muted-foreground">
-                    {selectedMemberId ? 'Aucun don trouvé pour ce membre.' : 'Aucun don trouvé.'}
+                    {hasActiveFilters ? 'Aucun don ne correspond à vos critères.' : (selectedMemberId ? 'Aucun don trouvé pour ce membre.' : 'Aucun don trouvé.')}
                 </TableCell>
                 </TableRow>
             )}

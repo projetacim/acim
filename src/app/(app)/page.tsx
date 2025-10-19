@@ -25,7 +25,7 @@ function DashboardContent() {
   const [memberForNewDonation, setMemberForNewDonation] = useState<Member | null>(null);
   const [editingDonationId, setEditingDonationId] = useState<string | null>(null);
   
-  const { members, isLoading: isLoadingData } = useData();
+  const { members, donations: alldonations, isLoading: isLoadingData } = useData();
 
   const handleAddDonationClick = (member: Member) => {
     if (member) {
@@ -36,9 +36,9 @@ function DashboardContent() {
   };
   
   const handleEditDonationClick = (donationId: string) => {
-    const donation = (useData.getState().donations || []).find(d => d.id === donationId);
+    const donation = (alldonations || []).find(d => d.id === donationId);
     if(donation) {
-      const member = (useData.getState().members || []).find(m => m.id === donation.memberId);
+      const member = (members || []).find(m => m.id === donation.memberId);
       setMemberForNewDonation(member || null);
       setEditingDonationId(donationId);
       setIsDonationFormOpen(true);
@@ -96,7 +96,7 @@ function DashboardContent() {
       )}
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-row items-start justify-between">
           <div className="space-y-1">
             <CardTitle>Historique des dons</CardTitle>
             {selectedMember ? 
