@@ -44,6 +44,7 @@ import { useFirestore, useUser, addDocumentNonBlocking, updateDocumentNonBlockin
 import { collection, query, where, getDocs, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { sendCerfaEmail } from '@/lib/email';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 
 type DonationWithMemberName = Donation & { memberName: string; categoryName?: string };
@@ -299,29 +300,43 @@ export function PendingDonationsTable({ selectedMemberId, onEditDonation }: Pend
               ))}
               {!isLoading && pendingDonations.map((donation) => (
                   <TableRow 
-                    key={donation.id} 
+                    key={donation.id}
+                    onClick={() => onEditDonation(donation.id)}
+                    className="cursor-pointer"
                     data-state={selectedMemberId && selectedDonations.includes(donation.id) ? 'selected' : ''}
                   >
                       {selectedMemberId && (
-                        <TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
                           <Checkbox
                             checked={selectedDonations.includes(donation.id)}
                             onCheckedChange={() => handleSelectDonation(donation.id)}
-                            onClick={(e) => e.stopPropagation()}
                             aria-label={`Sélectionner le don de ${donation.totalAmount}€`}
                           />
                         </TableCell>
                       )}
-                      <TableCell onClick={() => onEditDonation(donation.id)} className="cursor-pointer font-medium">{donation.memberName}</TableCell>
-                      <TableCell onClick={() => onEditDonation(donation.id)} className="cursor-pointer">
+                      <TableCell className="font-medium">{donation.memberName}</TableCell>
+                      <TableCell>
                           <Badge variant={donation.type === 'Don' ? 'secondary' : 'outline'}>{donation.type}</Badge>
                       </TableCell>
-                      <TableCell onClick={() => onEditDonation(donation.id)} className="cursor-pointer">{donation.categoryName}</TableCell>
-                      <TableCell onClick={() => onEditDonation(donation.id)} className="cursor-pointer text-muted-foreground truncate max-w-xs hidden sm:table-cell">{donation.memo}</TableCell>
-                      <TableCell onClick={() => onEditDonation(donation.id)} className="cursor-pointer text-right">{donation.totalAmount.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})}</TableCell>
-                      <TableCell onClick={() => onEditDonation(donation.id)} className="cursor-pointer text-right text-destructive font-medium">{donation.remainingAmount.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})}</TableCell>
-                      <TableCell onClick={() => onEditDonation(donation.id)} className="cursor-pointer">{getStatusBadge(donation.paymentStatus)}</TableCell>
-                      <TableCell onClick={() => onEditDonation(donation.id)} className="cursor-pointer hidden md:table-cell">{new Date(donation.createdAt).toLocaleDateString('fr-FR')}</TableCell>
+                      <TableCell>{donation.categoryName}</TableCell>
+                      <TableCell className="text-muted-foreground hidden sm:table-cell">
+                        {donation.memo && donation.memo.length > 30 ? (
+                          <Tooltip>
+                              <TooltipTrigger>
+                              <span className="cursor-help">{donation.memo.substring(0, 30)}...</span>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                              <p className="max-w-xs">{donation.memo}</p>
+                              </TooltipContent>
+                          </Tooltip>
+                          ) : (
+                          donation.memo
+                          )}
+                      </TableCell>
+                      <TableCell className="text-right">{donation.totalAmount.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})}</TableCell>
+                      <TableCell className="text-right text-destructive font-medium">{donation.remainingAmount.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})}</TableCell>
+                      <TableCell>{getStatusBadge(donation.paymentStatus)}</TableCell>
+                      <TableCell className="hidden md:table-cell">{new Date(donation.createdAt).toLocaleDateString('fr-FR')}</TableCell>
                   </TableRow>
               ))}
               {!isLoading && pendingDonations.length === 0 && (
