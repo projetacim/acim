@@ -3,6 +3,7 @@
 
 import { Resend } from 'resend';
 import { CerfaReceiptEmail } from '@/emails/cerfa-receipt-email';
+import { ReminderEmail } from '@/emails/reminder-email';
 import type { Donation, Member } from '@/lib/types';
 import { generateCerfaPdf } from '@/lib/pdf';
 import { ReactElement } from 'react';
@@ -95,6 +96,22 @@ export async function sendCerfaEmail(donation: Donation, member: Member) {
                 content: pdfBuffer,
             }
         ]
+    });
+    
+    return result;
+}
+
+export async function sendReminderEmail(donation: Donation & { remainingAmount: number }, member: Member) {
+    const toEmail = donation.cerfaEmail || member.email;
+    
+    if (!toEmail) {
+        return { success: false, error: "No recipient email address found for this donation." };
+    }
+
+    const result = await sendEmail({
+        to: toEmail,
+        subject: `Rappel concernant votre ${donation.type.toLowerCase()} à l'ACIM`,
+        react: ReminderEmail({ donation, member }),
     });
     
     return result;

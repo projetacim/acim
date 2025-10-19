@@ -14,6 +14,7 @@ import {
   Settings,
   BarChart,
   HardDrive,
+  MailUp,
 } from 'lucide-react';
 import { useUser, useAuth, useFirestore, useMemoFirebase } from '@/firebase';
 import { signOut } from 'firebase/auth';
@@ -121,6 +122,14 @@ function AppLayoutContent({
                     <Link href="/bilan">
                         <BarChart />
                         <span>Bilan</span>
+                    </Link>
+                </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+                <SidebarMenuButton asChild tooltip="Relances">
+                    <Link href="/relances">
+                        <MailUp />
+                        <span>Relances</span>
                     </Link>
                 </SidebarMenuButton>
             </SidebarMenuItem>

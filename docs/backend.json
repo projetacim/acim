@@ -49,6 +49,11 @@
           "type": "string",
           "description": "The role of the member within the association.",
           "default": "membre"
+        },
+        "delicat": {
+          "type": "boolean",
+          "description": "Indicates if the member is sensitive and should be excluded from automated reminders.",
+          "default": false
         }
       },
       "required": [
@@ -248,5 +253,3 @@
     ]
   }
 }
-
-    

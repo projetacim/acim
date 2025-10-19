@@ -11,6 +11,7 @@ export type Member = {
   role?: string;
   membershipStatus: 'Active' | 'Inactive' | 'Pending';
   joinDate: string;
+  delicat?: boolean;
 };
 
 export type Payment = {
@@ -55,5 +56,3 @@ export type DonationCategory = {
   name: string;
   description?: string;
 };
-
-    
