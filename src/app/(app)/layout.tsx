@@ -174,7 +174,7 @@ function AppLayoutContent({
                     </li>
                     <li>
                       <SidebarMenuSubButton asChild>
-                        <Link href="/settings/backup">Sauvegardes</Link>
+                        <Link href="/settings/backup">Sauvegardes &amp; Restauration</Link>
                       </SidebarMenuSubButton>
                     </li>
                   </SidebarMenuSub>
