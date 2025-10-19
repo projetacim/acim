@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -33,7 +34,6 @@ type DonationWithDetails = Donation & {
   memberName: string;
   memberEmail?: string;
   remainingAmount: number;
-  memberIsDelicate: boolean;
   referenceDate: string; // The date used for aging (last payment or creation date)
 };
 
@@ -73,7 +73,6 @@ export function RelanceView() {
           memberName: member?.nom || 'Membre inconnu',
           memberEmail: member?.email,
           remainingAmount: d.totalAmount - paidAmount,
-          memberIsDelicate: member?.delicat || false,
           referenceDate: referenceDate.toISOString(),
         };
       })
@@ -90,7 +89,7 @@ export function RelanceView() {
   }, [donations, members, ageFilter]);
   
   const selectableDonations = useMemo(() => {
-      return pendingDonations.filter(d => !d.memberIsDelicate);
+      return pendingDonations.filter(d => !d.ne_pas_relancer);
   }, [pendingDonations]);
 
   const handleSelect = (donationId: string) => {
@@ -237,18 +236,18 @@ export function RelanceView() {
                 ))
               ) : pendingDonations.length > 0 ? (
                 pendingDonations.map(donation => (
-                  <TableRow key={donation.id} className={donation.memberIsDelicate ? 'bg-red-50 dark:bg-red-900/20' : ''}>
+                  <TableRow key={donation.id} className={donation.ne_pas_relancer ? 'bg-orange-50 dark:bg-orange-900/20' : ''}>
                     <TableCell>
                       <Checkbox
                         checked={selectedDonationIds.includes(donation.id)}
                         onCheckedChange={() => handleSelect(donation.id)}
-                        disabled={donation.memberIsDelicate}
+                        disabled={donation.ne_pas_relancer}
                         aria-label={`Sélectionner le don de ${donation.memberName}`}
                       />
                     </TableCell>
                     <TableCell>
                         <div className="font-medium">{donation.memberName}</div>
-                        {donation.memberIsDelicate && <Badge variant="destructive" className="mt-1">Membre délicat</Badge>}
+                        {donation.ne_pas_relancer && <Badge variant="outline" className="mt-1 border-orange-500 text-orange-600">Relance manuelle</Badge>}
                     </TableCell>
                     <TableCell className="hidden sm:table-cell">
                         {donation.memberEmail ? 

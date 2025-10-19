@@ -11,7 +11,6 @@ export type Member = {
   role?: string;
   membershipStatus: 'Active' | 'Inactive' | 'Pending';
   joinDate: string;
-  delicat?: boolean;
 };
 
 export type Payment = {
@@ -30,6 +29,7 @@ export type Donation = {
   paymentStatus: 'EN ATTENTE' | 'Partiel' | 'Payé' | 'Annulé';
   memo?: string;
   cerfaEligible: boolean;
+  ne_pas_relancer?: boolean;
   cerfaNumber?: string;
   cerfaDate?: string; // ISO string
   createdAt: string;

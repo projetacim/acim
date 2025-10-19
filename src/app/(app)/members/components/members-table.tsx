@@ -76,7 +76,6 @@ const memberSchema = z.object({
   doc: z.enum(['M', 'C', 'Non', '']).optional(),
   memo: z.string().optional(),
   role: z.string().optional(),
-  delicat: z.boolean().default(false),
 });
 
 type MemberFormValues = z.infer<typeof memberSchema>;
@@ -125,7 +124,6 @@ export function MembersTable({ onMemberSelect, selectedMember, onAddDonation }: 
       doc: '',
       memo: '',
       role: 'membre',
-      delicat: false,
     },
   });
 
@@ -170,7 +168,6 @@ export function MembersTable({ onMemberSelect, selectedMember, onAddDonation }: 
             doc: (member.doc as 'M' | 'C' | 'Non' | '') || '',
             memo: member.memo || '',
             role: member.role || 'membre',
-            delicat: member.delicat || false,
         });
     } else {
         form.reset({
@@ -181,7 +178,6 @@ export function MembersTable({ onMemberSelect, selectedMember, onAddDonation }: 
             doc: '',
             memo: '',
             role: 'membre',
-            delicat: false,
         });
     }
     setIsFormOpen(true);
@@ -207,7 +203,6 @@ export function MembersTable({ onMemberSelect, selectedMember, onAddDonation }: 
       doc: data.doc || '',
       memo: data.memo || '',
       role: data.role || 'membre',
-      delicat: data.delicat || false,
       membershipStatus: memberToEdit?.membershipStatus || 'Pending'
     };
 
@@ -531,23 +526,7 @@ export function MembersTable({ onMemberSelect, selectedMember, onAddDonation }: 
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="delicat"
-                render={({ field }) => (
-                  <FormItem className="flex items-center gap-2 pt-6">
-                    <FormControl>
-                      <Checkbox
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                    <FormLabel className="!mt-0">Membre délicat</FormLabel>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <DialogFooter className="md:col-span-2">
+              <DialogFooter className="md:col-span-2 pt-4">
                 <Button type="button" variant="ghost" onClick={handleCloseForm}>
                   Annuler
                 </Button>

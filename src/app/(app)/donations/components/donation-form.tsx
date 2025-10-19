@@ -57,6 +57,7 @@ const donationSchema = z.object({
   payments: z.array(paymentSchema).max(3, "Vous ne pouvez pas ajouter plus de 3 paiements."),
   memo: z.string().min(1, "Le mémo est obligatoire."),
   cerfaEligible: z.boolean().default(true),
+  ne_pas_relancer: z.boolean().default(false),
   paymentStatus: z.enum(['EN ATTENTE', 'Partiel', 'Payé', 'Annulé']).optional(),
   createdAt: z.date().optional(),
   // CERFA specific fields
@@ -98,6 +99,7 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
       payments: [],
       memo: '',
       cerfaEligible: true,
+      ne_pas_relancer: false,
       createdAt: new Date(),
       cerfaNom: '',
       cerfaAdresse: '',
@@ -152,6 +154,7 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
               payments: existingDonation.payments.map(p => ({...p, date: new Date(p.date)})),
               memo: existingDonation.memo || '',
               cerfaEligible: existingDonation.cerfaEligible,
+              ne_pas_relancer: existingDonation.ne_pas_relancer || false,
               createdAt: new Date(existingDonation.createdAt),
               cerfaNom: existingDonation.cerfaNom || member?.nom || '',
               cerfaAdresse: existingDonation.cerfaAdresse || member?.adresse || '',
@@ -173,6 +176,7 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
                   payments: [{ amount: 0, date: new Date(), paymentMethod: 'Carte de crédit' }],
                   memo: '',
                   cerfaEligible: true,
+                  ne_pas_relancer: false,
                   createdAt: new Date(),
                   cerfaNom: memberData.nom,
                   cerfaAdresse: memberData.adresse || '',
@@ -482,16 +486,28 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
                                 </FormItem>
                             )}
                         />
-                        <FormField
+                         <div className='flex gap-4'>
+                            <FormField
                             control={form.control}
                             name="cerfaEligible"
                             render={({ field }) => (
                                 <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-4">
                                 <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange}/></FormControl>
-                                <div className="space-y-1 leading-none"><FormLabel>Éligible pour un reçu fiscal (CERFA)</FormLabel></div>
+                                <div className="space-y-1 leading-none"><FormLabel>Éligible CERFA</FormLabel></div>
                                 </FormItem>
                             )}
-                        />
+                            />
+                             <FormField
+                            control={form.control}
+                            name="ne_pas_relancer"
+                            render={({ field }) => (
+                                <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-4">
+                                <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange}/></FormControl>
+                                <div className="space-y-1 leading-none"><FormLabel>Ne pas relancer</FormLabel></div>
+                                </FormItem>
+                            )}
+                            />
+                        </div>
                     </div>
                     {/* Colonne Droite */}
                     <div className="flex flex-col gap-6">
