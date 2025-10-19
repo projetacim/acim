@@ -58,6 +58,7 @@ const donationSchema = z.object({
   memo: z.string().min(1, "Le mémo est obligatoire."),
   cerfaEligible: z.boolean().default(true),
   paymentStatus: z.enum(['EN ATTENTE', 'Partiel', 'Payé', 'Annulé']).optional(),
+  createdAt: z.date().optional(),
   // CERFA specific fields
   cerfaNom: z.string().optional(),
   cerfaAdresse: z.string().optional(),
@@ -97,6 +98,7 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
       payments: [],
       memo: '',
       cerfaEligible: true,
+      createdAt: new Date(),
       cerfaNom: '',
       cerfaAdresse: '',
       cerfaEmail: '',
@@ -150,6 +152,7 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
               payments: existingDonation.payments.map(p => ({...p, date: new Date(p.date)})),
               memo: existingDonation.memo || '',
               cerfaEligible: existingDonation.cerfaEligible,
+              createdAt: new Date(existingDonation.createdAt),
               cerfaNom: existingDonation.cerfaNom || member?.nom || '',
               cerfaAdresse: existingDonation.cerfaAdresse || member?.adresse || '',
               cerfaEmail: existingDonation.cerfaEmail || member?.email || '',
@@ -170,6 +173,7 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
                   payments: [{ amount: 0, date: new Date(), paymentMethod: 'Carte de crédit' }],
                   memo: '',
                   cerfaEligible: true,
+                  createdAt: new Date(),
                   cerfaNom: memberData.nom,
                   cerfaAdresse: memberData.adresse || '',
                   cerfaEmail: memberData.email,
@@ -264,6 +268,7 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
 
     try {
       if (isEditMode && currentDonation) {
+        const { createdAt, ...updateData } = donationData;
         const donationDocRef = doc(firestore, 'users', user.uid, 'donations', donationId);
         const wasPaid = currentDonation.paymentStatus === 'Payé';
         const isNowPaid = finalPaymentStatus === 'Payé';
@@ -271,14 +276,14 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
         if(isNowPaid && !wasPaid && data.cerfaEligible && !currentDonation.cerfaNumber) {
             const newCerfaNumber = await generateCerfaNumber();
             if(newCerfaNumber){
-                donationData.cerfaNumber = newCerfaNumber;
-                donationData.cerfaDate = (data.cerfaDate || new Date()).toISOString();
+                updateData.cerfaNumber = newCerfaNumber;
+                updateData.cerfaDate = (data.cerfaDate || new Date()).toISOString();
                 toast({ title: 'N° CERFA généré', description: `Le numéro ${newCerfaNumber} a été assigné.` });
             }
         }
         
-        await updateDocumentNonBlocking(donationDocRef, donationData);
-        const updatedDonation = { ...currentDonation, ...donationData } as Donation;
+        await updateDocumentNonBlocking(donationDocRef, updateData);
+        const updatedDonation = { ...currentDonation, ...updateData } as Donation;
         
         // Check if we should send email after update
         if(updatedDonation.paymentStatus === 'Payé' && updatedDonation.cerfaEligible && updatedDonation.cerfaNumber && updatedDonation.cerfaEmail) {
@@ -294,7 +299,10 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
 
       } else { // Create mode
         const collectionRef = collection(firestore, 'users', user.uid, 'donations');
-        const donationToSave: Partial<Donation> & { createdAt: string } = { ...donationData, createdAt: new Date().toISOString() };
+        const donationToSave: Partial<Donation> & { createdAt: string } = { 
+            ...donationData, 
+            createdAt: (data.createdAt || new Date()).toISOString() 
+        };
 
         if(finalPaymentStatus === 'Payé' && data.cerfaEligible) {
             const newCerfaNumber = await generateCerfaNumber();
@@ -391,6 +399,39 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 rounded-md border p-4">
                     {/* Colonne Gauche */}
                     <div className="space-y-6">
+                        {!isEditMode && (
+                          <FormField
+                            control={form.control}
+                            name="createdAt"
+                            render={({ field }) => (
+                              <FormItem className="flex flex-col">
+                                <FormLabel className="mb-2">Date de Création</FormLabel>
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <FormControl>
+                                      <Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
+                                        {field.value ? format(field.value, "d MMMM yyyy", { locale: fr }) : <span>Choisir une date</span>}
+                                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                      </Button>
+                                    </FormControl>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-auto p-0" align="start">
+                                    <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus locale={fr} />
+                                  </PopoverContent>
+                                </Popover>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        )}
+                         {isEditMode && currentDonation && (
+                            <FormItem>
+                                <FormLabel>Date de Création</FormLabel>
+                                <FormControl>
+                                    <Input value={format(new Date(currentDonation.createdAt), "d MMMM yyyy", { locale: fr })} readOnly disabled className="border-black" />
+                                </FormControl>
+                            </FormItem>
+                        )}
                         <FormField
                             control={form.control}
                             name="type"
