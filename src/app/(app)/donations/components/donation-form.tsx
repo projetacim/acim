@@ -257,6 +257,7 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
         paymentStatus: finalPaymentStatus,
         cerfaDate: data.cerfaDate?.toISOString(),
         cerfaEmail: data.cerfaEmail || '',
+        memo: data.memo || '',
     };
     
     let emailSent = false;
@@ -289,7 +290,7 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
 
         let toastMessage = 'Don mis à jour.';
         if(emailSent) toastMessage += ' L\'email de confirmation a été envoyé.';
-        toast({ title: toastMessage });
+        toast({ title: toastMessage, duration: 3000 });
 
       } else { // Create mode
         const collectionRef = collection(firestore, 'users', user.uid, 'donations');
@@ -336,7 +337,7 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
         
         let toastMessage = 'Don ajouté. Un nouveau don/cotisation a été enregistré.';
         if(emailSent) toastMessage += ' L\'email de confirmation a été envoyé.';
-        toast({ title: toastMessage });
+        toast({ title: toastMessage, duration: 3000 });
       }
 
       if (onFormSubmit) {
@@ -643,4 +644,6 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
     </Card>
   );
 }
+    
+
     
