@@ -17,6 +17,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2, UploadCloud, Check, ChevronsUpDown, CheckCircle } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { openCerfaPdf } from '@/lib/cerfa-actions';
+import { format } from 'date-fns';
+import { fr } from 'date-fns/locale';
 
 type StripeRow = {
   'Type de don': string;
@@ -111,8 +113,8 @@ export function StripeImportView() {
 
           const montantStr = String(row.Montant || '0')
               .replace('€', '')
-              .replace(/\s/g, '')
-              .replace(',', '.');
+              .replace(/\s/g, '') // remove spaces
+              .replace(',', '.'); // replace comma with dot
           const montant = parseFloat(montantStr) || 0;
 
           return {
@@ -271,6 +273,8 @@ export function StripeImportView() {
                         <TableHead className="w-[320px]">Membre</TableHead>
                         <TableHead className="w-[200px]">Catégorie</TableHead>
                         <TableHead>Montant</TableHead>
+                        <TableHead>N° Reçu</TableHead>
+                        <TableHead>Date</TableHead>
                         <TableHead>Commentaire</TableHead>
                         <TableHead className="text-right">Action</TableHead>
                     </TableRow>
@@ -317,6 +321,8 @@ export function StripeImportView() {
                                     </Select>
                                 </TableCell>
                                 <TableCell className="align-top">{row.montant.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</TableCell>
+                                <TableCell className="align-top">{row.numeroRecu}</TableCell>
+                                <TableCell className="align-top text-xs">{format(row.dateHeure, 'dd/MM/yy HH:mm', {locale: fr})}</TableCell>
                                 <TableCell className="text-muted-foreground align-top max-w-[200px] truncate">{row.memo}</TableCell>
                                 <TableCell className="text-right align-top">
                                     <Button size="sm" onClick={() => handleAttribuer(row)} disabled={isImporting === row.id || !selectedMembers[row.id]}>
