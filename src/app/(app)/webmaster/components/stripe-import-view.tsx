@@ -73,7 +73,8 @@ export function StripeImportView() {
   const [isImporting, setIsImporting] = useState<string | null>(null);
   const [processedRows, setProcessedRows] = useState<ProcessedRow[]>([]);
   const [selectedMembers, setSelectedMembers] = useState<Record<string, string>>({});
-  const [openComboboxes, setOpenComboboxes] = useState<Record<string, boolean>>({});
+  const [openComboboxId, setOpenComboboxId] = useState<string | null>(null);
+
 
   const membersByEmail = useMemo(() => {
     return new Map(members?.map(m => [m.email?.toLowerCase() || '', m]));
@@ -102,6 +103,7 @@ export function StripeImportView() {
         const workbook = XLSX.read(data, { type: 'array', cellDates: true });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
+        // Using raw: false is crucial for formatted numbers (like currency) to be parsed as numbers
         const json = XLSX.utils.sheet_to_json<StripeRow>(worksheet, {raw: false});
 
         const newSelectedMembers: Record<string, string> = {};
@@ -271,7 +273,7 @@ export function StripeImportView() {
                             <TableRow key={row.id} className={cn(row.matched && 'bg-green-500/10')}>
                                 <TableCell className="font-medium">{row.nom}</TableCell>
                                 <TableCell>
-                                    <Popover open={openComboboxes[row.id] || false} onOpenChange={(isOpen) => setOpenComboboxes(prev => ({...prev, [row.id]: isOpen}))}>
+                                    <Popover open={openComboboxId === row.id} onOpenChange={(isOpen) => setOpenComboboxId(isOpen ? row.id : null)}>
                                         <PopoverTrigger asChild>
                                         <Button variant="outline" role="combobox" className="w-full justify-between font-roboto" style={{fontFamily: 'Roboto, sans-serif'}}>
                                             {selectedMembers[row.id]
@@ -292,7 +294,7 @@ export function StripeImportView() {
                                                         value={m.label}
                                                         onSelect={() => {
                                                             setSelectedMembers(prev => ({...prev, [row.id]: m.value}));
-                                                            setOpenComboboxes(prev => ({...prev, [row.id]: false}));
+                                                            setOpenComboboxId(null);
                                                         }}
                                                     >
                                                     <Check className={cn("mr-2 h-4 w-4", selectedMembers[row.id] === m.value ? "opacity-100" : "opacity-0")} />
