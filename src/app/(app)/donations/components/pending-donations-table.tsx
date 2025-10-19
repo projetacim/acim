@@ -248,7 +248,7 @@ export function PendingDonationsTable({ selectedMemberId, onEditDonation }: Pend
   return (
     <>
       <div className="flex justify-end mb-4">
-        {selectedDonations.length > 0 && (
+        {selectedMemberId && selectedDonations.length > 0 && (
             <Button onClick={() => setIsPaymentDialogOpen(true)}>
                 Encaisser la sélection ({selectedDonations.length} / {totalSelectedAmount.toLocaleString('fr-FR', {style: 'currency', currency: 'EUR'})})
             </Button>
@@ -258,19 +258,21 @@ export function PendingDonationsTable({ selectedMemberId, onEditDonation }: Pend
           <Table>
               <TableHeader>
               <TableRow>
-                  <TableHead className="w-[50px]">
-                    <Checkbox
-                      checked={pendingDonations.length > 0 && selectedDonations.length === pendingDonations.length}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setSelectedDonations(pendingDonations.map(d => d.id));
-                        } else {
-                          setSelectedDonations([]);
-                        }
-                      }}
-                      aria-label="Tout sélectionner"
-                    />
-                  </TableHead>
+                  {selectedMemberId && (
+                    <TableHead className="w-[50px]">
+                      <Checkbox
+                        checked={pendingDonations.length > 0 && selectedDonations.length === pendingDonations.length}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedDonations(pendingDonations.map(d => d.id));
+                          } else {
+                            setSelectedDonations([]);
+                          }
+                        }}
+                        aria-label="Tout sélectionner"
+                      />
+                    </TableHead>
+                  )}
                   <TableHead>Membre</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Catégorie</TableHead>
@@ -284,7 +286,7 @@ export function PendingDonationsTable({ selectedMemberId, onEditDonation }: Pend
               <TableBody>
               {isLoading && Array.from({ length: 3 }).map((_, i) => (
                   <TableRow key={i}>
-                      <TableCell><Skeleton className="h-4 w-4" /></TableCell>
+                      {selectedMemberId && <TableCell><Skeleton className="h-4 w-4" /></TableCell>}
                       <TableCell><Skeleton className="h-4 w-28" /></TableCell>
                       <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
                       <TableCell><Skeleton className="h-4 w-24" /></TableCell>
@@ -298,16 +300,18 @@ export function PendingDonationsTable({ selectedMemberId, onEditDonation }: Pend
               {!isLoading && pendingDonations.map((donation) => (
                   <TableRow 
                     key={donation.id} 
-                    data-state={selectedDonations.includes(donation.id) ? 'selected' : ''}
+                    data-state={selectedMemberId && selectedDonations.includes(donation.id) ? 'selected' : ''}
                   >
-                      <TableCell>
-                        <Checkbox
-                          checked={selectedDonations.includes(donation.id)}
-                          onCheckedChange={() => handleSelectDonation(donation.id)}
-                          onClick={(e) => e.stopPropagation()}
-                          aria-label={`Sélectionner le don de ${donation.totalAmount}€`}
-                        />
-                      </TableCell>
+                      {selectedMemberId && (
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedDonations.includes(donation.id)}
+                            onCheckedChange={() => handleSelectDonation(donation.id)}
+                            onClick={(e) => e.stopPropagation()}
+                            aria-label={`Sélectionner le don de ${donation.totalAmount}€`}
+                          />
+                        </TableCell>
+                      )}
                       <TableCell onClick={() => onEditDonation(donation.id)} className="cursor-pointer font-medium">{donation.memberName}</TableCell>
                       <TableCell onClick={() => onEditDonation(donation.id)} className="cursor-pointer">
                           <Badge variant={donation.type === 'Don' ? 'secondary' : 'outline'}>{donation.type}</Badge>
@@ -322,7 +326,7 @@ export function PendingDonationsTable({ selectedMemberId, onEditDonation }: Pend
               ))}
               {!isLoading && pendingDonations.length === 0 && (
                   <TableRow>
-                  <TableCell colSpan={9} className="p-6 text-center text-muted-foreground">
+                  <TableCell colSpan={selectedMemberId ? 9 : 8} className="p-6 text-center text-muted-foreground">
                       {selectedMemberId ? 'Aucun don en attente ou partiel pour ce membre.' : 'Aucun don en attente ou partiel.'}
                   </TableCell>
                   </TableRow>
