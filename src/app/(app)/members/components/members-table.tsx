@@ -105,12 +105,13 @@ export function MembersTable({ onMemberSelect, selectedMember, onAddDonation }: 
 
   useEffect(() => {
     if (selectedMember) {
-      // We don't auto-set search query anymore to avoid confusion
-      // setSearchQuery(selectedMember.nom);
+      setSearchQuery(selectedMember.nom);
       const row = memberRowRefs.current[selectedMember.id];
       if (row) {
         row.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
+    } else {
+      setSearchQuery('');
     }
   }, [selectedMember]);
 
@@ -286,7 +287,12 @@ export function MembersTable({ onMemberSelect, selectedMember, onAddDonation }: 
               <Input
                 placeholder="Rechercher par nom, email ou mémo..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value)
+                  if(selectedMember && e.target.value === '') {
+                    onMemberSelect(null)
+                  }
+                }}
                 className="pl-9 pr-8 border-black bg-slate-100 dark:bg-slate-800"
               />
               {hasActiveFilters && (
