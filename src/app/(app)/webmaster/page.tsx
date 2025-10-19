@@ -1,7 +1,6 @@
 'use client';
 
 import { StripeImportView } from './components/stripe-import-view';
-import { BackupView } from './components/backup-view';
 import { DataProvider } from '@/app/(app)/data-provider';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
@@ -16,15 +15,11 @@ export default function WebmasterPage() {
           </p>
         </div>
         <Tabs defaultValue="import-stripe">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-1">
             <TabsTrigger value="import-stripe">Import Stripe</TabsTrigger>
-            <TabsTrigger value="backup">Sauvegardes</TabsTrigger>
           </TabsList>
           <TabsContent value="import-stripe">
             <StripeImportView />
-          </TabsContent>
-          <TabsContent value="backup">
-            <BackupView />
           </TabsContent>
         </Tabs>
       </div>

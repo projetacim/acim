@@ -172,6 +172,11 @@ function AppLayoutContent({
                         <Link href="/settings/donations">Catégories Dons</Link>
                       </SidebarMenuSubButton>
                     </li>
+                    <li>
+                      <SidebarMenuSubButton asChild>
+                        <Link href="/settings/backup">Sauvegardes</Link>
+                      </SidebarMenuSubButton>
+                    </li>
                   </SidebarMenuSub>
                 </CollapsibleContent>
               </SidebarMenuItem>
