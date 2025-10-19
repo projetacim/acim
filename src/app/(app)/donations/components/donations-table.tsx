@@ -393,7 +393,7 @@ export function DonationsTable({ selectedMemberId, onEditDonation, onSelectMembe
                     <Badge variant={donation.type === 'Don' ? 'secondary' : 'outline'}>{donation.type}</Badge>
                 </TableCell>
                 <TableCell>{donation.categoryName}</TableCell>
-                <TableCell className="hidden sm:table-cell">
+                <TableCell className="hidden sm:table-cell text-muted-foreground">
                     {donation.memo && donation.memo.length > 30 ? (
                     <Tooltip>
                         <TooltipTrigger>

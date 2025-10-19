@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -403,10 +404,10 @@ export function BilanView() {
                       <TableCell><Badge variant={t.type === 'Don' ? 'secondary' : 'outline'}>{t.type}</Badge></TableCell>
                       <TableCell>{t.categoryName}</TableCell>
                       <TableCell>
-                          {t.memo && t.memo.length > 20 ? (
+                          {t.memo && t.memo.length > 25 ? (
                             <UiTooltip>
                                 <TooltipTrigger>
-                                <span className="cursor-help text-muted-foreground">{t.memo.substring(0, 20)}...</span>
+                                <span className="cursor-help text-muted-foreground">{t.memo.substring(0, 25)}...</span>
                                 </TooltipTrigger>
                                 <UiTooltipContent>
                                 <p className="max-w-xs">{t.memo}</p>
@@ -435,5 +436,3 @@ export function BilanView() {
     </div>
   );
 }
-
-    

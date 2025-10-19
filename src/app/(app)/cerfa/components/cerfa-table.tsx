@@ -255,7 +255,7 @@ export function CerfaTable() {
                         <Badge variant={donation.type === 'Don' ? 'secondary' : 'outline'}>{donation.type}</Badge>
                     </TableCell>
                     <TableCell className="hidden lg:table-cell">{donation.categoryName}</TableCell>
-                    <TableCell className="text-muted-foreground truncate max-w-xs hidden lg:table-cell">
+                    <TableCell className="text-muted-foreground hidden lg:table-cell">
                       {donation.memo && donation.memo.length > 40 ? (
                         <Tooltip>
                             <TooltipTrigger>
@@ -286,4 +286,3 @@ export function CerfaTable() {
     </>
   );
 }
-
