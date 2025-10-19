@@ -17,6 +17,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2, UploadCloud, Check, ChevronsUpDown, CheckCircle } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { openCerfaPdf } from '@/lib/cerfa-actions';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+
 
 type StripeRow = {
   'Type de don': string;
@@ -52,6 +55,62 @@ type ProcessedRow = {
 };
 
 const DONATEUR_INVITE_ID = 'DONATEUR_INVITE';
+
+
+// Encapsulated ComboBox component for member selection
+function MemberCombobox({ members, value, onSelect }: { members: { value: string; label: string; }[], value: string, onSelect: (value: string) => void }) {
+  const [open, setOpen] = useState(false);
+
+  const selectedMemberLabel = useMemo(() => {
+    const member = members.find(m => m.value === value);
+    return member ? member.label : "Sélectionner un membre...";
+  }, [value, members]);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between"
+        >
+          <span className="truncate">{selectedMemberLabel}</span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[300px] p-0">
+        <Command>
+          <CommandInput placeholder="Rechercher un membre..." />
+          <CommandList>
+            <CommandEmpty>Aucun membre trouvé.</CommandEmpty>
+            <CommandGroup>
+              {members.map((member) => (
+                <CommandItem
+                  key={member.value}
+                  value={member.label}
+                  onSelect={() => {
+                    onSelect(member.value);
+                    setOpen(false);
+                  }}
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      value === member.value ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                  {member.label}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 
 export function StripeImportView() {
   const { members, categories, isLoading: isDataLoading } = useData();
@@ -258,7 +317,7 @@ export function StripeImportView() {
                     <TableHeader>
                     <TableRow>
                         <TableHead className="w-[200px]">Nom</TableHead>
-                        <TableHead className="w-[250px]">Membre</TableHead>
+                        <TableHead className="w-[320px]">Membre</TableHead>
                         <TableHead className="w-[200px]">Catégorie</TableHead>
                         <TableHead>Montant</TableHead>
                         <TableHead>Commentaire</TableHead>
@@ -273,21 +332,11 @@ export function StripeImportView() {
                                   <div className="text-xs text-muted-foreground">{row.email}</div>
                                 </TableCell>
                                 <TableCell className="align-top">
-                                    <Select 
-                                      value={selectedMembers[row.id]} 
-                                      onValueChange={(value) => handleSelectMember(row.id, value)}
-                                    >
-                                      <SelectTrigger>
-                                        <SelectValue placeholder="Sélectionner un membre..." />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        {allMembersForSelect.map((m) => (
-                                          <SelectItem key={m.value} value={m.value}>
-                                            {m.label}
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
+                                  <MemberCombobox 
+                                    members={allMembersForSelect} 
+                                    value={selectedMembers[row.id] || ''} 
+                                    onSelect={(value) => handleSelectMember(row.id, value)} 
+                                  />
                                 </TableCell>
                                 <TableCell className="align-top">
                                      <Select 
@@ -325,5 +374,3 @@ export function StripeImportView() {
     </div>
   );
 }
-
-    
