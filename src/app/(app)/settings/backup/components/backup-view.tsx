@@ -4,11 +4,11 @@
 import { useState } from 'react';
 import { useData } from '@/app/(app)/data-provider';
 import { useFirestore, useUser } from '@/firebase';
-import { collection, writeBatch, getDocs, doc, setDoc } from 'firebase/firestore';
+import { collection, writeBatch, getDocs, doc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Download, Loader2, UploadCloud, AlertTriangle } from 'lucide-react';
+import { Download, Loader2, UploadCloud, AlertTriangle, BookUser } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import backendConfig from '@/../docs/backend.json';
+import { generateGuidePdf } from '@/lib/guide-pdf';
 
 type CollectionName = 'members' | 'donations' | 'transactions' | 'categories';
 
@@ -41,6 +42,7 @@ export function BackupRestoreView() {
   const [isRestoring, setIsRestoring] = useState(false);
   const [isRestoreAlertOpen, setIsRestoreAlertOpen] = useState(false);
   const [fileToRestore, setFileToRestore] = useState<File | null>(null);
+  const [isGuideGenerating, setIsGuideGenerating] = useState(false);
 
   const collections = {
     members,
@@ -132,7 +134,8 @@ export function BackupRestoreView() {
             // 1. Delete existing data
             const collectionsToDelete = ['members', 'donations', 'transactions', 'categories'];
              for (const collectionName of collectionsToDelete) {
-                const collectionRef = collection(firestore, 'users', user.uid, collectionName);
+                const path = collectionName === 'members' ? 'membre' : collectionName;
+                const collectionRef = collection(firestore, 'users', user.uid, path);
                 const snapshot = await getDocs(collectionRef);
                 const batch = writeBatch(firestore);
                 snapshot.docs.forEach(d => batch.delete(d.ref));
@@ -144,10 +147,11 @@ export function BackupRestoreView() {
              for (const colName of requiredCollections) {
                  const batch = writeBatch(firestore);
                  const colData = data[colName] as {id: string, [key: string]: any}[];
+                 const path = colName === 'members' ? 'membre' : colName;
                  
                  colData.forEach(item => {
                      const { id, ...itemData } = item;
-                     const docRef = doc(firestore, 'users', user.uid, colName === 'members' ? 'membre' : colName, id);
+                     const docRef = doc(firestore, 'users', user.uid, path, id);
                      batch.set(docRef, itemData);
                  });
                  importPromises.push(batch.commit());
@@ -180,6 +184,32 @@ export function BackupRestoreView() {
 
     reader.readAsText(fileToRestore);
   }
+
+  const handleDownloadGuide = async () => {
+    setIsGuideGenerating(true);
+    try {
+        const pdfBytes = await generateGuidePdf();
+        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = "guide-sauvegarde-restauration.pdf";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    } catch (error) {
+        console.error("Failed to generate guide PDF:", error);
+        toast({
+            variant: "destructive",
+            title: "Erreur de génération",
+            description: "Impossible de créer le guide PDF.",
+        });
+    } finally {
+        setIsGuideGenerating(false);
+    }
+};
+
   
   const collectionMetadata = [
       { name: 'Membres', key: 'members', data: members },
@@ -198,10 +228,20 @@ export function BackupRestoreView() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-            <Button onClick={() => handleExport('all')} disabled={isLoading || isExporting !== null} className="w-full sm:w-auto">
-                {isExporting === 'all' ? ( <Loader2 className="mr-2 h-4 w-4 animate-spin" /> ) : ( <Download className="mr-2 h-4 w-4" /> )}
-                Télécharger la sauvegarde complète
-            </Button>
+            <div className="flex flex-wrap gap-2">
+                <Button onClick={() => handleExport('all')} disabled={isLoading || isExporting !== null} className="w-full sm:w-auto">
+                    {isExporting === 'all' ? ( <Loader2 className="mr-2 h-4 w-4 animate-spin" /> ) : ( <Download className="mr-2 h-4 w-4" /> )}
+                    Sauvegarde complète des données
+                </Button>
+                <Button onClick={() => handleExport('config')} disabled={isExporting !== null} variant="secondary" className="w-full sm:w-auto">
+                    {isExporting === 'config' ? ( <Loader2 className="mr-2 h-4 w-4 animate-spin" /> ) : ( <Download className="mr-2 h-4 w-4" /> )}
+                    Exporter la configuration
+                </Button>
+                 <Button onClick={handleDownloadGuide} disabled={isGuideGenerating} variant="secondary" className="w-full sm:w-auto">
+                    {isGuideGenerating ? ( <Loader2 className="mr-2 h-4 w-4 animate-spin" /> ) : ( <BookUser className="mr-2 h-4 w-4" /> )}
+                    Télécharger le Guide
+                </Button>
+            </div>
             <div className="grid gap-4 sm:grid-cols-2">
             {collectionMetadata.map(meta => (
                 <div key={meta.key} className="flex items-center justify-between rounded-lg border p-4">
