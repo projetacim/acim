@@ -143,7 +143,7 @@ export function DonationForm({ donationId, memberIdParam }: DonationFormProps) {
                   type: 'Don',
                   donationCategoryId: '',
                   totalAmount: 0,
-                  payments: [{ amount: 0, date: new Date(), paymentMethod: 'Espèces' }],
+                  payments: [{ amount: 0, date: new Date(), paymentMethod: 'Carte de crédit' }],
                   memo: '',
                   cerfaEligible: true,
               });
@@ -373,10 +373,10 @@ export function DonationForm({ donationId, memberIdParam }: DonationFormProps) {
                           <Select onValueChange={field.onChange} defaultValue={field.value}>
                             <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                             <SelectContent>
-                              <SelectItem value="Espèces">Espèces</SelectItem>
-                              <SelectItem value="Chèque">Chèque</SelectItem>
                               <SelectItem value="Carte de crédit">Carte de crédit</SelectItem>
                               <SelectItem value="Virement bancaire">Virement bancaire</SelectItem>
+                              <SelectItem value="Espèces">Espèces</SelectItem>
+                              <SelectItem value="Chèque">Chèque</SelectItem>
                             </SelectContent>
                           </Select>
                           <FormMessage />
@@ -412,12 +412,12 @@ export function DonationForm({ donationId, memberIdParam }: DonationFormProps) {
                   </div>
                 ))}
                 {fields.length < 3 && (
-                  <Button type="button" variant="outline" size="sm" onClick={() => append({ amount: 0, date: new Date(), paymentMethod: 'Espèces' })}>
+                  <Button type="button" variant="outline" size="sm" onClick={() => append({ amount: 0, date: new Date(), paymentMethod: 'Carte de crédit' })}>
                     <PlusCircle className="mr-2 h-4 w-4" /> Ajouter un paiement
                   </Button>
                 )}
                  {fields.length === 0 && (
-                  <Button type="button" variant="outline" size="sm" onClick={() => append({ amount: 0, date: new Date(), paymentMethod: 'Espèces' })}>
+                  <Button type="button" variant="outline" size="sm" onClick={() => append({ amount: 0, date: new Date(), paymentMethod: 'Carte de crédit' })}>
                     <PlusCircle className="mr-2 h-4 w-4" /> Ajouter un premier paiement
                   </Button>
                 )}

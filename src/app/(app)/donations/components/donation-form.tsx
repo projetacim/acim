@@ -167,7 +167,7 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
                   type: 'Don',
                   donationCategoryId: defaultCategoryId,
                   totalAmount: 0,
-                  payments: [{ amount: 0, date: new Date(), paymentMethod: 'Espèces' }],
+                  payments: [{ amount: 0, date: new Date(), paymentMethod: 'Carte de crédit' }],
                   memo: '',
                   cerfaEligible: true,
                   cerfaNom: memberData.nom,
