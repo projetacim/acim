@@ -43,6 +43,11 @@
         "memo": {
           "type": "string",
           "description": "A memo for the member."
+        },
+        "role": {
+          "type": "string",
+          "description": "The role of the member within the association.",
+          "default": "membre"
         }
       },
       "required": [

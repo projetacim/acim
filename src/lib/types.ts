@@ -8,6 +8,7 @@ export type Member = {
   adresse?: string;
   doc?: string;
   memo?: string;
+  role?: string;
   membershipStatus: 'Active' | 'Inactive' | 'Pending';
   joinDate: string;
 };

@@ -74,6 +74,7 @@ const memberSchema = z.object({
   adresse: z.string().optional(),
   doc: z.enum(['M', 'C', 'Non', '']).optional(),
   memo: z.string().optional(),
+  role: z.string().optional(),
 });
 
 type MemberFormValues = z.infer<typeof memberSchema>;
@@ -107,6 +108,7 @@ export function MembersTable({ onMemberSelect, selectedMember, onAddDonation }: 
       adresse: '',
       doc: '',
       memo: '',
+      role: 'membre',
     },
   });
 
@@ -150,6 +152,7 @@ export function MembersTable({ onMemberSelect, selectedMember, onAddDonation }: 
             adresse: member.adresse || '',
             doc: (member.doc as 'M' | 'C' | 'Non' | '') || '',
             memo: member.memo || '',
+            role: member.role || 'membre',
         });
     } else {
         form.reset({
@@ -159,6 +162,7 @@ export function MembersTable({ onMemberSelect, selectedMember, onAddDonation }: 
             adresse: '',
             doc: '',
             memo: '',
+            role: 'membre',
         });
     }
     setIsFormOpen(true);
@@ -182,6 +186,7 @@ export function MembersTable({ onMemberSelect, selectedMember, onAddDonation }: 
       adresse: data.adresse || '',
       doc: data.doc || '',
       memo: data.memo || '',
+      role: data.role || 'membre',
       membershipStatus: memberToEdit?.membershipStatus || 'Pending'
     };
 
@@ -467,7 +472,20 @@ export function MembersTable({ onMemberSelect, selectedMember, onAddDonation }: 
                   <FormItem className="md:col-span-2">
                     <FormLabel>Mémo (facultatif)</FormLabel>
                     <FormControl>
-                      <Textarea placeholder="Note rapide..." {...field} className="min-h-[100px]" />
+                      <Textarea placeholder="Note rapide..." {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+               <FormField
+                control={form.control}
+                name="role"
+                render={({ field }) => (
+                  <FormItem className="md:col-span-2">
+                    <FormLabel>Rôle (facultatif)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="membre" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -503,5 +521,3 @@ export function MembersTable({ onMemberSelect, selectedMember, onAddDonation }: 
     </>
   );
 }
-
-    

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -10,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { UploadCloud, Loader2, CheckCircle } from 'lucide-react';
+import { UploadCloud, Loader2, CheckCircle, FileDown } from 'lucide-react';
 
 type ImportedMember = {
   nom: string;
@@ -19,6 +20,7 @@ type ImportedMember = {
   adresse?: string;
   doc?: string;
   memo?: string;
+  role?: string;
   membershipStatus?: 'Active' | 'Inactive' | 'Pending';
 };
 
@@ -55,6 +57,7 @@ export function MembersImport() {
             adresse: String(row.adresse || ''),
             doc: String(row.doc || ''),
             memo: String(row.memo || ''),
+            role: String(row.role || 'membre'),
             membershipStatus: row.membershipStatus || 'Pending',
         }));
 
@@ -125,6 +128,32 @@ export function MembersImport() {
     setFileName('');
   };
 
+  const downloadTemplate = () => {
+    const sampleData = [
+      {
+        nom: "John Doe",
+        email: "john.doe@example.com",
+        telephone: "0612345678",
+        adresse: "1 rue de la Paix, 75001 Paris",
+        doc: "M",
+        memo: "Membre fondateur",
+        role: "admin"
+      },
+      {
+        nom: "Jane Smith",
+        email: "jane.smith@example.com",
+        telephone: "0787654321",
+        adresse: "2 avenue des Champs, 75008 Paris",
+        doc: "C",
+        memo: "",
+        role: "membre"
+      }
+    ];
+    const worksheet = XLSX.utils.json_to_sheet(sampleData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Modèle Membres");
+    XLSX.writeFile(workbook, "modele_import_membres.xlsx");
+  };
 
   return (
     <div className="grid gap-8">
@@ -132,17 +161,21 @@ export function MembersImport() {
         <CardHeader>
           <CardTitle>Téléverser un fichier Excel</CardTitle>
           <CardDescription>
-            Le fichier doit avoir les colonnes : nom, email, telephone, adresse, doc, memo.
+            Le fichier doit avoir les colonnes : nom, email, telephone, adresse, doc, memo, role.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex w-full items-center space-x-2">
+          <div className="flex items-center space-x-2">
             <Input id="excel-file" type="file" accept=".xlsx, .xls" onChange={handleFileChange} className="hidden" />
             <Button asChild variant="outline">
                 <label htmlFor="excel-file" className="cursor-pointer">
                     <UploadCloud className="mr-2 h-4 w-4" />
                     Choisir un fichier
                 </label>
+            </Button>
+            <Button onClick={downloadTemplate} variant="secondary" size="sm">
+                <FileDown className="mr-2 h-4 w-4" />
+                Télécharger le modèle
             </Button>
             {isProcessing && <Loader2 className="h-5 w-5 animate-spin" />}
             {fileName && !isProcessing && <span className="text-sm text-muted-foreground">{fileName}</span>}
@@ -180,6 +213,7 @@ export function MembersImport() {
                     <TableHead>Email</TableHead>
                     <TableHead>Téléphone</TableHead>
                     <TableHead>Adresse</TableHead>
+                    <TableHead>Rôle</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -189,6 +223,7 @@ export function MembersImport() {
                       <TableCell>{member.email}</TableCell>
                       <TableCell>{member.telephone}</TableCell>
                       <TableCell>{member.adresse}</TableCell>
+                      <TableCell>{member.role}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
