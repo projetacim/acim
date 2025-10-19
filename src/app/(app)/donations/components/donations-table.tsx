@@ -71,6 +71,7 @@ export function DonationsTable({ selectedMemberId, onEditDonation, onSelectMembe
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [typeFilter, setTypeFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [categoryFilter, setCategoryFilter] = useState('all');
 
   const processedDonations = useMemo(() => {
     if (!donations || !members || !categories) return [];
@@ -104,6 +105,9 @@ export function DonationsTable({ selectedMemberId, onEditDonation, onSelectMembe
         // Type filter
         if (typeFilter !== 'all' && d.type !== typeFilter) return false;
 
+        // Category filter (only if type is 'Don')
+        if (typeFilter === 'Don' && categoryFilter !== 'all' && d.donationCategoryId !== categoryFilter) return false;
+
         // Status filter
         if (statusFilter !== 'all' && d.paymentStatus !== statusFilter) return false;
 
@@ -120,8 +124,15 @@ export function DonationsTable({ selectedMemberId, onEditDonation, onSelectMembe
       })
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-  }, [donations, members, categories, selectedMemberId, dateRange, typeFilter, statusFilter, searchQuery]);
+  }, [donations, members, categories, selectedMemberId, dateRange, typeFilter, statusFilter, categoryFilter, searchQuery]);
   
+  useEffect(() => {
+    // Reset category filter if type is not 'Don' anymore
+    if (typeFilter !== 'Don') {
+      setCategoryFilter('all');
+    }
+  }, [typeFilter]);
+
   const stats = useMemo(() => {
     const totalAmount = processedDonations.reduce((acc, d) => acc + d.totalAmount, 0);
     const donationCount = processedDonations.length;
@@ -134,6 +145,7 @@ export function DonationsTable({ selectedMemberId, onEditDonation, onSelectMembe
     setDateRange(undefined);
     setTypeFilter('all');
     setStatusFilter('all');
+    setCategoryFilter('all');
   }
 
   const handleCerfaClick = async (donation: DonationWithDetails) => {
@@ -257,13 +269,22 @@ export function DonationsTable({ selectedMemberId, onEditDonation, onSelectMembe
     }
   };
 
-  const hasActiveFilters = dateRange || typeFilter !== 'all' || statusFilter !== 'all';
+  const hasActiveFilters = dateRange || typeFilter !== 'all' || statusFilter !== 'all' || categoryFilter !== 'all' || searchQuery;
 
   return (
     <>
       <div className="space-y-4">
         {/* Filters */}
-        <div className="flex flex-col gap-2 md:flex-row md:items-center">
+        <div className="flex flex-col gap-2 md:flex-row md:flex-wrap md:items-center">
+            <div className="relative w-full md:max-w-xs">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Rechercher par membre, mémo, n° CERFA..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div>
              <Popover>
                 <PopoverTrigger asChild>
                 <Button id="date" variant={"outline"} className={cn("w-full md:w-auto justify-start text-left font-normal", !dateRange && "text-muted-foreground")}>
@@ -285,6 +306,21 @@ export function DonationsTable({ selectedMemberId, onEditDonation, onSelectMembe
                     <SelectItem value="Cotisation">Cotisation</SelectItem>
                 </SelectContent>
             </Select>
+
+            {typeFilter === 'Don' && (
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className="w-full md:w-[180px]">
+                    <SelectValue placeholder="Catégorie" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="all">Toutes les catégories</SelectItem>
+                    {categories?.map(cat => (
+                        <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            )}
+
             <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="w-full md:w-[180px]">
                     <SelectValue placeholder="Statut" />
