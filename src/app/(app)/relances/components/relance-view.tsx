@@ -22,6 +22,9 @@ import { Loader2, Send } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { sendReminderEmail } from '@/lib/email';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { format } from 'date-fns';
+import { fr } from 'date-fns/locale';
 
 type DonationWithDetails = Donation & {
   memberName: string;
@@ -70,7 +73,7 @@ export function RelanceView() {
     );
   };
   
-  const handleSelectAll = (checked: boolean) => {
+  const handleSelectAll = (checked: boolean | string) => {
       if (checked) {
           setSelectedDonationIds(selectableDonations.map(d => d.id));
       } else {
@@ -156,6 +159,7 @@ export function RelanceView() {
                 <TableHead>Membre</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead className="hidden md:table-cell">Date du don</TableHead>
+                <TableHead>Relances</TableHead>
                 <TableHead className="text-right">Montant Total</TableHead>
                 <TableHead className="text-right">Montant Restant</TableHead>
               </TableRow>
@@ -168,6 +172,7 @@ export function RelanceView() {
                     <TableCell><Skeleton className="h-5 w-32" /></TableCell>
                     <TableCell><Skeleton className="h-6 w-20" /></TableCell>
                     <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-12" /></TableCell>
                     <TableCell className="text-right"><Skeleton className="h-5 w-20" /></TableCell>
                     <TableCell className="text-right"><Skeleton className="h-5 w-20" /></TableCell>
                   </TableRow>
@@ -191,13 +196,28 @@ export function RelanceView() {
                       <Badge variant={donation.type === 'Don' ? 'secondary' : 'outline'}>{donation.type}</Badge>
                     </TableCell>
                     <TableCell className="hidden md:table-cell">{new Date(donation.createdAt).toLocaleDateString('fr-FR')}</TableCell>
+                    <TableCell>
+                        {donation.reminders && donation.reminders.length > 0 ? (
+                            <Tooltip>
+                                <TooltipTrigger>
+                                    <Badge variant="secondary">{donation.reminders.length}</Badge>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>Relances envoyées le:</p>
+                                    <ul className="list-disc pl-4">
+                                        {donation.reminders.map((r, i) => <li key={i}>{format(new Date(r), 'dd/MM/yyyy', {locale: fr})}</li>)}
+                                    </ul>
+                                </TooltipContent>
+                            </Tooltip>
+                        ) : <Badge variant="outline">0</Badge>}
+                    </TableCell>
                     <TableCell className="text-right">{donation.totalAmount.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</TableCell>
                     <TableCell className="text-right font-bold text-destructive">{donation.remainingAmount.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</TableCell>
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center">
+                  <TableCell colSpan={7} className="h-24 text-center">
                     Aucun don en attente de paiement. Excellent travail !
                   </TableCell>
                 </TableRow>

@@ -33,6 +33,7 @@ export type Donation = {
   cerfaNumber?: string;
   cerfaDate?: string; // ISO string
   createdAt: string;
+  reminders?: string[]; // Array of ISO date strings
   // CERFA specific fields, can be different from member's default info
   cerfaNom?: string;
   cerfaAdresse?: string;
