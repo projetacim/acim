@@ -103,7 +103,6 @@ export function StripeImportView() {
         const workbook = XLSX.read(data, { type: 'array', cellDates: true });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        // Using raw: false is crucial for formatted numbers (like currency) to be parsed as numbers
         const json = XLSX.utils.sheet_to_json<StripeRow>(worksheet, {raw: false});
 
         const newSelectedMembers: Record<string, string> = {};
@@ -224,6 +223,10 @@ export function StripeImportView() {
      }
   };
 
+    const handleSelectMember = (rowId: string, memberId: string) => {
+        setSelectedMembers(prev => ({ ...prev, [rowId]: memberId }));
+        setOpenComboboxId(null);
+    };
 
   return (
     <div className="grid gap-8">
@@ -273,37 +276,34 @@ export function StripeImportView() {
                             <TableRow key={row.id} className={cn(row.matched && 'bg-green-500/10')}>
                                 <TableCell className="font-medium">{row.nom}</TableCell>
                                 <TableCell>
-                                    <Popover open={openComboboxId === row.id} onOpenChange={(isOpen) => setOpenComboboxId(isOpen ? row.id : null)}>
+                                     <Popover open={openComboboxId === row.id} onOpenChange={(isOpen) => setOpenComboboxId(isOpen ? row.id : null)}>
                                         <PopoverTrigger asChild>
-                                        <Button variant="outline" role="combobox" className="w-full justify-between font-roboto" style={{fontFamily: 'Roboto, sans-serif'}}>
-                                            {selectedMembers[row.id]
-                                            ? allMembersForCombobox.find((m) => m.value === selectedMembers[row.id])?.label
-                                            : "Sélectionner un membre..."}
-                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                        </Button>
+                                            <Button variant="outline" role="combobox" aria-expanded={openComboboxId === row.id} className="w-full justify-between font-roboto" style={{fontFamily: 'Roboto, sans-serif'}}>
+                                                {selectedMembers[row.id]
+                                                    ? allMembersForCombobox.find((m) => m.value === selectedMembers[row.id])?.label
+                                                    : "Sélectionner un membre..."}
+                                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                            </Button>
                                         </PopoverTrigger>
                                         <PopoverContent className="w-[300px] p-0">
-                                        <Command>
-                                            <CommandInput placeholder="Rechercher un membre..." />
-                                            <CommandList>
-                                                <CommandEmpty>Aucun membre trouvé.</CommandEmpty>
-                                                <CommandGroup>
-                                                {allMembersForCombobox.map((m) => (
-                                                    <CommandItem
-                                                        key={m.value}
-                                                        value={m.label}
-                                                        onSelect={() => {
-                                                            setSelectedMembers(prev => ({...prev, [row.id]: m.value}));
-                                                            setOpenComboboxId(null);
-                                                        }}
-                                                    >
-                                                    <Check className={cn("mr-2 h-4 w-4", selectedMembers[row.id] === m.value ? "opacity-100" : "opacity-0")} />
-                                                    {m.label}
-                                                    </CommandItem>
-                                                ))}
-                                                </CommandGroup>
-                                            </CommandList>
-                                        </Command>
+                                            <Command>
+                                                <CommandInput placeholder="Rechercher un membre..." />
+                                                <CommandList>
+                                                    <CommandEmpty>Aucun membre trouvé.</CommandEmpty>
+                                                    <CommandGroup>
+                                                        {allMembersForCombobox.map((m) => (
+                                                            <CommandItem
+                                                                key={m.value}
+                                                                value={m.label}
+                                                                onSelect={() => handleSelectMember(row.id, m.value)}
+                                                            >
+                                                                <Check className={cn("mr-2 h-4 w-4", selectedMembers[row.id] === m.value ? "opacity-100" : "opacity-0")} />
+                                                                {m.label}
+                                                            </CommandItem>
+                                                        ))}
+                                                    </CommandGroup>
+                                                </CommandList>
+                                            </Command>
                                         </PopoverContent>
                                     </Popover>
                                 </TableCell>
