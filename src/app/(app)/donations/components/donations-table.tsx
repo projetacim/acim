@@ -257,22 +257,13 @@ export function DonationsTable({ selectedMemberId, onEditDonation, onSelectMembe
     }
   };
 
-  const hasActiveFilters = searchQuery || dateRange || typeFilter !== 'all' || statusFilter !== 'all';
+  const hasActiveFilters = dateRange || typeFilter !== 'all' || statusFilter !== 'all';
 
   return (
     <>
       <div className="space-y-4">
         {/* Filters */}
         <div className="flex flex-col gap-2 md:flex-row md:items-center">
-            <div className="relative flex-grow">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                    placeholder="Rechercher par membre, mémo, n° CERFA..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9"
-                />
-            </div>
              <Popover>
                 <PopoverTrigger asChild>
                 <Button id="date" variant={"outline"} className={cn("w-full md:w-auto justify-start text-left font-normal", !dateRange && "text-muted-foreground")}>
