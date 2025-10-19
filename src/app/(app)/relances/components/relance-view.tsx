@@ -35,10 +35,11 @@ type DonationWithDetails = Donation & {
   memberEmail?: string;
   remainingAmount: number;
   referenceDate: string; // The date used for aging (last payment or creation date)
+  categoryName?: string;
 };
 
 export function RelanceView() {
-  const { donations, members, isLoading } = useData();
+  const { donations, members, categories, isLoading } = useData();
   const firestore = useFirestore();
   const { user } = useUser();
   const { toast } = useToast();
@@ -48,9 +49,10 @@ export function RelanceView() {
   const [ageFilter, setAgeFilter] = useState('all');
 
   const pendingDonations = useMemo((): DonationWithDetails[] => {
-    if (!donations || !members) return [];
+    if (!donations || !members || !categories) return [];
 
     const memberMap = new Map(members.map(m => [m.id, m]));
+    const categoryMap = new Map(categories.map(c => [c.id, c.name]));
     const now = new Date();
     
     let donationsToProcess = donations
@@ -74,6 +76,7 @@ export function RelanceView() {
           memberEmail: member?.email,
           remainingAmount: d.totalAmount - paidAmount,
           referenceDate: referenceDate.toISOString(),
+          categoryName: d.donationCategoryId ? categoryMap.get(d.donationCategoryId) : undefined,
         };
       })
       .filter(d => d.remainingAmount > 0);
@@ -86,7 +89,7 @@ export function RelanceView() {
     }
     
     return donationsToProcess.sort((a, b) => new Date(a.referenceDate).getTime() - new Date(b.referenceDate).getTime());
-  }, [donations, members, ageFilter]);
+  }, [donations, members, categories, ageFilter]);
   
   const selectableDonations = useMemo(() => {
       return pendingDonations.filter(d => !d.ne_pas_relancer);
@@ -223,9 +226,10 @@ export function RelanceView() {
                   />
                 </TableHead>
                 <TableHead>Membre</TableHead>
-                <TableHead className="hidden sm:table-cell">E-mail</TableHead>
                 <TableHead>Type</TableHead>
-                <TableHead className="hidden md:table-cell">Date de Référence</TableHead>
+                <TableHead>Catégorie</TableHead>
+                <TableHead>Mémo</TableHead>
+                <TableHead>Date de Référence</TableHead>
                 <TableHead>Relances</TableHead>
                 <TableHead className="text-center">Pas de Relance</TableHead>
                 <TableHead className="text-right">Montant Total</TableHead>
@@ -238,9 +242,10 @@ export function RelanceView() {
                   <TableRow key={i}>
                     <TableCell><Skeleton className="h-4 w-4" /></TableCell>
                     <TableCell><Skeleton className="h-5 w-32" /></TableCell>
-                    <TableCell className="hidden sm:table-cell"><Skeleton className="h-5 w-40" /></TableCell>
                     <TableCell><Skeleton className="h-6 w-20" /></TableCell>
-                    <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-32" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                     <TableCell><Skeleton className="h-5 w-12" /></TableCell>
                     <TableCell><Skeleton className="h-5 w-12" /></TableCell>
                     <TableCell className="text-right"><Skeleton className="h-5 w-20" /></TableCell>
@@ -260,19 +265,29 @@ export function RelanceView() {
                     </TableCell>
                     <TableCell>
                         <div className="font-medium">{donation.memberName}</div>
-                    </TableCell>
-                    <TableCell className="hidden sm:table-cell">
-                        {donation.memberEmail ? 
-                          <span className="flex items-center gap-1 text-muted-foreground">
-                            <Mail className="h-3 w-3"/>
-                            {donation.memberEmail}
-                          </span>
-                          : <span className="text-xs text-muted-foreground italic">Aucun e-mail</span>}
+                         <div className="text-xs text-muted-foreground flex items-center gap-1">
+                            {donation.memberEmail ? <><Mail className="h-3 w-3"/> {donation.memberEmail}</> : <span className="italic">Aucun e-mail</span>}
+                        </div>
                     </TableCell>
                     <TableCell>
                       <Badge variant={donation.type === 'Don' ? 'secondary' : 'outline'}>{donation.type}</Badge>
                     </TableCell>
-                    <TableCell className="hidden md:table-cell">{new Date(donation.referenceDate).toLocaleDateString('fr-FR')}</TableCell>
+                    <TableCell>{donation.categoryName || '-'}</TableCell>
+                    <TableCell>
+                      {donation.memo && donation.memo.length > 20 ? (
+                        <Tooltip>
+                            <TooltipTrigger>
+                            <span className="cursor-help text-muted-foreground">{donation.memo.substring(0, 20)}...</span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                            <p className="max-w-xs">{donation.memo}</p>
+                            </TooltipContent>
+                        </Tooltip>
+                        ) : (
+                        <span className="text-muted-foreground">{donation.memo}</span>
+                        )}
+                    </TableCell>
+                    <TableCell>{new Date(donation.referenceDate).toLocaleDateString('fr-FR')}</TableCell>
                     <TableCell>
                         {donation.reminders && donation.reminders.length > 0 ? (
                             <Tooltip>
@@ -310,7 +325,7 @@ export function RelanceView() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={9} className="h-24 text-center">
+                  <TableCell colSpan={10} className="h-24 text-center">
                     Aucun don en attente de paiement. Excellent travail !
                   </TableCell>
                 </TableRow>
