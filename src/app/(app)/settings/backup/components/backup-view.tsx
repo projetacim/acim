@@ -34,7 +34,7 @@ interface BackupData {
 
 export function BackupRestoreView() {
   const { members, donations, transactions, categories, isLoading } = useData();
-  const { toast } } = useToast();
+  const { toast } = useToast();
   const firestore = useFirestore();
   const { user } = useUser();
   const [isExporting, setIsExporting] = useState<CollectionName | 'all' | 'config' | null>(null);
