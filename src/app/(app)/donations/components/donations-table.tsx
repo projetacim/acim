@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Pencil, Trash2, XCircle, FileWarning, Mail, Loader2 } from 'lucide-react';
+import { Pencil, Trash2, XCircle, FileWarning, Mail, Loader2, Link as LinkIcon } from 'lucide-react';
 import type { Donation, Member, Payment, DonationCategory } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -44,9 +44,10 @@ type DonationWithDetails = Donation & { memberName: string; categoryName?: strin
 interface DonationsTableProps {
     selectedMemberId: string | null;
     onEditDonation: (donationId: string) => void;
+    onSelectMember: (memberId: string) => void;
 }
 
-export function DonationsTable({ selectedMemberId, onEditDonation }: DonationsTableProps) {
+export function DonationsTable({ selectedMemberId, onEditDonation, onSelectMember }: DonationsTableProps) {
   const firestore = useFirestore();
   const { user } = useUser();
   const { toast } = useToast();
@@ -243,7 +244,14 @@ export function DonationsTable({ selectedMemberId, onEditDonation }: DonationsTa
             ))}
             {!isLoading && processedDonations.map((donation) => (
                 <TableRow key={donation.id} className={cn(donation.paymentStatus === 'Annulé' && 'bg-red-50 dark:bg-red-900/20')}>
-                {!selectedMemberId && <TableCell className="font-medium">{donation.memberName}</TableCell>}
+                {!selectedMemberId && 
+                  <TableCell>
+                      <Button variant="link" className="p-0 h-auto font-medium text-left" onClick={() => onSelectMember(donation.memberId)}>
+                         <LinkIcon className="h-3 w-3 mr-2"/>
+                         {donation.memberName}
+                      </Button>
+                  </TableCell>
+                }
                 <TableCell>
                     <Badge variant={donation.type === 'Don' ? 'secondary' : 'outline'}>{donation.type}</Badge>
                 </TableCell>
@@ -363,4 +371,3 @@ export function DonationsTable({ selectedMemberId, onEditDonation }: DonationsTa
     </>
   );
 }
-

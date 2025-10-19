@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { MembersTable } from './members/components/members-table';
 import { DonationsTable } from './donations/components/donations-table';
 import { PendingDonationsTable } from './donations/components/pending-donations-table';
@@ -25,7 +25,7 @@ function DashboardContent() {
   const [memberForNewDonation, setMemberForNewDonation] = useState<Member | null>(null);
   const [editingDonationId, setEditingDonationId] = useState<string | null>(null);
   
-  const { isLoading: isLoadingData } = useData();
+  const { members, isLoading: isLoadingData } = useData();
 
   const handleAddDonationClick = (member: Member) => {
     if (member) {
@@ -52,6 +52,11 @@ function DashboardContent() {
   }
 
   const handleMemberSelect = (member: Member | null) => {
+    setSelectedMember(member);
+  }
+
+  const handleSelectMemberById = (memberId: string) => {
+    const member = members?.find(m => m.id === memberId) || null;
     setSelectedMember(member);
   }
   
@@ -102,7 +107,11 @@ function DashboardContent() {
           </div>
         </CardHeader>
         <CardContent>
-            <DonationsTable selectedMemberId={selectedMember?.id ?? null} onEditDonation={handleEditDonationClick} />
+            <DonationsTable 
+              selectedMemberId={selectedMember?.id ?? null} 
+              onEditDonation={handleEditDonationClick}
+              onSelectMember={handleSelectMemberById}
+            />
         </CardContent>
       </Card>
 

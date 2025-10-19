@@ -1,7 +1,8 @@
 
+
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFirestore, addDocumentNonBlocking, setDocumentNonBlocking, deleteDocumentNonBlocking, useUser } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
@@ -98,6 +99,20 @@ export function MembersTable({ onMemberSelect, selectedMember, onAddDonation }: 
   const [searchQuery, setSearchQuery] = useState('');
   const [docFilters, setDocFilters] = useState<string[]>([]);
   const { toast } = useToast();
+  
+  const memberRowRefs = useRef<Record<string, HTMLTableRowElement>>({});
+
+  useEffect(() => {
+    if (selectedMember) {
+      setSearchQuery(selectedMember.nom);
+      const row = memberRowRefs.current[selectedMember.id];
+      if (row) {
+        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    } else {
+      setSearchQuery('');
+    }
+  }, [selectedMember]);
 
   const form = useForm<MemberFormValues>({
     resolver: zodResolver(memberSchema),
@@ -334,8 +349,9 @@ export function MembersTable({ onMemberSelect, selectedMember, onAddDonation }: 
                 {!isLoading && filteredMembers.map((member) => (
                     <TableRow 
                         key={member.id}
+                        ref={(el) => { if (el) memberRowRefs.current[member.id] = el; }}
                         onClick={() => handleRowClick(member)}
-                        className={cn("cursor-pointer", selectedMember?.id === member.id && "bg-muted/50")}
+                        className={cn("cursor-pointer", selectedMember?.id === member.id && "bg-primary/10")}
                     >
                     <TableCell>
                         <div className="flex items-center gap-3">
@@ -522,5 +538,3 @@ export function MembersTable({ onMemberSelect, selectedMember, onAddDonation }: 
     </>
   );
 }
-
-    
