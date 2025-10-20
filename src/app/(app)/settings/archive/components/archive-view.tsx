@@ -41,11 +41,16 @@ export function ArchiveView() {
   const [yearToArchive, setYearToArchive] = useState<string | null>(null);
 
   const availableYears = useMemo(() => {
-    if (!donations) return [];
-    const years = new Set(donations.map(d => new Date(d.createdAt).getFullYear()));
+    if (!donations && !transactions) return [];
+    
+    const donationYears = donations ? donations.map(d => new Date(d.createdAt).getFullYear()) : [];
+    const transactionYears = transactions ? transactions.map(t => new Date(t.date).getFullYear()) : [];
+    
+    const years = new Set([...donationYears, ...transactionYears]);
     const currentYear = new Date().getFullYear();
+    
     return Array.from(years).filter(y => y < currentYear).sort((a, b) => b - a);
-  }, [donations]);
+  }, [donations, transactions]);
 
   const handleExportJson = (data: any, fileName: string) => {
     const jsonString = JSON.stringify(data, null, 2);
@@ -65,13 +70,14 @@ export function ArchiveView() {
 
     setIsArchiving(true);
     
-    // 1. Filter data for the selected year
-    const donationsToArchive = donations?.filter(d => new Date(d.createdAt).getFullYear() === parseInt(yearToArchive));
-    const donationIdsToArchive = new Set(donationsToArchive?.map(d => d.id));
-    const transactionsToArchive = transactions?.filter(t => donationIdsToArchive.has(t.relatedId));
+    const selectedYear = parseInt(yearToArchive, 10);
     
-    if (!donationsToArchive || donationsToArchive.length === 0) {
-      toast({ variant: 'destructive', title: 'Aucune donnée', description: `Aucun don trouvé pour l'année ${yearToArchive}.` });
+    // 1. Filter data for the selected year
+    const donationsToArchive = donations?.filter(d => new Date(d.createdAt).getFullYear() === selectedYear) || [];
+    const transactionsToArchive = transactions?.filter(t => new Date(t.date).getFullYear() === selectedYear) || [];
+    
+    if (donationsToArchive.length === 0 && transactionsToArchive.length === 0) {
+      toast({ variant: 'destructive', title: 'Aucune donnée', description: `Aucune donnée à archiver pour l'année ${yearToArchive}.` });
       setIsArchiving(false);
       return;
     }
@@ -79,20 +85,22 @@ export function ArchiveView() {
     // 2. Create and download the backup file
     const archiveData: ArchiveData = {
       donations: donationsToArchive,
-      transactions: transactionsToArchive || [],
+      transactions: transactionsToArchive,
     };
     handleExportJson(archiveData, `archive-${yearToArchive}.json`);
     toast({ title: 'Sauvegarde créée', description: `Le fichier d'archive pour ${yearToArchive} a été téléchargé.` });
 
     // 3. Delete the data from Firestore
     try {
-        const donationsBatch = writeBatch(firestore);
-        donationsToArchive.forEach(d => {
-            donationsBatch.delete(doc(firestore, 'users', user.uid, 'donations', d.id));
-        });
-        await donationsBatch.commit();
+        if (donationsToArchive.length > 0) {
+            const donationsBatch = writeBatch(firestore);
+            donationsToArchive.forEach(d => {
+                donationsBatch.delete(doc(firestore, 'users', user.uid, 'donations', d.id));
+            });
+            await donationsBatch.commit();
+        }
         
-        if (transactionsToArchive && transactionsToArchive.length > 0) {
+        if (transactionsToArchive.length > 0) {
             const transactionsBatch = writeBatch(firestore);
             transactionsToArchive.forEach(t => {
                 transactionsBatch.delete(doc(firestore, 'users', user.uid, 'transactions', t.id));
