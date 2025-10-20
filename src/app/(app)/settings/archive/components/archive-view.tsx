@@ -114,7 +114,11 @@ export function ArchiveView() {
   };
   
   const handleRestore = async () => {
-    if (!fileToRestore || !firestore || !user) return;
+    if (!fileToRestore || !firestore || !user) {
+        toast({ variant: 'destructive', title: 'Erreur', description: 'Fichier ou utilisateur non trouvé.' });
+        setIsRestoreAlertOpen(false);
+        return;
+    }
     setIsRestoring(true);
 
     const reader = new FileReader();
