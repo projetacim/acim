@@ -15,6 +15,7 @@ import {
   BarChart,
   HardDrive,
   Send,
+  Archive,
 } from 'lucide-react';
 import { useUser, useAuth, useFirestore, useMemoFirebase } from '@/firebase';
 import { signOut } from 'firebase/auth';
@@ -183,7 +184,12 @@ function AppLayoutContent({
                     </li>
                     <li>
                       <SidebarMenuSubButton asChild>
-                        <Link href="/settings/backup">Sauvegardes &amp; Restauration</Link>
+                        <Link href="/settings/backup">Sauvegardes</Link>
+                      </SidebarMenuSubButton>
+                    </li>
+                    <li>
+                      <SidebarMenuSubButton asChild>
+                        <Link href="/settings/archive">Archivage</Link>
                       </SidebarMenuSubButton>
                     </li>
                   </SidebarMenuSub>
