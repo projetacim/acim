@@ -224,10 +224,10 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
     return 'Payé';
   }, [paidAmount, watchTotalAmount]);
 
-  const generateCerfaNumber = async () => {
+  const generateCerfaNumber = async (donationDate: Date) => {
     if (!firestore || !user) return null;
 
-    const year = new Date().getFullYear();
+    const year = donationDate.getFullYear();
     const donationsRef = collection(firestore, 'users', user.uid, 'donations');
     const q = query(donationsRef, where("cerfaNumber", ">=", `${year}-0000`), where("cerfaNumber", "<", `${year+1}-0000`));
 
@@ -278,7 +278,7 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
         const isNowPaid = finalPaymentStatus === 'Payé';
 
         if(isNowPaid && !wasPaid && data.cerfaEligible && !currentDonation.cerfaNumber) {
-            const newCerfaNumber = await generateCerfaNumber();
+            const newCerfaNumber = await generateCerfaNumber(new Date(currentDonation.createdAt));
             if(newCerfaNumber){
                 updateData.cerfaNumber = newCerfaNumber;
                 updateData.cerfaDate = (data.cerfaDate || new Date()).toISOString();
@@ -303,13 +303,14 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
 
       } else { // Create mode
         const collectionRef = collection(firestore, 'users', user.uid, 'donations');
+        const donationDate = data.createdAt || new Date();
         const donationToSave: Partial<Donation> & { createdAt: string } = { 
             ...donationData, 
-            createdAt: (data.createdAt || new Date()).toISOString() 
+            createdAt: donationDate.toISOString()
         };
 
         if(finalPaymentStatus === 'Payé' && data.cerfaEligible) {
-            const newCerfaNumber = await generateCerfaNumber();
+            const newCerfaNumber = await generateCerfaNumber(donationDate);
              if(newCerfaNumber){
                 donationToSave.cerfaNumber = newCerfaNumber;
                 donationToSave.cerfaDate = (data.cerfaDate || new Date()).toISOString();
@@ -711,3 +712,4 @@ export function DonationForm({ donationId, memberIdParam, onFormSubmit }: Donati
     
 
     
+
